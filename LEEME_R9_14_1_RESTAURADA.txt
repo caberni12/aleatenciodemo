@@ -1,0 +1,16 @@
+ALE ATENCIO R9.14.1 · RESTAURADA PLANA
+========================================
+
+- Basada en R9.13 estable.
+- Se revierte por completo el cambio de FOTOS_PRODUCTOS/ de R9.14.
+- Las 101 imágenes producto-*.jpg vuelven a estar en la RAÍZ.
+- app.js y cpanel.js vuelven a resolver las rutas históricas directamente desde la raíz.
+- CSS/HTML/JS operativos permanecen en la raíz.
+- No hay carpetas internas.
+- No requiere SQL nuevo ni redeploy de index.ts.
+
+PUBLICACIÓN
+1. Eliminar del repositorio la carpeta FOTOS_PRODUCTOS si fue subida.
+2. Reemplazar los archivos del repositorio por el contenido de este ZIP.
+3. Confirmar que producto-001...producto-101 están en la raíz.
+4. Ctrl+F5 / limpiar caché del sitio.

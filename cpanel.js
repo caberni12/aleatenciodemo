@@ -325,7 +325,7 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-function imgTag(url){let u=String(url||"").trim();if(u&&!/^(?:https?:|data:|blob:)/i.test(u)){if(/^producto-\d{3}-.+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(u))u=`FOTOS_PRODUCTOS/${u}`;u=`${u}${u.includes("?")?"&":"?"}v=20260915-r914-clean-images-folder`}return u?`<img class="thumb" src="${esc(u)}" alt="">`:'<div class="thumb"></div>'}
+function imgTag(url){const u=String(url||"").trim();const src=u&&!/^(?:https?:|data:|blob:)/i.test(u)?`${u}${u.includes("?")?"&":"?"}v=20260915-r9141-flat-restored`:u;return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
 
 function renderProducts(){
   const q=normalizeText($("#productSearch").value), f=$("#productFilter").value;

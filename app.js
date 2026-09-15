@@ -5,13 +5,10 @@ const priceLabel = p => Number(p?.precio||0)>0 ? money(p.precio) : "Consultar";
 const esc = s => String(s ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CL").trim();
 const productSearchText = p => normalizeText([p?.nombre,p?.descripcion,p?.categoria_nombre||p?.categoria,p?.ocasion].filter(Boolean).join(" "));
-const MEDIA_VERSION = "20260915-r914-clean-images-folder";
+const MEDIA_VERSION = "20260915-r9141-flat-restored";
 const mediaUrl = value => {
-  let u=String(value||"").trim();
+  const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
-  // R9.14 limpia: los JPG históricos del catálogo viven en una sola carpeta.
-  // La BD puede seguir guardando solo "producto-xxx.jpg" para compatibilidad.
-  if(/^producto-\d{3}-.+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(u)) u=`FOTOS_PRODUCTOS/${u}`;
   const sep=u.includes("?")?"&":"?";
   return `${u}${sep}v=${MEDIA_VERSION}`;
 };

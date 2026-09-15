@@ -1,0 +1,11 @@
+ALE ATENCIO R9.14.1 · VALIDACION
+================================
+OK · Base R9.13 estable restaurada
+OK · 101 imágenes producto JPG en raíz
+OK · 0 carpeta FOTOS_PRODUCTOS
+OK · 0 referencias FOTOS_PRODUCTOS en HTML/CSS/JS
+OK · api.js parse OK
+OK · app.js parse OK
+OK · cpanel.js parse OK
+OK · referencias locales HTML verificadas
+OK · proyecto completamente plano
