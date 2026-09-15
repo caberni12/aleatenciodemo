@@ -1,0 +1,27 @@
+ALE ATENCIO · R9.14 LIMPIA
+===========================
+
+OBJETIVO
+- Mantener el proyecto visualmente limpio en la raíz de GitHub.
+- Guardar las 101 fotos históricas del catálogo dentro de FOTOS_PRODUCTOS/.
+- Evitar duplicar imágenes y mantener el mismo funcionamiento de Web y cPanel.
+
+ESTRUCTURA
+- HTML, CSS, JS, SQL, index.ts, logos y plantilla XLSX permanecen en la raíz.
+- Las 101 imágenes producto-*.jpg están únicamente en FOTOS_PRODUCTOS/.
+- La BD puede seguir guardando nombres como producto-001-....jpg.
+- Web y cPanel resuelven automáticamente esos nombres hacia FOTOS_PRODUCTOS/.
+- URLs absolutas nuevas de Supabase Storage siguen funcionando sin cambios.
+
+PUBLICACIÓN
+1. Reemplazar el contenido del repositorio por esta versión.
+2. Conservar la carpeta FOTOS_PRODUCTOS en la raíz del repositorio.
+3. Hacer Ctrl+F5 después de publicar.
+
+NO REQUIERE
+- SQL nuevo.
+- Cambios en Supabase.
+- Nuevo deploy de index.ts por esta reorganización.
+
+NOTA
+No copies también las 101 fotos a la raíz. Deben existir una sola vez dentro de FOTOS_PRODUCTOS/.

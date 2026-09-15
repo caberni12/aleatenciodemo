@@ -1,0 +1,11 @@
+ALE ATENCIO R9.14 LIMPIA · VALIDACION
+=======================================
+catalog_photos_in_folder: 101
+product_photos_in_root: 0
+literal_product_image_refs: 95
+missing_referenced_images: []
+app_routes_local_product_images_to_folder: True
+cpanel_routes_local_product_images_to_folder: True
+root_files: 19
+
+RESULTADO: OK

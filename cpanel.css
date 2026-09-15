@@ -1246,3 +1246,23 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
   .login-design-credit{bottom:10px;font-size:9.5px}
   .admin-design-credit{margin-top:24px;padding-top:15px;font-size:9.5px}
 }
+
+
+/* =========================================================
+   R9.13 · BLOQUEO VISUAL DEL CPANEL HASTA AUTENTICACION
+   Ningún sidebar/hamburguesa/header administrativo puede
+   mostrarse mientras la sesión no haya sido validada.
+   ========================================================= */
+#adminShell.hidden{display:none!important}
+.admin-body.auth-locked #adminShell,
+.admin-body.auth-locked #adminSidebar,
+.admin-body.auth-locked #sidebarBackdrop,
+.admin-body.auth-locked #menuToggle,
+.admin-body.auth-locked #sidebarRailToggle,
+.admin-body.auth-locked #sidebarClose{
+  display:none!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+}
+.admin-body.auth-locked #loginScreen{display:grid!important}
+.admin-body.auth-active #loginScreen{display:none!important}

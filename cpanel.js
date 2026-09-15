@@ -149,8 +149,27 @@ $("#notificationVoiceToggle")?.addEventListener("click",()=>{notifyVoice=!notify
 $("#notificationList")?.addEventListener("click",e=>{const b=e.target.closest("[data-notification-key]");if(!b)return;markNotificationRead(b.dataset.notificationKey);setNotificationPanel(false);openAdminView(b.dataset.notificationView)});
 document.addEventListener("click",e=>{if(!e.target.closest(".notification-wrap"))setNotificationPanel(false)});
 renderNotificationCenter();
-function showLogin(msg=""){ $("#loginScreen").classList.remove("hidden");$("#adminShell").classList.add("hidden");$("#apiWarning").textContent=msg }
-function showAdmin(){ $("#loginScreen").classList.add("hidden");$("#adminShell").classList.remove("hidden") }
+function showLogin(msg=""){
+  stopNotificationWatcher();
+  document.body.classList.add("auth-locked");
+  document.body.classList.remove("auth-active","sidebar-peek-open");
+  const shell=$("#adminShell"),login=$("#loginScreen");
+  if(shell){shell.classList.add("hidden");shell.setAttribute("aria-hidden","true");try{shell.inert=true}catch(_){}}
+  if(login){login.classList.remove("hidden");login.setAttribute("aria-hidden","false")}
+  adminSidebar?.classList.remove("is-open");
+  sidebarBackdrop?.classList.remove("is-open");
+  menuToggle?.setAttribute("aria-expanded","false");
+  sidebarRailToggle?.setAttribute("aria-expanded","false");
+  if($("#apiWarning"))$("#apiWarning").textContent=msg;
+}
+function showAdmin(){
+  if(!token)return showLogin("Ingresa para acceder al cPanel.");
+  const shell=$("#adminShell"),login=$("#loginScreen");
+  document.body.classList.remove("auth-locked");
+  document.body.classList.add("auth-active");
+  if(login){login.classList.add("hidden");login.setAttribute("aria-hidden","true")}
+  if(shell){shell.classList.remove("hidden");shell.setAttribute("aria-hidden","false");try{shell.inert=false}catch(_){}}
+}
 function beginBusy(btn){if(!btn)return;btn.dataset.busy="1";btn.classList.add("is-loading");btn.disabled=true}
 function endBusy(btn){if(!btn)return;delete btn.dataset.busy;btn.classList.remove("is-loading");btn.disabled=false}
 async function busy(btn,fn){beginBusy(btn);try{return await fn()}finally{endBusy(btn)}}
@@ -306,7 +325,7 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-function imgTag(url){const u=String(url||"").trim();const src=u&&!/^(?:https?:|data:|blob:)/i.test(u)?`${u}${u.includes("?")?"&":"?"}v=20260915-r910-ecommerce`:u;return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
+function imgTag(url){let u=String(url||"").trim();if(u&&!/^(?:https?:|data:|blob:)/i.test(u)){if(/^producto-\d{3}-.+\.(?:jpe?g|png|webp)(?:[?#].*)?$/i.test(u))u=`FOTOS_PRODUCTOS/${u}`;u=`${u}${u.includes("?")?"&":"?"}v=20260915-r914-clean-images-folder`}return u?`<img class="thumb" src="${esc(u)}" alt="">`:'<div class="thumb"></div>'}
 
 function renderProducts(){
   const q=normalizeText($("#productSearch").value), f=$("#productFilter").value;
@@ -776,10 +795,26 @@ function formatDate(v){if(!v)return"";const d=new Date(v);return isNaN(d)?String
     if (!st.ok) $("#apiWarning").textContent = "Backend Supabase sin respuesta: " + (st.error || "SIN_RESPUESTA") + ". Revisa la Edge Function dynamic-processor.";
   } catch (_) {}
   if(token){
-    // R9 Supabase: sesión existente abre la interfaz de inmediato; la validación/carga continúa detrás.
-    showAdmin();
-    try{await reload();startNotificationWatcher();return}
-    catch(e){console.warn(e);sessionStorage.removeItem("aleAdminToken");localStorage.removeItem("aleAdminToken");token="";showLogin("La sesión venció. Ingresa nuevamente.");return}
+    // R9.13: una sesión guardada NO habilita la interfaz hasta validarla en servidor.
+    showLogin("Validando sesión guardada…");
+    try{
+      const sess=await AleAPI.post("session",{},token);
+      if(!sess?.ok)throw new Error(sess?.error||"SESION_INVALIDA");
+      data.currentUser=sess.user||data.currentUser;
+      showAdmin();
+      renderSessionHeader(sess.user);
+      await reload();
+      startNotificationWatcher();
+      return;
+    }catch(e){
+      console.warn("restore session",e);
+      sessionStorage.removeItem("aleAdminToken");
+      localStorage.removeItem("aleAdminToken");
+      token="";
+      data.currentUser=null;
+      showLogin("La sesión venció. Ingresa nuevamente.");
+      return;
+    }
   }
   showLogin();
 })();
