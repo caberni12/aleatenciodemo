@@ -1,0 +1,23 @@
+ALE ATENCIO R9.3 - DIAGNOSTICO DEL FALSO ERROR DE SOLICITUD
+
+SINTOMA:
+- La solicitud aparece guardada en Supabase.
+- La Web mostraba "No fue posible registrar la solicitud".
+
+CAUSA PROBABLE ENCONTRADA EN EL CODIGO:
+1. El INSERT a public.solicitudes terminaba correctamente.
+2. La Edge Function esperaba despues un INSERT de auditoria antes de responder.
+3. Si la respuesta total demoraba o el navegador cortaba por timeout/CORS, el registro quedaba guardado pero la Web recibia error/timeout.
+4. La configuracion CORS dependia de ALE_ALLOWED_ORIGINS y podia responder con un origen distinto al real si la lista estaba desactualizada.
+
+CORRECCION R9.3:
+- Respuesta inmediata despues del INSERT principal.
+- Auditoria en segundo plano con EdgeRuntime.waitUntil cuando esta disponible.
+- CORS Access-Control-Allow-Origin: * (no hay cookies ni Supabase Auth).
+- Confirmacion por ID luego de errores ambiguos de transporte.
+- Timeout publico ampliado a 18 segundos solo para createorder/createrequest.
+- Un timeout ambiguo ya no se presenta como rechazo definitivo ni abre WhatsApp duplicando el flujo.
+- En la esquina flotante queda solo WhatsApp.
+
+REQUISITO:
+Desplegar el index.ts R9.3 en dynamic-processor y luego subir la Web R9.3.

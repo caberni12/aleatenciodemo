@@ -1,0 +1,21 @@
+ALE ATENCIO · R9.9 · SELECTORES DE ARCHIVO
+============================================
+
+Esta versión acumula R9.8 y corrige visualmente todos los selectores de archivos del cPanel.
+
+CAMBIOS
+- Ya no se muestra el input nativo del navegador que cortaba "Seleccionar archivo".
+- Foto de producto: botón propio "Seleccionar imagen" / "Cambiar imagen".
+- Importación masiva: botón propio "Seleccionar XLSX" / "Cambiar XLSX".
+- Categorías y Carrusel: selector de imagen consistente.
+- Usuarios: Foto de perfil con botón completo, sin desbordarse de la tarjeta.
+- Configuración: selector de logo del negocio con el mismo diseño.
+- El nombre del archivo seleccionado se muestra debajo y puede envolver texto sin romper el layout.
+- En móvil el selector ocupa 100% del ancho disponible.
+- Al limpiar o editar un registro, el estado visual del selector se reinicia correctamente.
+
+INSTALACIÓN
+- No requiere SQL nuevo.
+- No requiere desplegar nuevamente index.ts.
+- Reemplaza los archivos del repositorio por los del ZIP R9.9.
+- Ejecuta Ctrl+F5 en el cPanel.

@@ -1,0 +1,53 @@
+ALE ATENCIO R9.2 - SUPABASE - PROYECTO COMPLETO
+================================================
+
+BACKEND
+- URL única: https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor
+- Un solo index.ts.
+- Verify JWT: OFF.
+- Sin Supabase Auth.
+- Usuarios: public.usuarios.
+- Sesiones: public.sesiones.
+
+PARA ACTUALIZAR SUPABASE
+1. Supabase > Edge Functions > dynamic-processor.
+2. Reemplazar el contenido por el index.ts incluido en este paquete.
+3. Mantener Verify JWT desactivado.
+4. Deploy.
+5. No es necesario ejecutar un SQL nuevo para las mejoras visuales/notificaciones R9.2 si ya ejecutaste el SQL completo R9.
+
+MEJORAS CPANEL R9.2
+- Corrección global de formularios para evitar campos montados.
+- Inputs, selects y textareas con ancho/altura uniforme.
+- Selectores de archivos integrados al diseño y responsivos.
+- Corrección especial del editor de Usuarios y foto de perfil.
+- Productos, Categorías, Carrusel, Pedidos, Solicitudes, Usuarios y Configuración revisados visualmente.
+- Tablas con scroll horizontal controlado en pantallas pequeñas.
+- Botones de acciones no se superponen.
+- Header responsive.
+- Campanita de notificaciones con contador.
+- Centro de notificaciones desplegable.
+- Marcar todas como leídas.
+- Botón para activar/silenciar voz.
+- Consulta liviana cada 8 segundos: solo pedidos/solicitudes nuevos, no recarga todo el catálogo.
+- Tarjetas emergentes para nuevo pedido/nueva solicitud.
+- Aviso por voz del navegador.
+- Al pulsar la alerta abre el módulo Pedidos o Solicitudes.
+
+MEJORAS WEB R9.2
+- Restaurados botones visibles de Instagram, Facebook y TikTok.
+- WhatsApp flotante se mantiene.
+- Redes también se mantienen en el footer.
+- Los botones sociales permanecen visibles aunque aún no tengan URL configurada.
+- Los enlaces se administran desde cPanel > Configuración.
+
+ARCHIVOS CLAVE
+- index.ts: Edge Function dynamic-processor.
+- config.js: URL real de Supabase ya configurada.
+- api.js: cliente de la API Supabase.
+- cpanel.html / cpanel.js / cpanel.css: administración.
+- index.html / app.js / styles.css: web pública.
+- ALE_ATENCIO_SUPABASE_SQL_COMPLETO_CON_DATOS.sql: estructura + datos migrados.
+
+GITHUB
+El ZIP está preparado plano: subir el contenido directamente a la raíz del repositorio.

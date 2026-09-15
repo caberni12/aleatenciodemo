@@ -1,0 +1,11 @@
+ALE ATENCIO R9.4 - CORRECCION FORMULARIO SOLICITUD
+
+Correccion principal:
+- Se elimina el uso de e.currentTarget despues de await en el formulario de solicitud.
+- El formulario se captura antes de la operacion asincrona y se limpia con form.reset().
+- Una vez confirmado el registro por Supabase, errores posteriores de UI no pueden mostrar un falso error de envio.
+- Se mantiene R9.3 completa: Supabase dynamic-processor, cPanel, notificaciones, voz, campanita, UI responsive y redes sociales.
+- En la esquina flotante de la Web queda solo WhatsApp; las otras redes permanecen en sus otras ubicaciones.
+
+No requiere cambios SQL ni volver a desplegar index.ts por esta correccion frontend.
+Subir esta version a GitHub y hacer Ctrl+F5.

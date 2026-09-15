@@ -1,0 +1,22 @@
+ALE ATENCIO · R9.6 SUPABASE
+==============================
+
+NOVEDADES ACUMULATIVAS
+- Menú lateral tipo slider no bloqueante: al abrirlo no oscurece ni tapa todo el cPanel.
+- WhatsApp de cotización ligado a la solicitud: si la cotización nace de una solicitud, el número se toma del registro de la solicitud también en backend.
+- Importación masiva de Productos desde XLSX, con plantilla, vista previa, validación y alta/actualización por ID.
+- Módulo Clientes: cada solicitud/pedido/cotización crea o actualiza la ficha del cliente.
+- Correlativo CLI-000001.
+- Reportes de Ventas y Clientes con filtros y exportación XLSX/PDF.
+- Se preservan R9.5: cotizaciones, IVA, PDF con logo, WhatsApp, campanita, voz, solicitudes correlativas, Supabase único TS.
+
+ORDEN DE ACTUALIZACION
+1) SQL Editor: ejecutar SQL_ACTUALIZACION_R9_6_CLIENTES_REPORTES.sql.
+2) Edge Functions > dynamic-processor: reemplazar TODO por index.ts R9.6 y Deploy. Verify JWT = OFF.
+3) GitHub: subir todos los archivos de este ZIP a la raíz.
+4) Ctrl+F5 en Web y cPanel.
+
+IMPORTACION PRODUCTOS
+- En Productos: Plantilla XLSX > completar > Importar XLSX > seleccionar archivo > revisar vista previa > Importar productos.
+- ID vacío = producto nuevo. ID existente = actualiza ese producto.
+- El backend admite hasta 2000 filas por importación.

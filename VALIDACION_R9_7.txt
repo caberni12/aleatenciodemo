@@ -1,0 +1,18 @@
+ALE ATENCIO R9.7 · VALIDACION SIDEBAR ESTABLE
+====================================================
+
+[OK] HTML admin sidebar
+[OK] HTML hamburger
+[OK] CSS mini rail 76
+[OK] CSS expanded 270
+[OK] CSS main fixed desktop margin
+[OK] CSS desktop collapsed no translate
+[OK] CSS mobile no main translate
+[OK] JS R97 state key
+[OK] JS nav tooltips
+[OK] CSS braces · 427/427
+[OK] Referencias locales cPanel
+
+Resultado: APROBADO
+
+R9.7 no modifica SQL ni Edge Function. Es actualización de shell/UI del cPanel sobre R9.6.

@@ -1,0 +1,15 @@
+ALE ATENCIO R9 SUPABASE - VALIDACION
+====================================
+[OK] API_URL configurada a dynamic-processor.
+[OK] api.js usa fetch() directo; no JSONP ni iframe.
+[OK] Web y cPanel comparten una sola URL.
+[OK] Autenticación del cPanel usa action=login y token propio de public.sesiones.
+[OK] Verify JWT debe quedar OFF.
+[OK] No se usa Supabase Auth desde la aplicación.
+[OK] api.js, app.js y cpanel.js pasan node --check.
+[OK] index.ts único incluido.
+[OK] SQL completo con estructura + datos del Excel incluido.
+[OK] Codigo.gs y appsscript.json eliminados de esta entrega Supabase.
+
+API:
+https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor

@@ -1,0 +1,31 @@
+ALE ATENCIO R9 - SUPABASE
+=========================
+
+API PRODUCCION:
+https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor
+
+ARQUITECTURA:
+- PostgreSQL Supabase como base de datos.
+- Una sola Edge Function: dynamic-processor.
+- Un solo index.ts.
+- Verify JWT: OFF.
+- NO usa Supabase Auth.
+- Usuarios: public.usuarios.
+- Sesiones propias: public.sesiones.
+- Login administrativo: action=login.
+- Web y cPanel usan la misma URL.
+- Imágenes nuevas: Supabase Storage bucket ale-atencio-public.
+
+ORDEN DE INSTALACION:
+1. SQL Editor: ejecutar ALE_ATENCIO_SUPABASE_SQL_COMPLETO_CON_DATOS.sql completo.
+2. Edge Functions: abrir dynamic-processor.
+3. Reemplazar el código con index.ts y Deploy.
+4. Dejar Verify JWT en OFF.
+5. Publicar los archivos Web/cPanel de este paquete en GitHub.
+6. Hacer Ctrl+F5 al abrir Web y cPanel.
+
+IMPORTANTE:
+- config.js ya tiene la URL real de dynamic-processor.
+- api.js ya NO usa JSONP ni iframe ni Google Apps Script.
+- No poner service_role/secret key en config.js ni en el navegador.
+- La clave de servidor solo vive en los secretos internos de Supabase Edge Functions.

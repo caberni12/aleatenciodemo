@@ -1,0 +1,18 @@
+ALE ATENCIO R9.5 · VALIDACIÓN
+==============================
+
+- JavaScript api.js: sintaxis OK
+- JavaScript app.js: sintaxis OK
+- JavaScript cpanel.js: sintaxis OK
+- cpanel.html: sin IDs duplicados
+- index.html: sin IDs duplicados
+- TypeScript index.ts: sin errores internos detectados por tsc; únicamente referencias esperadas del runtime Deno/Supabase al validarlo fuera de Supabase
+- Verify JWT: OFF (arquitectura propia de public.usuarios/public.sesiones)
+- Edge Function única: dynamic-processor
+- API única configurada: https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor
+- SQL incremental incluido: SQL_ACTUALIZACION_R9_5_COTIZACIONES.sql
+- PDF: logo + cliente + número cotización + número solicitud + ítems + subtotal neto + IVA + total
+- WhatsApp: enlace público al PDF almacenado en Supabase Storage
+- Sidebar: fixed / scroll independiente
+- Hamburguesa: visible escritorio y móvil
+- Productos: contador + Ver todos + Guardar precio sin salto de línea

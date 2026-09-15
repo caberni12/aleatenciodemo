@@ -1,0 +1,25 @@
+ALE ATENCIO · R9.7 · SIDEBAR ESTABLE
+====================================
+
+Esta versión acumula íntegramente R9.6 y corrige el comportamiento visual global del cPanel.
+
+MEJORA PRINCIPAL
+- Escritorio: queda una barra mini de 76 px con iconos.
+- Al tocar hamburguesa, el menú se expande a 270 px como slider superpuesto.
+- El contenido principal NO cambia de ancho y NO se recalculan tablas/cards al abrir/cerrar.
+- Al cerrar, el menú vuelve a mini-rail en vez de desaparecer por completo.
+- Tooltips en iconos del rail compacto.
+- Sidebar con scroll propio e independiente del scroll general.
+- Header permanece sticky.
+- Tablet/móvil: menú off-canvas por encima del contenido; el contenido no se desplaza.
+- Backdrop muy tenue para no oscurecer ni esconder el cPanel.
+- Escape, X y toque fuera cierran el menú móvil.
+
+NO REQUIERE SQL NUEVO.
+NO REQUIERE CAMBIAR index.ts.
+Conserva R9.6: Clientes, Reportes, XLSX masivo, Cotizaciones con IVA/logo/PDF/WhatsApp, solicitudes correlativas, notificaciones y voz.
+
+INSTALACION
+1. Subir todos los archivos del ZIP a la raíz de GitHub, reemplazando R9.6.
+2. Ctrl+F5 en el cPanel.
+3. No ejecutar SQL ni redeploy de Edge Function solo por R9.7.

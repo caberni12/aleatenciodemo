@@ -1,0 +1,15 @@
+ALE ATENCIO R9.3 - CORRECCION DE CONFIRMACION Y REDES
+
+1. Reemplaza el index.ts de la Edge Function dynamic-processor por el incluido.
+2. Mantén Verify JWT = OFF.
+3. Deploy.
+4. Sube todos los archivos del ZIP a GitHub (raíz, paquete plano).
+5. Ctrl+F5.
+
+CORRECCIONES:
+- El INSERT de pedidos/solicitudes responde antes de esperar auditoría.
+- Auditoría pública pasa a segundo plano mediante EdgeRuntime.waitUntil cuando está disponible.
+- CORS = * porque el sistema no usa cookies ni Supabase Auth; la sesión cPanel viaja en X-Ale-Session.
+- La Web verifica por ID después de timeouts/transporte ambiguo antes de declarar fallo.
+- Ya no abre WhatsApp automáticamente ante un timeout ambiguo, evitando duplicidad.
+- En la esquina flotante queda solo WhatsApp. Instagram/Facebook/TikTok siguen en las otras ubicaciones de la Web.

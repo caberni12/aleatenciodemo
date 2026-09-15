@@ -1,0 +1,72 @@
+ALE ATENCIO · R9.5 SUPABASE
+====================================
+
+Esta versión acumula R9.4 y agrega:
+
+1. CPANEL
+- Sidebar fijo e independiente del scroll general.
+- Scroll propio dentro del menú lateral.
+- Botón hamburguesa visible en escritorio, tablet y móvil.
+- El menú puede ocultarse/mostrarse en escritorio.
+- En móvil funciona como slider/off-canvas.
+
+2. PRODUCTOS
+- Al entrar al módulo se muestran TODOS los productos.
+- Contador visible: "Mostrando X de Y productos".
+- Botón "Ver todos" para limpiar filtros.
+- Botón Guardar precio corregido para que no se corte ni se parta.
+
+3. SOLICITUDES
+- Número correlativo visible: SOL-000001, SOL-000002, etc.
+- Las solicitudes históricas reciben número al ejecutar el SQL de actualización.
+- La Web muestra el número de solicitud al confirmar el envío.
+- Desde una solicitud existe el botón "Cotizar".
+
+4. COTIZACIONES
+- Nuevo módulo Cotizaciones en el cPanel.
+- Cotización desde una solicitud o cotización nueva independiente.
+- Número correlativo: COT-000001, COT-000002, etc.
+- Ítems desde catálogo o líneas libres.
+- Subtotal neto.
+- IVA configurable (por defecto 19%).
+- Total final.
+- Validez configurable.
+- Estados: BORRADOR, ENVIADA, ACEPTADA, RECHAZADA, VENCIDA, ANULADA.
+- Generación de PDF.
+- PDF con logo de la empresa, datos de contacto, número de cotización y número de solicitud.
+- PDF almacenado en Supabase Storage.
+- Envío por WhatsApp mediante enlace público al PDF.
+- Al enviar por WhatsApp la cotización pasa a ENVIADA si estaba en BORRADOR.
+
+5. CONFIGURACIÓN
+- IVA de cotizaciones editable.
+- Validez en días editable.
+- Logo configurado en el cPanel se utiliza también en PDF; si no existe se usa logo-ale-atencio.png.
+
+ORDEN DE INSTALACIÓN / ACTUALIZACIÓN
+====================================
+A) SUPABASE SQL EDITOR
+1. Ejecutar completo:
+   SQL_ACTUALIZACION_R9_5_COTIZACIONES.sql
+
+B) EDGE FUNCTION
+2. Abrir Edge Functions > dynamic-processor.
+3. Reemplazar TODO el index.ts por el index.ts de esta R9.5.
+4. Mantener Verify JWT = OFF.
+5. Deploy.
+
+C) GITHUB / WEB
+6. Subir todos los archivos del ZIP a la raíz del repositorio.
+7. No crear una carpeta contenedora adicional.
+8. Hacer Ctrl+F5 en Web y cPanel.
+
+API ACTUAL
+https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor
+
+IMPORTANTE
+- NO volver a ejecutar el SQL completo con los datos históricos solo por esta actualización.
+- Para esta R9.5 basta con SQL_ACTUALIZACION_R9_5_COTIZACIONES.sql.
+- No usa Supabase Auth.
+- No usa JWT automático.
+- Usuarios: public.usuarios.
+- Sesiones: public.sesiones.

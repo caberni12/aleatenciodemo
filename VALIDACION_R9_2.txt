@@ -1,0 +1,16 @@
+ALE ATENCIO R9.2 - VALIDACION
+============================
+- JavaScript api.js: OK
+- JavaScript app.js: OK
+- JavaScript cpanel.js: OK
+- TypeScript index.ts: 0 errores de sintaxis (transpile check)
+- Edge Function: una sola Deno.serve
+- Verify JWT esperado: OFF
+- Supabase Auth: no utilizado
+- Usuarios/sesiones propios: SI
+- notificationfeed: SI
+- campanita/contador/centro: SI
+- toast emergente + voz: SI
+- redes sociales flotantes: SI
+- WhatsApp flotante: SI
+- endpoint dynamic-processor: configurado

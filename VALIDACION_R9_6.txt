@@ -1,0 +1,24 @@
+ALE ATENCIO · VALIDACION R9.6
+=============================
+
+OK · R9.5 preservada: 127/127 archivos base presentes.
+OK · R9.6 agrega SQL incremental, plantilla XLSX y guía R9.6.
+OK · cpanel.js: node --check sin errores.
+OK · api.js: node --check sin errores.
+OK · app.js: node --check sin errores.
+OK · index.ts: TypeScript parsea; las únicas advertencias locales son las esperadas por ejecutar fuera del runtime Deno/Supabase (Deno y npm: URL imports).
+OK · Menú lateral no bloqueante: sin backdrop visual y contenido visible al abrir slider.
+OK · WhatsApp cotización ligado en frontend y backend al teléfono de la solicitud.
+OK · Productos: importación XLSX con vista previa + backend bulkimportproducts.
+OK · Clientes: public.clientes + correlativo CLI + vínculo solicitud/pedido/cotización.
+OK · Solicitudes/pedidos públicos crean o actualizan ficha Cliente.
+OK · Cotización ligada conserva cliente/teléfono de solicitud.
+OK · Reportes: Ventas y Clientes, filtros, XLSX y PDF.
+OK · Plantilla XLSX verificada sin errores de fórmula.
+OK · Supabase Auth/JWT no se utiliza; continúa sesión propia public.sesiones.
+
+ORDEN
+1. SQL_ACTUALIZACION_R9_6_CLIENTES_REPORTES.sql
+2. Deploy index.ts en dynamic-processor con Verify JWT OFF
+3. Subir ZIP plano a GitHub
+4. Ctrl+F5

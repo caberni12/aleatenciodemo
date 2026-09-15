@@ -1,0 +1,47 @@
+ALE ATENCIO · R9.8 · UI CPANEL
+================================
+
+Esta versión es acumulativa sobre R9.7.
+
+MEJORAS R9.8
+-------------
+1. SIDEBAR / MENU
+- El botón X tiene una franja superior independiente.
+- La X ya no queda encima ni debajo del logo.
+- En escritorio conserva mini-rail + slider superpuesto.
+- En móvil conserva off-canvas sin mover el contenido.
+
+2. COTIZACIONES
+- "Solicitud asociada" ahora es un combo box filtrable.
+- Búsqueda por número de solicitud, cliente, teléfono, correo, tipo o detalle.
+- Soporta flechas arriba/abajo, Enter y Escape.
+- Muestra N.º solicitud, cliente, contacto y estado.
+- Al seleccionar una solicitud precarga nombre, WhatsApp y correo.
+- El WhatsApp queda ligado a la solicitud seleccionada.
+- Se puede quitar la asociación con el botón X del campo.
+
+3. REPORTES
+- Rediseño completo del módulo Reportes.
+- Panel de filtros con estilo visual consistente.
+- Desde / Hasta / Estado con iconos y superficies modernas.
+- Botón Aplicar filtros y Restablecer.
+- Resumen del filtro activo.
+- KPIs modernos para Ventas, Pedidos, Clientes y Recurrentes.
+- Secciones separadas para Ventas por pedido y Resumen de clientes.
+- Contadores de registros en cada bloque.
+- Tablas con cabeceras y estados visuales mejorados.
+
+4. FILTROS GENERALES
+- Productos y Clientes reciben superficie visual consistente para sus filtros.
+- Inputs y selects con altura uniforme, foco visible y responsive.
+
+INSTALACION
+-----------
+- NO requiere SQL nuevo.
+- NO requiere reemplazar index.ts ni volver a desplegar la Edge Function.
+- Subir todos los archivos del ZIP a la raíz del repositorio GitHub.
+- Reemplazar los archivos existentes.
+- Hacer Ctrl+F5 en el cPanel.
+
+Se conserva la API:
+https://btvliyzripnhjexdgoef.supabase.co/functions/v1/dynamic-processor

@@ -1,0 +1,16 @@
+ALE ATENCIO R9.9 · VALIDACIÓN
+=============================
+OK · 6 selectores de archivo convertidos a control visual propio.
+OK · Foto producto.
+OK · XLSX productos.
+OK · Imagen categoría.
+OK · Imagen carrusel.
+OK · Foto perfil usuario.
+OK · Logo negocio.
+OK · Nombre de archivo visible debajo sin corte.
+OK · Estado Seleccionar/Cambiar sincronizado por JavaScript.
+OK · Reseteo visual al limpiar/editar formularios.
+OK · cpanel.js: node --check aprobado.
+OK · CSS: llaves balanceadas.
+OK · Sin SQL nuevo.
+OK · Sin cambios de Edge Function.
