@@ -1,0 +1,13 @@
+ALE ATENCIO · R9.12 · CRÉDITO PROFESIONAL
+==========================================
+
+Se incorporó como estándar visual:
+Design by SERVICIOS INFORMÁTICOS AS · Desarrollo Web, Sistemas y Android
+
+- El enlace HTTPS está únicamente en el nombre SERVICIOS INFORMÁTICOS AS.
+- URL destino: https://serviciosinformaticosas.cl/
+- Se muestra en el footer de la tienda pública.
+- Se muestra al pie del cPanel en todos los módulos.
+- Se muestra discretamente en la pantalla de acceso del cPanel.
+- No requiere SQL ni cambios en Supabase/Edge Function.
+- La versión conserva todo el contenido y funcionalidades de R9.11.

@@ -380,7 +380,7 @@ function footer(){
     <div class="footer-shop-block"><div class="footer-title">Tienda</div><div class="footer-links"><a href="#inicio">Inicio</a><a href="#productos/tortas">Tortas</a><a href="#productos/galletas">Galletas</a><a href="#productos/postres">Postres</a><a href="#productos/regalos">Regalos</a></div></div>
     <div class="footer-help-block"><div class="footer-title">Ayuda</div><div class="footer-links"><a href="#solicitud">Solicitud</a><a href="#politicas">Políticas</a><a href="#politicas">Despachos</a><a href="#politicas">Cambios</a></div></div>
     <div class="footer-contact-block"><div class="footer-title">Contacto</div><div class="footer-links">${normalizePhone(c.whatsapp)?`<a href="#" onclick="openWhatsApp();return false">${esc(c.whatsapp)}</a>`:""}${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:""}${c.direccion?`<span>${esc(c.direccion)}</span>`:""}</div></div>
-  </div><div class="footer-line"></div><div class="footer-bottom"><span>© 2026 Ale Atencio Repostería</span><div class="footer-policies"><a href="#politicas">Privacidad</a><a href="#politicas">Términos</a><a href="#politicas">Despacho</a></div></div></div></footer>`;
+  </div><div class="footer-line"></div><div class="footer-bottom"><span>© 2026 Ale Atencio Repostería</span><div class="footer-policies"><a href="#politicas">Privacidad</a><a href="#politicas">Términos</a><a href="#politicas">Despacho</a></div></div><div class="developer-credit" aria-label="Créditos de desarrollo"><span>Design by</span> <a href="https://serviciosinformaticosas.cl/" target="_blank" rel="noopener noreferrer">SERVICIOS INFORMÁTICOS AS</a><span class="developer-credit-sep">·</span><span>Desarrollo Web, Sistemas y Android</span></div></div></footer>`;
 }
 
 function render(){

@@ -2144,3 +2144,30 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
   .social-float-stack{right:20px;bottom:88px;gap:7px}
   .social-float-btn{width:42px;height:42px;font-size:18px}
 }
+
+
+/* R9.12 · Crédito profesional de desarrollo */
+.developer-credit{
+  margin-top:18px;
+  padding-top:16px;
+  border-top:1px solid rgba(255,255,255,.10);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  flex-wrap:wrap;
+  text-align:center;
+  font-size:11px;
+  line-height:1.5;
+  letter-spacing:.035em;
+  color:rgba(255,255,255,.62);
+}
+.developer-credit a{
+  color:rgba(255,255,255,.88);
+  font-weight:700;
+  text-decoration:none;
+  transition:color .18s ease,opacity .18s ease;
+}
+.developer-credit a:hover,.developer-credit a:focus-visible{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.developer-credit-sep{opacity:.48;margin:0 2px}
+@media(max-width:620px){.developer-credit{font-size:10.5px;gap:5px;margin-top:16px;padding-top:14px}}

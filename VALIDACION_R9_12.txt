@@ -1,0 +1,13 @@
+ALE ATENCIO · VALIDACIÓN R9.12 · DESIGN CREDIT
+===============================================
+
+OK · Crédito Web
+OK · Crédito cPanel módulos
+OK · Crédito login cPanel
+OK · Enlace oculto en nombre
+OK · CSS Web balanceado
+OK · CSS cPanel balanceado
+OK · Cache R9.12 index
+OK · Cache R9.12 cPanel
+
+No requiere SQL ni cambios en index.ts / Supabase.
