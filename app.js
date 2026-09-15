@@ -5,7 +5,7 @@ const priceLabel = p => Number(p?.precio||0)>0 ? money(p.precio) : "Consultar";
 const esc = s => String(s ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CL").trim();
 const productSearchText = p => normalizeText([p?.nombre,p?.descripcion,p?.categoria_nombre||p?.categoria,p?.ocasion].filter(Boolean).join(" "));
-const MEDIA_VERSION = "20260915-r9141-flat-restored";
+const MEDIA_VERSION = "20260915-r9142-carousel-stable";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -54,9 +54,9 @@ function productFallback(p){return ({Tortas:"🍰",Galletas:"🍪","Dulcería":"
 
 function heroView(){
   const banners = state.banners.slice().sort((a,b)=>Number(a.orden||0)-Number(b.orden||0));
-  return `<section class="hero"><div class="hero-stage">
+  return `<section class="hero"><div class="hero-stage hero-preparing">
     ${banners.map((b,i)=>`<article class="hero-slide ${i===0?"active":""}">
-      <div class="hero-bg ${b.image_url?"":`hero-fallback-${(i%3)+1}`}" ${b.image_url?`style="background-image:url('${esc(mediaUrl(b.image_url))}')"`:""}></div>
+      <div class="hero-bg ${b.image_url?"":`hero-fallback-${(i%3)+1}`}" ${b.image_url?`data-bg="${esc(mediaUrl(b.image_url))}" style="background-image:url('${esc(mediaUrl(b.image_url))}')"`:""}></div>
       <div class="hero-content"><div class="hero-copy">
         <span class="eyebrow">Ale Atencio Repostería</span>
         <h1>${esc(b.titulo)}</h1>
@@ -397,10 +397,48 @@ function render(){
 }
 
 function wireCarousel(){
-  const slides=$$(".hero-slide"), dots=$$(".hero-dot"); if(!slides.length)return;
-  const show=i=>{currentSlide=(i+slides.length)%slides.length;slides.forEach((s,x)=>s.classList.toggle("active",x===currentSlide));dots.forEach((d,x)=>d.classList.toggle("active",x===currentSlide))}
-  $("#prevSlide")?.addEventListener("click",()=>{show(currentSlide-1);reset()});$("#nextSlide")?.addEventListener("click",()=>{show(currentSlide+1);reset()});dots.forEach((d,i)=>d.addEventListener("click",()=>{show(i);reset()}));
-  const start=()=>slideTimer=setInterval(()=>show(currentSlide+1),5000),reset=()=>{clearInterval(slideTimer);start()};clearInterval(slideTimer);start();
+  const slides=$$(".hero-slide"), dots=$$(".hero-dot"), stage=$(".hero-stage");
+  if(!slides.length)return;
+
+  // R9.14.2: el primer cuadro siempre nace en posición 0. Esto evita que un
+  // índice conservado de un render anterior produzca un salto visual.
+  currentSlide=0;
+  const show=i=>{
+    currentSlide=(i+slides.length)%slides.length;
+    slides.forEach((s,x)=>s.classList.toggle("active",x===currentSlide));
+    dots.forEach((d,x)=>d.classList.toggle("active",x===currentSlide));
+  };
+  show(0);
+
+  const start=()=>{ clearInterval(slideTimer); slideTimer=setInterval(()=>show(currentSlide+1),5000); };
+  const reset=()=>start();
+  $("#prevSlide")?.addEventListener("click",()=>{show(currentSlide-1);reset()});
+  $("#nextSlide")?.addEventListener("click",()=>{show(currentSlide+1);reset()});
+  dots.forEach((d,i)=>d.addEventListener("click",()=>{show(i);reset()}));
+
+  // No revelamos el hero hasta que la primera imagen de fondo esté decodificada.
+  // Si falla o demora demasiado, se libera igual para no bloquear la portada.
+  const reveal=()=>{
+    if(!stage || stage.classList.contains("hero-ready")) return;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      stage.classList.remove("hero-preparing");
+      stage.classList.add("hero-ready");
+      start();
+    }));
+  };
+  const firstBg=slides[0]?.querySelector(".hero-bg");
+  const src=firstBg?.dataset?.bg || "";
+  if(!stage){ start(); return; }
+  if(!src){ reveal(); return; }
+  const preload=new Image();
+  let released=false;
+  const done=()=>{ if(released)return; released=true; reveal(); };
+  preload.decoding="async";
+  preload.onload=done;
+  preload.onerror=done;
+  preload.src=src;
+  if(preload.complete) done();
+  else setTimeout(done,1400);
 }
 
 function wireCatalog(){
