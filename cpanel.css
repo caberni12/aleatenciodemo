@@ -1266,3 +1266,9 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
 }
 .admin-body.auth-locked #loginScreen{display:grid!important}
 .admin-body.auth-active #loginScreen{display:none!important}
+
+/* R9.14.4 · Estado Activo/Inactivo de productos */
+.product-row-inactive{opacity:.72;background:#fffafa}
+.product-row-inactive .thumb{filter:grayscale(.35)}
+#productStatusFilter{min-width:150px}
+@media(max-width:760px){#productStatusFilter{width:100%;min-width:0}}

@@ -325,14 +325,17 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-function imgTag(url){const u=String(url||"").trim();const src=u&&!/^(?:https?:|data:|blob:)/i.test(u)?`${u}${u.includes("?")?"&":"?"}v=20260915-r9141-flat-restored`:u;return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
+function imgTag(url){const u=String(url||"").trim();const src=u&&!/^(?:https?:|data:|blob:)/i.test(u)?`${u}${u.includes("?")?"&":"?"}v=20260915-r9144-product-status`:u;return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
 
 function renderProducts(){
-  const q=normalizeText($("#productSearch").value), f=$("#productFilter").value;
-  const list=data.products.filter(p=>normalizeText([p.nombre,p.descripcion,p.categoria_nombre,p.ocasion].filter(Boolean).join(" ")).includes(q)&&(!f||p.categoria_nombre===f));
+  const q=normalizeText($("#productSearch").value), f=$("#productFilter").value, status=$("#productStatusFilter")?.value||"";
+  const list=data.products.filter(p=>{
+    const active=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";
+    return normalizeText([p.nombre,p.descripcion,p.categoria_nombre,p.ocasion].filter(Boolean).join(" ")).includes(q)&&(!f||p.categoria_nombre===f)&&(!status||active===status);
+  });
   const meta=$("#productResultsMeta");
-  if(meta)meta.textContent=`Mostrando ${list.length} de ${data.products.length} productos${f?` · Categoría: ${f}`:""}${q?` · Búsqueda: “${$("#productSearch").value.trim()}”`:""}`;
-  $("#productsTable").innerHTML=table(["Imagen","Producto","Categoría","Precio editable","Stock","Destacado","Acciones"],list.map(p=>`<tr><td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button><button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button></div></td></tr>`).join(""));
+  if(meta)meta.textContent=`Mostrando ${list.length} de ${data.products.length} productos${f?` · Categoría: ${f}`:""}${status?` · Estado: ${status==="SI"?"Activos":"Inactivos"}`:""}${q?` · Búsqueda: “${$("#productSearch").value.trim()}”`:""}`;
+  $("#productsTable").innerHTML=table(["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"],list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";return `<tr class="${active?"":"product-row-inactive"}"><td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="role-badge ${active?"":"inactive-badge"}">${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button><button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button></div></td></tr>`}).join(""));
 }
 function openProductEditor(id=""){
   const editor=$("#productEditor");
@@ -340,7 +343,7 @@ function openProductEditor(id=""){
   if(id){
     const p=data.products.find(x=>String(x.id)===String(id));
     if(!p){toast("Producto no encontrado");return}
-    $("#pId").value=p.id||"";$("#pImageId").value=p.drive_file_id||"";$("#pImageUrl").value=p.image_url||"";$("#pName").value=p.nombre||"";$("#pPrice").value=toNumber(p.precio);$("#pCategory").value=p.categoria_nombre||"";$("#pStock").value=toNumber(p.stock);$("#pOccasion").value=p.ocasion||"";$("#pDescription").value=p.descripcion||"";$("#pFeatured").checked=String(p.destacado).toUpperCase()==="SI";
+    $("#pId").value=p.id||"";$("#pImageId").value=p.drive_file_id||"";$("#pImageUrl").value=p.image_url||"";$("#pName").value=p.nombre||"";$("#pPrice").value=toNumber(p.precio);$("#pCategory").value=p.categoria_nombre||"";$("#pStock").value=toNumber(p.stock);$("#pActive").value=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";$("#pOccasion").value=p.ocasion||"";$("#pDescription").value=p.descripcion||"";$("#pFeatured").checked=String(p.destacado).toUpperCase()==="SI";
   }else clearProduct();
   editor.classList.remove("hidden");
   document.body.classList.add("product-editor-open");
@@ -354,12 +357,12 @@ $("#productsTable").addEventListener("click",e=>{
   const save=e.target.closest("[data-save-price]"); if(save){window.saveQuickPrice(save.dataset.savePrice,save);return}
   const del=e.target.closest("[data-delete-product]"); if(del){window.removeEntity("product",del.dataset.deleteProduct,del);return}
 });
-$("#productSearch").addEventListener("input",renderProducts);$("#productFilter").addEventListener("change",renderProducts);
-$("#clearProductFilter")?.addEventListener("click",()=>{$("#productSearch").value="";$("#productFilter").value="";renderProducts()});
+$("#productSearch").addEventListener("input",renderProducts);$("#productFilter").addEventListener("change",renderProducts);$("#productStatusFilter")?.addEventListener("change",renderProducts);
+$("#clearProductFilter")?.addEventListener("click",()=>{$("#productSearch").value="";$("#productFilter").value="";if($("#productStatusFilter"))$("#productStatusFilter").value="";renderProducts()});
 $("#newProduct").addEventListener("click",()=>openProductEditor());
-function clearProduct(){["pId","pImageId","pImageUrl","pName","pPrice","pStock","pOccasion","pDescription"].forEach(id=>$("#"+id).value="");$("#pFeatured").checked=false;resetFilePicker("#pImage")}
+function clearProduct(){["pId","pImageId","pImageUrl","pName","pPrice","pStock","pOccasion","pDescription"].forEach(id=>$("#"+id).value="");$("#pFeatured").checked=false;if($("#pActive"))$("#pActive").value="SI";resetFilePicker("#pImage")}
 $("#closeProductEditorX")?.addEventListener("click",closeProductEditor);
-$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:toNumber($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:"SI",ocasion:$("#pOccasion").value.trim()};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast("✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
+$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:toNumber($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:$("#pActive")?.value||"SI",ocasion:$("#pOccasion").value.trim()};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast("✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
 
 function renderCategories(){$("#categoriesTable").innerHTML=table(["Imagen","Categoría","Descripción","Orden","Acciones"],data.categories.map(c=>`<tr><td>${imgTag(c.image_url)}</td><td><strong>${esc(c.nombre)}</strong></td><td>${esc(c.descripcion||"")}</td><td>${Number(c.orden||0)}</td><td><div class="row-actions"><button onclick="editCategory('${c.id}')">Editar</button><button class="danger" onclick="removeEntity('category','${c.id}',this)">Eliminar</button></div></td></tr>`).join(""))}
 $("#newCategory").addEventListener("click",()=>{clearCategory();$("#categoryEditor").classList.remove("hidden")});
@@ -375,9 +378,29 @@ $("#saveBanner").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{
 
 function renderOrders(){$("#ordersTable").innerHTML=table(["Fecha","Cliente","Contacto","Entrega","Total","Estado"],data.orders.map(o=>`<tr><td>${esc(formatDate(o.fecha))}</td><td><strong>${esc(o.nombre)}</strong><br><small>${esc(o.id)}</small></td><td>${esc(o.telefono)}<br><small>${esc(o.email||"")}</small></td><td>${esc(o.metodo_entrega||"")}<br><small>${esc(o.direccion||"")}</small></td><td>${money(o.total)}</td><td><select class="status-select" onchange="changeStatus('order','${o.id}',this.value)">${["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO","CANCELADO"].map(s=>`<option ${String(o.estado).toUpperCase()===s?"selected":""}>${s}</option>`).join("")}</select></td></tr>`).join(""))}
 function renderRequests(){
-  $("#requestsTable").innerHTML=table(["N.º solicitud","Fecha","Cliente","Tipo","Evento","Detalle","Estado","Acciones"],data.requests.map(r=>`<tr><td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.telefono)}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions"><button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button></div></td></tr>`).join(""))
+  const canDelete=!!data.permissions?.requests?.delete;
+  $("#requestsTable").innerHTML=table(["N.º solicitud","Fecha","Cliente","Tipo","Evento","Detalle","Estado","Acciones"],data.requests.map(r=>`<tr><td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.telefono)}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions"><button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`).join(""))
 }
 window.changeStatus=async(kind,id,status)=>{try{await AleAPI.post("updateStatus",{kind,id,status},token);toast("Estado actualizado");await reload()}catch(e){console.warn(e);toast("No fue posible actualizar")}};
+window.deleteRequest=async(id,btn)=>{
+  const r=(data.requests||[]).find(x=>String(x.id)===String(id));
+  const label=r?.numero_solicitud||id;
+  const cliente=r?.nombre?` de ${r.nombre}`:"";
+  if(!confirm(`¿Eliminar definitivamente la solicitud ${label}${cliente}?
+
+Esta acción no se puede deshacer. Las cotizaciones existentes se conservarán.`))return;
+  await busy(btn,async()=>{
+    try{
+      const res=await AleAPI.post("deleteEntity",{kind:"request",id},token);
+      if(!res?.deleted)throw new Error("SOLICITUD_NO_ENCONTRADA");
+      toast("✓ Solicitud eliminada");
+      await reload();
+    }catch(e){
+      console.warn(e);
+      toast(e?.message==="PERMISO_DENEGADO"?"No tienes permiso para eliminar solicitudes":"No fue posible eliminar la solicitud");
+    }
+  });
+};
 
 function renderUsers(){
   const list=data.users||[];

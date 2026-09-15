@@ -5,7 +5,13 @@ const priceLabel = p => Number(p?.precio||0)>0 ? money(p.precio) : "Consultar";
 const esc = s => String(s ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CL").trim();
 const productSearchText = p => normalizeText([p?.nombre,p?.descripcion,p?.categoria_nombre||p?.categoria,p?.ocasion].filter(Boolean).join(" "));
-const MEDIA_VERSION = "20260915-r9142-carousel-stable";
+const isProductActive = p => {
+  if(!p) return false;
+  if(typeof p.activo === "boolean") return p.activo;
+  const v=String(p.activo??"SI").trim().toUpperCase();
+  return !["NO","FALSE","0","INACTIVO"].includes(v);
+};
+const MEDIA_VERSION = "20260915-r9144-product-status";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -28,11 +34,19 @@ async function loadStore(){
     try{
       const data = await AleAPI.get("bootstrap");
       state.config = {...state.config,...(data.config||{})};
-      state.categories = data.categories?.length ? data.categories : state.categories;
-      state.banners = data.banners?.length ? data.banners : state.banners;
-      state.products = data.products?.length ? data.products : state.products;
-    }catch(e){ console.warn("Catálogo remoto no disponible", e); }
+      if(Array.isArray(data.categories)) state.categories = data.categories;
+      if(Array.isArray(data.banners)) state.banners = data.banners;
+      state.products = Array.isArray(data.products) ? data.products.filter(isProductActive) : [];
+    }catch(e){
+      console.warn("Catálogo remoto no disponible", e);
+      // Seguridad comercial: si Supabase está configurado pero no responde, no se
+      // muestran productos semilla que podrían haber sido desactivados en el cPanel.
+      state.products = [];
+    }
+  }else{
+    state.products = state.products.filter(isProductActive);
   }
+  sanitizeCartAgainstCatalog();
   const logo = state.config.logo_url || "logo-ale-atencio.png";
   $("#brandLogo").src = logo;
   const waFloat=$("#whatsappFloat"); if(waFloat) waFloat.style.display="grid";
@@ -83,6 +97,7 @@ function categoryCard(c,i){
 }
 
 function productCard(p){
+  if(!isProductActive(p)) return "";
   const priced=Number(p.precio||0)>0;
   const action=priced ? `addToCart('${esc(p.id)}')` : `location.hash='solicitud'`;
   return `<article class="product-card">
@@ -506,9 +521,50 @@ function wireRequest(){
   });
 }
 
-window.addToCart=id=>{const p=state.products.find(x=>x.id===id);if(!p)return;const item=cart.find(x=>x.id===id);if(item)item.qty++;else cart.push({id,qty:1});saveCart();toast("Producto agregado")}
+function sanitizeCartAgainstCatalog(){
+  const allowed=new Set(state.products.filter(isProductActive).map(p=>String(p.id)));
+  const next=cart.filter(i=>allowed.has(String(i.id)));
+  if(next.length!==cart.length){cart=next;localStorage.setItem("aleAtencioCart",JSON.stringify(cart));}
+}
+async function refreshCatalogAvailability(){
+  if(!AleAPI.configured()) return;
+  try{
+    const fresh=await AleAPI.get("bootstrap");
+    state.products=Array.isArray(fresh.products)?fresh.products.filter(isProductActive):[];
+    if(fresh.config)state.config={...state.config,...fresh.config};
+  }catch(e){console.warn("No se pudo refrescar disponibilidad",e);state.products=[];}
+  sanitizeCartAgainstCatalog();
+  render();updateCartUI();
+}
+window.addToCart=async id=>{
+  let p=state.products.find(x=>String(x.id)===String(id));
+  if(!p||!isProductActive(p)){toast("Este producto ya no está disponible para la venta.","error");return}
+  if(AleAPI.configured()){
+    try{
+      const live=await AleAPI.get("checkproduct",{id:String(id)});
+      if(!live?.exists||!live?.active){
+        state.products=state.products.filter(x=>String(x.id)!==String(id));
+        cart=cart.filter(x=>String(x.id)!==String(id));
+        localStorage.setItem("aleAtencioCart",JSON.stringify(cart));
+        render();updateCartUI();
+        toast("Este producto fue desactivado y ya no está disponible para la venta.","error");
+        return;
+      }
+      p={...p,precio:Number(live.precio??p.precio),nombre:live.nombre||p.nombre};
+      const idx=state.products.findIndex(x=>String(x.id)===String(id));
+      if(idx>=0)state.products[idx]=p;
+    }catch(e){
+      console.warn("No se pudo verificar disponibilidad",e);
+      toast("No fue posible confirmar la disponibilidad del producto. Intenta nuevamente.","error");
+      return;
+    }
+  }
+  const item=cart.find(x=>String(x.id)===String(id));
+  if(item)item.qty++;else cart.push({id:p.id,qty:1});
+  saveCart();toast("Producto agregado")
+}
 function saveCart(){localStorage.setItem("aleAtencioCart",JSON.stringify(cart));updateCartUI()}
-window.changeQty=(id,d)=>{const i=cart.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>x.id!==id);saveCart()}
+window.changeQty=(id,d)=>{const p=state.products.find(x=>String(x.id)===String(id));if(!p||!isProductActive(p)){cart=cart.filter(x=>String(x.id)!==String(id));saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>x.id!==id);saveCart()}
 window.removeItem=id=>{cart=cart.filter(x=>x.id!==id);saveCart()}
 
 function totals(method=""){
@@ -517,6 +573,7 @@ function totals(method=""){
   return{subtotal,delivery,total:subtotal+delivery}
 }
 function updateCartUI(){
+  sanitizeCartAgainstCatalog();
   const count=cart.reduce((s,i)=>s+i.qty,0);$("#cartCount").textContent=count;
   $("#cartItems").innerHTML=count?cart.map(i=>{const p=state.products.find(x=>x.id===i.id);if(!p)return"";return `<div class="cart-item"><div class="cart-thumb">${productFallback(p)}</div><div><strong>${esc(p.nombre)}</strong><small>${money(p.precio)}</small><div class="qty"><button onclick="changeQty('${p.id}',-1)">−</button><span>${i.qty}</span><button onclick="changeQty('${p.id}',1)">+</button></div></div><button class="remove-item" onclick="removeItem('${p.id}')"><i class="bi bi-x-lg"></i></button></div>`}).join(""):'<div class="empty-card">Tu carrito está vacío.</div>';
   const t=totals();$("#cartSubtotal").textContent=money(t.subtotal);$("#cartDelivery").textContent="Por confirmar";$("#cartTotal").textContent=money(t.subtotal);
@@ -524,14 +581,24 @@ function updateCartUI(){
 
 async function submitOrder(){
   const btn=$("#submitOrderBtn");
-  if(!cart.length){toast("Tu carrito está vacío");return}
+  sanitizeCartAgainstCatalog();
+  if(!cart.length){toast("Tu carrito está vacío o los productos ya no están disponibles.","error");return}
   const nombre=$("#coName").value.trim(), telefono=$("#coPhone").value.trim();if(!nombre||!telefono){toast("Completa nombre y WhatsApp");return}
   beginButtonLoader(btn);
   const metodo=$("#coMethod").value;const t=totals(metodo);const detail=cart.map(i=>{const p=state.products.find(x=>x.id===i.id);return{id:p.id,nombre:p.nombre,cantidad:i.qty,precio:Number(p.precio)}})
   const data={id:clientRecordId("PED"),nombre,telefono,email:$("#coEmail").value.trim(),metodo_entrega:metodo,direccion:$("#coAddress").value.trim(),observaciones:$("#coNotes").value.trim(),detalle:detail,subtotal:t.subtotal,despacho:t.delivery,total:t.total};
   let orderId="",saved=false;
   try{if(!AleAPI.configured())throw new Error("API_NO_CONFIGURADA");const r=await sendAndConfirm("createOrder","order",data);orderId=r.id||data.id;saved=true;}
-  catch(e){console.warn(e)}
+  catch(e){
+    console.warn(e);
+    const code=String(e?.message||e||"").toUpperCase();
+    if(code.includes("PRODUCTO_NO_DISPONIBLE")||code.includes("DETALLE_PEDIDO_INVALIDO")){
+      await refreshCatalogAvailability();
+      toast("Uno de los productos fue desactivado y ya no está disponible para la venta. Actualizamos tu carrito.","error");
+      endButtonLoader(btn);
+      return;
+    }
+  }
   const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre} - ${money(x.precio*x.cantidad)}`).join("\n");
   if(normalizePhone(state.config.whatsapp)) openWhatsApp(`Hola Ale Atencio, quiero confirmar mi pedido${orderId?` ${orderId}`:""}.\n\n${lines}\n\nTotal: ${money(t.total)}\nNombre: ${nombre}\nEntrega: ${data.metodo_entrega}\nDirección: ${data.direccion}\nObservaciones: ${data.observaciones}`);
   if(saved){cart=[];saveCart();closeModal();closeCart();toast(`Pedido registrado${orderId?` · ${orderId}`:""}`,"success");}
@@ -548,7 +615,7 @@ $("#cartBtn").addEventListener("click",openCart);$("#closeCart").addEventListene
 $("#checkoutBtn").addEventListener("click",()=>{if(!cart.length)return toast("Tu carrito está vacío");openModal("#checkoutModal")});$("#submitOrderBtn").addEventListener("click",submitOrder);$("#whatsappFloat").addEventListener("click",e=>{e.preventDefault();openWhatsApp()});
 $("#searchBtn").addEventListener("click",()=>openModal("#searchModal"));$$("[data-close-modal]").forEach(b=>b.addEventListener("click",closeModal));$$(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal()}));
 $("#searchAction").addEventListener("click",doSearch);$("#searchInput").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});
-function doSearch(){const q=normalizeText($("#searchInput").value);const list=state.products.filter(p=>productSearchText(p).includes(q)).slice(0,8);$("#searchResults").innerHTML=list.length?list.map(p=>`<div class="search-result"><div><strong>${esc(p.nombre)}</strong><br><small>${esc(p.categoria_nombre||"")}</small></div><button class="add-button" onclick="addToCart('${p.id}')">Agregar</button></div>`).join(""):'<div class="empty-card">No encontramos coincidencias.</div>'}
+function doSearch(){const q=normalizeText($("#searchInput").value);const list=state.products.filter(p=>isProductActive(p)&&productSearchText(p).includes(q)).slice(0,8);$("#searchResults").innerHTML=list.length?list.map(p=>`<div class="search-result"><div><strong>${esc(p.nombre)}</strong><br><small>${esc(p.categoria_nombre||"")}</small></div><button class="add-button" onclick="addToCart('${p.id}')">Agregar</button></div>`).join(""):'<div class="empty-card">No encontramos coincidencias.</div>'}
 $(".nav-trigger").addEventListener("click",e=>{e.stopPropagation();e.currentTarget.closest(".nav-group").classList.toggle("open")});document.addEventListener("click",()=>$(".nav-group").classList.remove("open"));
 $("#mobileToggle").addEventListener("click",()=>$("#mainNav").classList.toggle("show"));function closeMobile(){$("#mainNav").classList.remove("show");$(".nav-group").classList.remove("open")}
 function toast(msg,type="info"){
