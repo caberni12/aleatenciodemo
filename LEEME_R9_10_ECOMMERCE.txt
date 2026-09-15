@@ -1,0 +1,32 @@
+ALE ATENCIO · R9.10 ECOMMERCE
+================================
+
+Esta versión parte de R9.9 y conserva todo el sistema existente.
+
+CAMBIO PRINCIPAL
+- 101 imágenes de productos procesadas con presentación e-commerce uniforme.
+- Formato final 1200 x 1200 px.
+- Mismos nombres de archivo: no rompe referencias existentes.
+- Fondo neutro cálido derivado de la propia imagen.
+- Producto/foto centrado y contenido completo preservado.
+- Corrección suave de iluminación, contraste, color y nitidez.
+- Marco limpio, esquinas suaves y sombra discreta.
+- Sin textos ni marcas de agua añadidas sobre los productos.
+
+WEB / CPANEL
+- Se actualizó la versión de caché a 20260915-r910-ecommerce.
+- Las imágenes locales reciben versionado de caché para forzar la carga de las nuevas fotografías.
+- Las imágenes remotas nuevas de Supabase no se modifican.
+
+INSTALACION
+1. Subir todos los archivos de este ZIP a la raíz del repositorio GitHub reemplazando los existentes.
+2. No crear carpeta contenedora adicional.
+3. Hacer Ctrl+F5 en Web y cPanel después de publicar.
+
+NO REQUIERE
+- No ejecutar SQL.
+- No cambiar index.ts.
+- No modificar la Edge Function.
+- No modificar Supabase.
+
+La arquitectura y todas las funciones de R9.9 se conservan.

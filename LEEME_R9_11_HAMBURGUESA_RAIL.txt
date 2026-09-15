@@ -1,0 +1,21 @@
+ALE ATENCIO · R9.11 · HAMBURGUESA INTEGRADA EN CINTA
+======================================================
+
+CAMBIO PRINCIPAL
+- En escritorio, cuando el sidebar está contraído, el botón hamburguesa queda dentro de la cinta lateral justo debajo del logo.
+- La hamburguesa del header se oculta en escritorio para evitar dos controles separados.
+- Al pulsar la hamburguesa del rail, el menú se expande.
+- Cuando el menú está expandido se mantiene el botón X en la franja superior para contraerlo.
+- En móvil/tablet se conserva la hamburguesa del header y el menú off-canvas.
+
+NO CAMBIA
+- Supabase / dynamic-processor.
+- SQL.
+- Cotizaciones, clientes, reportes, importación XLSX, notificaciones y demás funciones de R9.10.
+- Las 101 imágenes ecommerce de R9.10 se conservan.
+
+INSTALACION
+1. Subir todos los archivos del ZIP a la raíz del repositorio.
+2. Reemplazar los existentes.
+3. Ctrl+F5 en el cPanel.
+4. No ejecutar SQL y no volver a desplegar index.ts solo por esta actualización.

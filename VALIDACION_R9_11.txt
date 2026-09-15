@@ -1,0 +1,11 @@
+ALE ATENCIO R9.11 · VALIDACION
+===============================
+- OK · sidebarRailToggle_html
+- OK · sidebarRailToggle_js
+- OK · rail_below_logo
+- OK · desktop_header_toggle_hidden
+- OK · collapsed_rail_visible
+- OK · mobile_header_toggle_visible
+- OK · cache_bumped
+- OK · css_braces_balanced
+- OK · js_braces_count_nonzero

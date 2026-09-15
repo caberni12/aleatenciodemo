@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CPANEL | Ale Atencio</title>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260915-r911-hamburger-rail"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="styles.css?v=20260915-r911-hamburger-rail"><link rel="stylesheet" href="cpanel.css?v=20260915-r911-hamburger-rail">
+</head>
+<body class="admin-body">
+<div class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <img src="logo-ale-atencio.png" alt="Ale Atencio">
+    <span class="eyebrow">Administración</span><h1>CPANEL</h1>
+    <p id="connectionText">Conecta y administra la tienda.</p>
+    <input id="adminUsername" type="text" value="admin" placeholder="Usuario" autocomplete="username">
+    <input id="adminPassword" type="password" placeholder="Contraseña" autocomplete="current-password">
+    <button class="btn btn-primary btn-block" type="submit">Ingresar</button>
+    <div class="api-warning" id="apiWarning"></div>
+  </form>
+</div>
+
+<div class="admin-shell hidden" id="adminShell">
+  <aside class="admin-sidebar" id="adminSidebar" aria-label="Menú de administración">
+    <button class="sidebar-close" id="sidebarClose" type="button" aria-label="Cerrar menú"><i class="bi bi-x-lg"></i></button>
+    <div class="admin-brand admin-brand-single"><img id="adminLogo" src="logo-ale-atencio.png" alt="Ale Atencio Repostería"><span>CPANEL</span></div>
+    <button class="sidebar-rail-toggle" id="sidebarRailToggle" type="button" aria-label="Expandir menú" aria-controls="adminSidebar" aria-expanded="false" title="Expandir menú"><i class="bi bi-list"></i></button>
+    <nav class="admin-nav">
+      <button class="active" data-view="dashboard"><i class="bi bi-grid"></i> Dashboard</button>
+      <button data-view="products"><i class="bi bi-cake2"></i> Productos</button>
+      <button data-view="categories"><i class="bi bi-tags"></i> Categorías</button>
+      <button data-view="banners"><i class="bi bi-images"></i> Carrusel</button>
+      <button data-view="orders"><i class="bi bi-bag-check"></i> Pedidos</button>
+      <button data-view="requests"><i class="bi bi-clipboard-heart"></i> Solicitudes</button>
+      <button data-view="quotes"><i class="bi bi-receipt-cutoff"></i> Cotizaciones</button>
+      <button data-view="clients"><i class="bi bi-person-vcard"></i> Clientes</button>
+      <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
+      <button data-view="users" id="usersNavBtn"><i class="bi bi-people"></i> Usuarios</button>
+      <button data-view="settings"><i class="bi bi-gear"></i> Configuración</button>
+    </nav>
+    <div class="sidebar-bottom"><a href="index.html" class="btn btn-light btn-block"><i class="bi bi-shop"></i> Ver tienda</a><button id="logoutBtn" class="btn btn-dark btn-block"><i class="bi bi-box-arrow-right"></i> Salir</button></div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop" aria-hidden="true"></div>
+
+  <main class="admin-main">
+    <header class="admin-top">
+      <div class="admin-titlebar">
+        <button class="admin-menu-toggle" id="menuToggle" type="button" aria-label="Abrir menú" aria-controls="adminSidebar" aria-expanded="false"><i class="bi bi-list"></i></button>
+        <div><span class="eyebrow">Ale Atencio</span><h1 id="viewTitle">Dashboard</h1></div>
+      </div>
+      <div class="admin-top-actions">
+        <div class="notification-wrap">
+          <button class="notification-bell" id="notificationBell" type="button" aria-label="Abrir notificaciones" aria-expanded="false">
+            <i class="bi bi-bell"></i><span class="notification-badge hidden" id="notificationBadge">0</span>
+          </button>
+          <aside class="notification-panel hidden" id="notificationPanel" aria-label="Centro de notificaciones">
+            <div class="notification-panel-head">
+              <div><span class="eyebrow">Actividad</span><h3>Centro de notificaciones</h3></div>
+              <button class="icon-btn" id="closeNotifications" type="button" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="notification-tools">
+              <button class="notify-tool" id="notificationVoiceToggle" type="button"><i class="bi bi-volume-up"></i><span>Voz activada</span></button>
+              <button class="notify-tool" id="markAllNotifications" type="button"><i class="bi bi-check2-all"></i><span>Marcar todas</span></button>
+            </div>
+            <div class="notification-list" id="notificationList"><div class="notification-empty">No hay notificaciones nuevas.</div></div>
+          </aside>
+        </div>
+        <div class="admin-userbox"><img id="currentUserAvatar" src="logo-ale-icon-card.png" alt="Perfil"><div><strong id="currentUserName">Usuario</strong><small id="currentUserRole">Conectado</small></div><div class="online-pill"><span></span> Conectado</div></div>
+      </div>
+    </header>
+
+    <section class="admin-view active" id="view-dashboard">
+      <div class="kpi-grid"><div class="kpi-card"><span>Productos</span><strong id="kpiProducts">0</strong></div><div class="kpi-card"><span>Pedidos pendientes</span><strong id="kpiOrders">0</strong></div><div class="kpi-card"><span>Solicitudes nuevas</span><strong id="kpiRequests">0</strong></div><div class="kpi-card"><span>Stock total</span><strong id="kpiStock">0</strong></div></div>
+      <div class="admin-card"><h2>Resumen</h2><div id="dashboardSummary" class="summary-list"></div></div>
+    </section>
+
+    <section class="admin-view" id="view-products">
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Catálogo</span><h2>Productos</h2></div><div class="card-head-actions"><a class="btn btn-light" href="PLANTILLA_IMPORTACION_PRODUCTOS_ALE_ATENCIO.xlsx" download><i class="bi bi-file-earmark-excel"></i> Plantilla XLSX</a><button class="btn btn-light" id="importProductsXlsx" type="button"><i class="bi bi-upload"></i> Importar XLSX</button><button class="btn btn-primary" id="newProduct">+ Nuevo producto</button></div></div>
+        <div class="editor hidden" id="productEditor" role="dialog" aria-modal="true" aria-labelledby="productEditorTitle"><div class="editor-modal-head"><div><span class="eyebrow">Catálogo</span><h3 id="productEditorTitle">Editar producto</h3></div><button type="button" class="editor-close-x" id="closeProductEditorX" aria-label="Cerrar">×</button></div><input type="hidden" id="pId"><input type="hidden" id="pImageId"><input type="hidden" id="pImageUrl">
+          <div class="form-grid">
+            <label class="field-group"><span>Nombre del producto</span><input id="pName" placeholder="Ej. Torta Chocolate"></label>
+            <label class="field-group"><span>Precio</span><input id="pPrice" type="number" min="0" placeholder="0"></label>
+            <label class="field-group"><span>Categoría</span><select id="pCategory"></select></label>
+            <label class="field-group"><span>Stock</span><input id="pStock" type="number" min="0" placeholder="0"></label>
+            <label class="field-group"><span>Ocasión</span><input id="pOccasion" placeholder="Celebraciones, regalos..."></label>
+            <div class="field-group file-field" data-file-picker="image"><span>Foto</span><input id="pImage" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="pImage"><i class="bi bi-camera"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+            <label class="field-group span-2"><span>Descripción</span><textarea id="pDescription" placeholder="Descripción del producto"></textarea></label>
+          </div>
+          <label class="check"><input id="pFeatured" type="checkbox"> Mostrar como destacado</label>
+          <div class="editor-actions"><button class="btn btn-primary" id="saveProduct">Guardar</button><button class="btn btn-light" data-cancel="productEditor">Cancelar</button></div>
+        </div>
+        <div class="admin-toolbar product-toolbar"><input id="productSearch" placeholder="Buscar producto..."><select id="productFilter"><option value="">Todas las categorías</option></select><button class="btn btn-light" id="clearProductFilter" type="button">Ver todos</button></div>
+        <div class="product-results-meta" id="productResultsMeta">Mostrando todos los productos</div>
+        <div class="table-wrap" id="productsTable"></div>
+      </div>
+    </section>
+
+    <div class="editor hidden import-editor" id="productImportEditor" role="dialog" aria-modal="true" aria-labelledby="productImportTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Importación masiva</span><h3 id="productImportTitle">Importar productos desde XLSX</h3></div><button type="button" class="editor-close-x" id="closeProductImportX" aria-label="Cerrar">×</button></div>
+      <div class="import-help"><strong>1.</strong> Descarga la plantilla · <strong>2.</strong> completa tus productos · <strong>3.</strong> selecciona el XLSX · <strong>4.</strong> revisa la vista previa y confirma.</div>
+      <div class="field-group file-field" data-file-picker="xlsx"><span>Archivo XLSX</span><input id="productImportFile" class="file-input" type="file" accept=".xlsx,.xls"><label class="file-picker-btn" for="productImportFile"><i class="bi bi-file-earmark-excel"></i><span class="file-picker-text">Seleccionar XLSX</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+      <div class="import-summary" id="productImportSummary">Aún no se ha seleccionado un archivo.</div>
+      <div class="table-wrap import-preview" id="productImportPreview"></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="confirmProductImport" type="button" disabled><i class="bi bi-cloud-arrow-up"></i> Importar productos</button><button class="btn btn-light" id="cancelProductImport" type="button">Cancelar</button></div>
+    </div>
+
+    <section class="admin-view" id="view-categories">
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Organización</span><h2>Categorías</h2></div><button class="btn btn-primary" id="newCategory">+ Nueva categoría</button></div>
+        <div class="editor hidden" id="categoryEditor"><input type="hidden" id="cId"><input type="hidden" id="cImageId"><input type="hidden" id="cImageUrl"><div class="form-grid">
+          <label class="field-group"><span>Nombre de categoría</span><input id="cName" placeholder="Ej. Tortas"></label>
+          <label class="field-group"><span>Orden</span><input id="cOrder" type="number" min="0" placeholder="0"></label>
+          <div class="field-group file-field span-2" data-file-picker="image"><span>Imagen</span><input id="cImage" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="cImage"><i class="bi bi-image"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+          <label class="field-group span-2"><span>Descripción</span><textarea id="cDescription" placeholder="Descripción de la categoría"></textarea></label>
+        </div><div class="editor-actions"><button class="btn btn-primary" id="saveCategory">Guardar</button><button class="btn btn-light" data-cancel="categoryEditor">Cancelar</button></div></div>
+        <div class="table-wrap" id="categoriesTable"></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-banners">
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Portada</span><h2>Carrusel</h2></div><button class="btn btn-primary" id="newBanner">+ Nuevo banner</button></div>
+        <div class="editor hidden" id="bannerEditor"><input type="hidden" id="bId"><input type="hidden" id="bImageId"><input type="hidden" id="bImageUrl"><div class="form-grid">
+          <label class="field-group"><span>Título</span><input id="bTitle" placeholder="Título principal"></label>
+          <label class="field-group"><span>Subtítulo</span><input id="bSubtitle" placeholder="Texto secundario"></label>
+          <label class="field-group"><span>Texto del botón</span><input id="bCta" placeholder="Solicitar"></label>
+          <label class="field-group"><span>Enlace</span><input id="bLink" placeholder="#solicitud"></label>
+          <label class="field-group"><span>Orden</span><input id="bOrder" type="number" min="0" placeholder="0"></label>
+          <div class="field-group file-field" data-file-picker="image"><span>Imagen</span><input id="bImage" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="bImage"><i class="bi bi-image"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+        </div><div class="editor-actions"><button class="btn btn-primary" id="saveBanner">Guardar</button><button class="btn btn-light" data-cancel="bannerEditor">Cancelar</button></div></div>
+        <div class="table-wrap" id="bannersTable"></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-orders"><div class="admin-card"><span class="eyebrow">Ventas</span><h2>Pedidos</h2><div class="table-wrap" id="ordersTable"></div></div></section>
+    <section class="admin-view" id="view-requests"><div class="admin-card"><span class="eyebrow">Cotizaciones</span><h2>Solicitudes</h2><div class="table-wrap" id="requestsTable"></div></div></section>
+
+
+
+    <section class="admin-view" id="view-quotes">
+      <div class="admin-card">
+        <div class="card-head">
+          <div><span class="eyebrow">Ventas</span><h2>Cotizaciones</h2></div>
+          <button class="btn btn-primary" id="newQuote"><i class="bi bi-file-earmark-plus"></i> Nueva cotización</button>
+        </div>
+
+        <div class="editor hidden" id="quoteEditor" role="dialog" aria-modal="true" aria-labelledby="quoteEditorTitle">
+          <div class="editor-modal-head">
+            <div><span class="eyebrow">Documento comercial</span><h3 id="quoteEditorTitle">Cotización</h3></div>
+            <button type="button" class="editor-close-x" id="closeQuoteEditorX" aria-label="Cerrar">×</button>
+          </div>
+
+          <input type="hidden" id="qId">
+          <input type="hidden" id="qRequestId">
+          <input type="hidden" id="qPdfUrl">
+
+          <div class="quote-reference">
+            <div><span>N.º cotización</span><strong id="qNumber">Se asignará al guardar</strong></div>
+            <div><span>N.º solicitud</span><strong id="qRequestNumber">Sin solicitud asociada</strong></div>
+          </div>
+
+          <div class="quote-request-association">
+            <div class="field-group quote-request-field">
+              <span>Solicitud asociada</span>
+              <div class="request-combobox" id="requestCombobox">
+                <div class="request-combobox-control">
+                  <i class="bi bi-search" aria-hidden="true"></i>
+                  <input id="qRequestSearch" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="qRequestResults" placeholder="Buscar por N.º solicitud, cliente, teléfono o correo...">
+                  <button type="button" id="clearQuoteRequest" class="request-combobox-clear" title="Quitar solicitud asociada" aria-label="Quitar solicitud asociada"><i class="bi bi-x-lg"></i></button>
+                  <button type="button" id="toggleQuoteRequest" class="request-combobox-toggle" title="Ver solicitudes" aria-label="Ver solicitudes"><i class="bi bi-chevron-down"></i></button>
+                </div>
+                <div id="qRequestResults" class="request-combobox-results hidden" role="listbox"></div>
+              </div>
+              <small id="qRequestHelp" class="request-combobox-help">Busca por número, cliente, teléfono o correo. Puedes dejar la cotización sin solicitud asociada.</small>
+            </div>
+          </div>
+
+          <div class="form-grid quote-client-grid">
+            <label class="field-group"><span>Cliente</span><input id="qClient" placeholder="Nombre del cliente"></label>
+            <label class="field-group"><span>Teléfono / WhatsApp</span><input id="qPhone" placeholder="+56..."></label>
+            <label class="field-group"><span>Correo</span><input id="qEmail" type="email" placeholder="correo@cliente.cl"></label>
+            <label class="field-group"><span>Validez (días)</span><input id="qValidity" type="number" min="1" max="365" value="15"></label>
+            <label class="field-group"><span>IVA (%)</span><input id="qIva" type="number" min="0" max="100" step="0.01" value="19"></label>
+            <label class="field-group"><span>Estado</span><select id="qStatus"><option>BORRADOR</option><option>ENVIADA</option><option>ACEPTADA</option><option>RECHAZADA</option><option>VENCIDA</option><option>ANULADA</option></select></label>
+          </div>
+
+          <div class="quote-add-line">
+            <select id="quoteProductPicker"><option value="">Seleccionar producto del catálogo...</option></select>
+            <button class="btn btn-light" id="addQuoteProduct" type="button"><i class="bi bi-plus-lg"></i> Agregar producto</button>
+            <button class="btn btn-light" id="addQuoteLine" type="button"><i class="bi bi-pencil-square"></i> Línea libre</button>
+          </div>
+
+          <div class="quote-items-head"><span>Descripción</span><span>Cant.</span><span>Precio unitario</span><span>Total</span><span></span></div>
+          <div class="quote-items" id="quoteItems"></div>
+
+          <div class="quote-bottom-grid">
+            <label class="field-group"><span>Observaciones</span><textarea id="qObservations" placeholder="Condiciones, plazo de entrega, indicaciones..."></textarea></label>
+            <div class="quote-totals">
+              <div><span>Subtotal neto</span><strong id="qSubtotal">$0</strong></div>
+              <div><span id="qIvaLabel">IVA 19%</span><strong id="qIvaAmount">$0</strong></div>
+              <div class="quote-grand-total"><span>Total</span><strong id="qTotal">$0</strong></div>
+            </div>
+          </div>
+
+          <div class="editor-actions quote-actions">
+            <button class="btn btn-primary" id="saveQuote" type="button"><i class="bi bi-floppy"></i> Guardar cotización</button>
+            <button class="btn btn-light" id="generateQuotePdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar PDF</button>
+            <button class="btn btn-whatsapp" id="sendQuoteWhatsapp" type="button"><i class="bi bi-whatsapp"></i> Enviar por WhatsApp</button>
+            <button class="btn btn-light" data-cancel="quoteEditor" type="button">Cerrar</button>
+          </div>
+        </div>
+
+        <div class="table-wrap" id="quotesTable"></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-clients">
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Base comercial</span><h2>Clientes</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportClientsXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button><button class="btn btn-light" id="exportClientsPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF</button></div></div>
+        <div class="admin-toolbar client-toolbar"><input id="clientSearch" placeholder="Buscar por cliente, teléfono o correo..."><button class="btn btn-light" id="clearClientSearch" type="button">Ver todos</button></div>
+        <div class="product-results-meta" id="clientResultsMeta">Base de clientes</div>
+        <div class="table-wrap" id="clientsTable"></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-reports">
+      <div class="admin-card report-dashboard-card">
+        <div class="card-head report-main-head">
+          <div>
+            <span class="eyebrow">Analítica comercial</span>
+            <h2>Reportes de ventas y clientes</h2>
+            <p class="report-subtitle">Visualiza ventas, pedidos y comportamiento de clientes en un solo panel.</p>
+          </div>
+          <div class="card-head-actions report-export-actions">
+            <button class="btn btn-light" id="exportSalesXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> Ventas XLSX</button>
+            <button class="btn btn-light" id="exportSalesPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Ventas PDF</button>
+          </div>
+        </div>
+
+        <div class="report-filter-card">
+          <div class="report-filter-head">
+            <div>
+              <span class="eyebrow">Filtros</span>
+              <h3>Período y estado de venta</h3>
+              <p>Filtra el reporte sin perder la vista general del cPanel.</p>
+            </div>
+            <button class="btn btn-light report-reset-btn" id="resetReports" type="button"><i class="bi bi-arrow-counterclockwise"></i> Restablecer</button>
+          </div>
+          <div class="report-filters">
+            <label class="report-filter-field">
+              <span>Desde</span>
+              <div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportFrom" type="date"></div>
+            </label>
+            <label class="report-filter-field">
+              <span>Hasta</span>
+              <div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportTo" type="date"></div>
+            </label>
+            <label class="report-filter-field">
+              <span>Estado del pedido</span>
+              <div class="report-input-shell"><i class="bi bi-funnel"></i><select id="reportOrderStatus"><option value="ENTREGADO" selected>Ventas efectivas (ENTREGADO)</option><option value="">Todos</option><option>LISTO</option><option>EN PREPARACION</option><option>CONFIRMADO</option><option>PENDIENTE</option><option>CANCELADO</option></select></div>
+            </label>
+            <button class="btn btn-primary report-apply-btn" id="applyReports" type="button"><i class="bi bi-funnel-fill"></i><span>Aplicar filtros</span></button>
+          </div>
+          <div class="report-filter-summary" id="reportFilterSummary"><i class="bi bi-info-circle"></i><span>Mostrando ventas entregadas.</span></div>
+        </div>
+
+        <div class="report-kpis">
+          <div class="report-kpi-card sales"><span class="report-kpi-icon"><i class="bi bi-cash-stack"></i></span><div><small>Ventas</small><strong id="reportSalesTotal">$0</strong><em>Total del período</em></div></div>
+          <div class="report-kpi-card orders"><span class="report-kpi-icon"><i class="bi bi-bag-check"></i></span><div><small>Pedidos</small><strong id="reportOrdersCount">0</strong><em>Registros filtrados</em></div></div>
+          <div class="report-kpi-card clients"><span class="report-kpi-icon"><i class="bi bi-people"></i></span><div><small>Clientes registrados</small><strong id="reportClientsCount">0</strong><em>Base comercial</em></div></div>
+          <div class="report-kpi-card repeat"><span class="report-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><small>Clientes recurrentes</small><strong id="reportRepeatClients">0</strong><em>Con actividad repetida</em></div></div>
+        </div>
+
+        <div class="report-section-card">
+          <div class="report-section-head"><div><span class="eyebrow">Ventas</span><h3>Ventas por pedido</h3></div><span class="report-section-badge" id="salesRowsBadge">0 registros</span></div>
+          <div class="table-wrap report-table-wrap" id="salesReportTable"></div>
+        </div>
+
+        <div class="report-section-card">
+          <div class="report-section-head"><div><span class="eyebrow">Clientes</span><h3>Resumen de clientes</h3></div><span class="report-section-badge" id="clientRowsBadge">0 clientes</span></div>
+          <div class="table-wrap report-table-wrap" id="clientReportTable"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-users">
+      <div class="admin-card">
+        <div class="card-head"><div><span class="eyebrow">Acceso</span><h2>Usuarios del cPanel</h2></div><button class="btn btn-primary" id="newUser"><i class="bi bi-person-plus"></i> Nuevo usuario</button></div>
+        <div class="editor hidden" id="userEditor">
+          <input type="hidden" id="uId"><input type="hidden" id="uProfileId"><input type="hidden" id="uProfileUrl">
+          <div class="user-editor-grid">
+            <div class="profile-upload-box"><img id="uProfilePreview" src="logo-ale-icon-card.png" alt="Foto de perfil"><div class="field-group file-field" data-file-picker="image"><span>Foto de perfil</span><input id="uProfile" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="uProfile"><i class="bi bi-camera"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small></div></div>
+            <div class="form-grid">
+              <label class="field-group"><span>Nombre completo</span><input id="uName" placeholder="Nombre completo"></label>
+              <label class="field-group"><span>Usuario</span><input id="uUsername" placeholder="Usuario" autocomplete="off"></label>
+              <label class="field-group"><span>Rol</span><select id="uRole"><option value="ADMIN">Administrador</option><option value="EDITOR">Editor</option></select></label>
+              <label class="field-group"><span>Estado</span><select id="uActive"><option value="SI">Activo</option><option value="NO">Inactivo</option></select></label>
+              <label class="field-group span-2"><span>Contraseña</span><input id="uPassword" type="password" placeholder="Mínimo 8 caracteres; dejar vacío para conservar"></label>
+            </div>
+          </div>
+          <div class="editor-actions"><button class="btn btn-primary" id="saveUser">Guardar usuario</button><button class="btn btn-light" data-cancel="userEditor">Cancelar</button></div>
+        </div>
+        <div class="table-wrap" id="usersTable"></div>
+      </div>
+      <div class="admin-card password-card">
+        <span class="eyebrow">Mi acceso</span><h2>Cambiar mi contraseña</h2>
+        <div class="password-row"><label class="field-group"><span>Nueva contraseña</span><input id="myNewPassword" type="password" placeholder="Mínimo 8 caracteres"></label><button class="btn btn-primary" id="changeMyPassword">Actualizar contraseña</button></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-settings">
+      <div class="admin-card"><span class="eyebrow">Tienda</span><h2>Configuración</h2>
+        <input type="hidden" id="sLogoId">
+        <div class="form-grid">
+          <label class="field-group"><span>Nombre del negocio</span><input id="sBusiness" placeholder="Ale Atencio"></label>
+          <label class="field-group"><span>WhatsApp</span><input id="sWhatsapp" placeholder="+56..."></label>
+          <label class="field-group"><span>Correo</span><input id="sEmail" type="email" placeholder="correo@ejemplo.cl"></label>
+          <label class="field-group"><span>Dirección / retiro</span><input id="sAddress" placeholder="Dirección"></label>
+          <label class="field-group"><span>Instagram</span><input id="sInstagram" placeholder="https://instagram.com/..."></label>
+          <label class="field-group"><span>Facebook</span><input id="sFacebook" placeholder="https://facebook.com/..."></label>
+          <label class="field-group"><span>TikTok</span><input id="sTiktok" placeholder="https://tiktok.com/@..."></label>
+          <label class="field-group"><span>Valor despacho</span><input id="sDelivery" type="number" min="0" placeholder="0"></label>
+          <label class="field-group"><span>IVA cotizaciones (%)</span><input id="sIva" type="number" min="0" max="100" step="0.01" placeholder="19"></label>
+          <label class="field-group"><span>Validez cotización (días)</span><input id="sQuoteValidity" type="number" min="1" max="365" placeholder="15"></label>
+          <div class="span-2 form-help">Guarda aquí tus enlaces reales. La web mostrará únicamente WhatsApp y las redes sociales configuradas.</div>
+          <div class="field-group file-field span-2" data-file-picker="image"><span>Logo del negocio</span><input id="sLogo" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="sLogo"><i class="bi bi-image"></i><span class="file-picker-text">Seleccionar logo</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+        </div>
+        <button class="btn btn-primary" id="saveSettings">Guardar configuración</button>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
+<div class="toast" id="adminToast"></div>
+<script src="config.js?v=20260915-r911-hamburger-rail"></script><script src="api.js?v=20260915-r911-hamburger-rail"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260915-r911-hamburger-rail"></script>
+</body></html>

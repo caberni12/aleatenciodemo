@@ -1,0 +1,15 @@
+ALE ATENCIO · VALIDACION R9.10 ECOMMERCE
+=========================================
+
+[OK] Base R9.9 preservada.
+[OK] 101 imágenes producto presentes.
+[OK] 101 imágenes procesadas.
+[OK] Todas las imágenes producto quedan en 1200 x 1200 px.
+[OK] Formato JPEG RGB compatible con Web/GitHub.
+[OK] Nombres de los 101 archivos conservados.
+[OK] app.js sintaxis JavaScript válida.
+[OK] cpanel.js sintaxis JavaScript válida.
+[OK] Cache-busting local R9.10 incorporado.
+[OK] Sin cambios SQL.
+[OK] Sin cambios necesarios en Edge Function.
+[OK] ZIP GitHub plano.
