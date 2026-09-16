@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9172-sidebar-hover"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9180-transbank-webpay"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260916-r9172-sidebar-hover"><link rel="stylesheet" href="cpanel.css?v=20260916-r9172-sidebar-hover">
+  <link rel="stylesheet" href="styles.css?v=20260916-r9180-transbank-webpay"><link rel="stylesheet" href="cpanel.css?v=20260916-r9180-transbank-webpay">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -375,21 +375,25 @@
 
     <section class="admin-view" id="view-payments">
       <div class="admin-card payment-gateway-shell">
-        <div class="card-head"><div><span class="eyebrow">Pagos online</span><h2>Pasarela de pago</h2><p class="module-help">Transbank queda listo en modo Link de Pago: pega la URL oficial y guarda. Con eso el botón queda activo en el carrito; no requiere API Key para este flujo.</p></div></div>
+        <div class="card-head"><div><span class="eyebrow">Pagos online</span><h2>Pasarela de pago</h2><p class="module-help">Webpay Plus queda preparado para crear una transacción única por pedido. En el cPanel solo debes pegar la URL pública de tu tienda; el código de comercio y la API Key Secret permanecen únicamente en el servidor.</p></div></div>
         <div class="payment-provider-card">
           <div class="payment-provider-head">
             <div class="payment-provider-logo"><i class="bi bi-credit-card-2-front"></i></div>
-            <div><strong>Transbank · Webpay.cl</strong><small>Link de Pago / botón externo</small></div>
-            <span class="gateway-status" id="transbankStatus">Sin configurar</span>
+            <div><strong>Transbank · Webpay Plus</strong><small>Integración REST · token_ws · confirmación automática</small></div>
+            <span class="gateway-status" id="transbankStatus">Verificando…</span>
+          </div>
+          <div class="gateway-runtime-grid">
+            <div class="gateway-runtime-item"><span>Ambiente</span><strong id="transbankEnvironment">—</strong></div>
+            <div class="gateway-runtime-item"><span>Credenciales servidor</span><strong id="transbankCredentials">Verificando…</strong></div>
+            <div class="gateway-runtime-item"><span>Flujo</span><strong>Webpay Plus REST</strong></div>
           </div>
           <div class="form-grid payment-form-grid">
-            <label class="field-group"><span>Texto del botón</span><input id="pTransbankLabel" value="Pagar con Transbank" maxlength="80"></label>
-            <label class="field-group"><span>Activación</span><input id="pTransbankActivation" value="Automática al guardar una URL" readonly></label>
-            <label class="field-group span-2"><span>URL oficial del Link de Pago</span><input id="pTransbankUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://www.webpay.cl/..." aria-describedby="transbankUrlHelp"></label>
-            <div class="span-2 form-help" id="transbankUrlHelp">Copia desde Transbank la URL de “Link y botón de pago” y pégala aquí. Eso es todo: al guardar, el botón se activa automáticamente en el carrito. Para desactivarlo, borra la URL y guarda.</div>
+            <label class="field-group span-2"><span>URL pública de tu tienda</span><input id="pTransbankReturnUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://tu-dominio.cl/" aria-describedby="transbankUrlHelp"></label>
+            <div class="span-2 form-help" id="transbankUrlHelp">Esta es la única URL que debes pegar aquí. Después del pago, el backend confirma la transacción con Transbank y redirige al cliente nuevamente a esta dirección. Debe comenzar con <b>https://</b>.</div>
           </div>
-          <div class="gateway-actions"><button class="btn btn-primary" id="savePayments"><i class="bi bi-floppy"></i> Guardar Transbank</button><button class="btn btn-light" id="testTransbankLink" type="button"><i class="bi bi-box-arrow-up-right"></i> Probar enlace</button></div>
-          <div class="gateway-flow"><span><b>1.</b> Cliente agrega productos</span><i class="bi bi-arrow-right"></i><span><b>2.</b> Pulsa Transbank en carrito</span><i class="bi bi-arrow-right"></i><span><b>3.</b> Registra pedido</span><i class="bi bi-arrow-right"></i><span><b>4.</b> Sale al Link de Pago</span></div>
+          <div class="integration-note transbank-secret-note"><i class="bi bi-shield-lock"></i><span><strong>Las credenciales no se guardan en el navegador ni en la base pública.</strong> En producción el servidor usa <code>TRANSBANK_COMMERCE_CODE</code> y <code>TRANSBANK_API_KEY_SECRET</code> como Secrets.</span></div>
+          <div class="gateway-actions"><button class="btn btn-primary" id="savePayments"><i class="bi bi-floppy"></i> Guardar URL</button><button class="btn btn-light" id="testTransbankLink" type="button"><i class="bi bi-shield-check"></i> Verificar configuración</button></div>
+          <div class="gateway-flow"><span><b>1.</b> Pedido registrado</span><i class="bi bi-arrow-right"></i><span><b>2.</b> Backend crea transacción</span><i class="bi bi-arrow-right"></i><span><b>3.</b> Transbank entrega token_ws</span><i class="bi bi-arrow-right"></i><span><b>4.</b> Cliente paga</span><i class="bi bi-arrow-right"></i><span><b>5.</b> Backend confirma y marca PAGADO</span></div>
         </div>
       </div>
     </section>
@@ -420,5 +424,5 @@
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260916-r9172-sidebar-hover"></script><script src="api.js?v=20260916-r9172-sidebar-hover"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9172-sidebar-hover"></script>
+<script src="config.js?v=20260916-r9180-transbank-webpay"></script><script src="api.js?v=20260916-r9180-transbank-webpay"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9180-transbank-webpay"></script>
 </body></html>

@@ -1775,3 +1775,16 @@ body.order-detail-open{overflow:hidden}
   }
   .admin-body.sidebar-hover-open .admin-sidebar::after{opacity:0}
 }
+
+
+/* R9.18.0 · Webpay Plus real */
+.gateway-runtime-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 18px}
+.gateway-runtime-item{padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:#fff;display:grid;gap:5px}
+.gateway-runtime-item span{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:800}
+.gateway-runtime-item strong{font-size:14px;color:var(--ink)}
+.gateway-runtime-item strong.is-ok{color:#237544}.gateway-runtime-item strong.is-error{color:#9b3b36}
+.gateway-status.is-warning{background:#fff4dc;color:#8b6416}
+.transbank-secret-note code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;background:#fff;padding:2px 5px;border-radius:6px;border:1px solid var(--line)}
+.payment-status-badge{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.02em;background:#f1ece8;color:#6f625c;white-space:nowrap}
+.payment-pagado{background:#eaf8ef;color:#237544}.payment-rechazado,.payment-cancelado{background:#fdeceb;color:#9b3b36}.payment-iniciado,.payment-verificacion-pendiente{background:#fff4dc;color:#8b6416}
+@media(max-width:760px){.gateway-runtime-grid{grid-template-columns:1fr}}

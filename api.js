@@ -131,9 +131,12 @@
 
     async postPublic(action, data = {}) {
       const a=String(action||"").toLowerCase();
-      const timeoutMs=a==="createorder"?40000:a==="createrequest"?18000:undefined;
+      const timeoutMs=a==="createorder"?40000:a==="transbankcreate"?20000:a==="createrequest"?18000:undefined;
       return request(action, data, "", {timeoutMs});
     },
+
+    async transbankCreate(data = {}) { return request("transbankcreate", data, "", {timeoutMs:20000}); },
+    async transbankStatus(data = {}) { return request("transbankstatus", data, "", {timeoutMs:12000}); },
 
     async login(username, password) {
       const user = String(username || "admin").trim() || "admin";
