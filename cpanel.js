@@ -678,7 +678,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260916-r9188-seguimiento-premium";
+const CPANEL_MEDIA_VERSION="20260916-r91811-reportes-autoreparable";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1359,7 +1359,7 @@ async function loadReports(silent=false){
   }catch(err){
     console.warn("salesreport",err);reportAnalytics=null;
     const code=String(err?.message||err||"ERROR_DESCONOCIDO").replace(/^Error:\s*/i,"");
-    if(!silent)toast(code==="API_TIMEOUT"?"El reporte tardó demasiado. Reintentando conexión…":"No fue posible actualizar los reportes");
+    if(!silent){const shortCode=code.slice(0,140);toast(code==="API_TIMEOUT"?"El reporte tardó demasiado. Reintentando conexión…":`No fue posible actualizar los reportes · ${shortCode}`);}
     if($("#reportFilterSummary"))$("#reportFilterSummary").innerHTML=`<i class="bi bi-exclamation-triangle"></i><span>No se pudo consultar la analítica de ventas. <small>${esc(code)}</small></span>`;
   }finally{reportLoading=false;if(btn&&!silent)endBusy(btn)}
 }
@@ -1373,7 +1373,7 @@ function renderReports(){
   set("#reportMonthPct",`${Number(k.month_change_pct||0)>=0?"+":""}${Number(k.month_change_pct||0)}%`);set("#reportMonthCompareSales",money(k.sales_month));set("#reportPrevMonthSales",`Anterior: ${money(k.sales_same_month_previous_year)}`);setReportCircle("#reportMonthCircle",k.month_change_pct);
   set("#reportTopCustomer",r.top_customer?.nombre||"—");set("#reportTopCustomerTotal",money(r.top_customer?.total||0));set("#reportTopCustomerMeta",r.top_customer?`${r.top_customer.compras} compra${r.top_customer.compras===1?"":"s"}`:"Sin compras");
   set("#topProductsTitle",`Top ${limit} productos`);set("#topProductsBadge",String(top.length));set("#salesRowsBadge",`${orders.length} registro${orders.length===1?"":"s"}`);set("#clientRowsBadge",`${customers.length} cliente${customers.length===1?"":"s"}`);
-  if($("#reportFilterSummary"))$("#reportFilterSummary").innerHTML=`<i class="bi bi-check-circle"></i><span>${orders.length} venta${orders.length===1?"":"s"} pagada${orders.length===1?"":"s"} · ${esc(r.filters?.from||"")} a ${esc(r.filters?.to||"")} · Actualizado ${esc(new Date(r.generated_at).toLocaleTimeString("es-CL"))}</span>`;
+  if($("#reportFilterSummary")){const bv=esc(r.diagnostics?.backend_version||"");$("#reportFilterSummary").innerHTML=`<i class="bi bi-check-circle"></i><span>${orders.length} venta${orders.length===1?"":"s"} pagada${orders.length===1?"":"s"} · ${esc(r.filters?.from||"")} a ${esc(r.filters?.to||"")} · Actualizado ${esc(new Date(r.generated_at).toLocaleTimeString("es-CL"))}${bv?` · ${bv}`:""}</span>`;}
   if($("#topProductsTable"))$("#topProductsTable").innerHTML=table(["#","Producto","Unidades","Pedidos","Ventas"],top.map((p,i)=>`<tr><td><strong>${i+1}</strong></td><td><strong>${esc(p.producto_nombre)}</strong></td><td>${Number(p.cantidad||0)}</td><td>${Number(p.pedidos||0)}</td><td><strong>${money(p.ventas)}</strong></td></tr>`).join(""));
   if($("#highDemandTable"))$("#highDemandTable").innerHTML=table(["Producto","30 días","30 días prev.","Variación"],demand.slice(0,10).map(p=>`<tr><td><strong>${esc(p.producto_nombre)}</strong></td><td>${Number(p.actual||0)}</td><td>${Number(p.anterior||0)}</td><td><span class="demand-change ${Number(p.crecimiento_pct||0)>=0?"up":"down"}">${Number(p.crecimiento_pct||0)>=0?"+":""}${Number(p.crecimiento_pct||0)}%</span></td></tr>`).join(""));
   if($("#clientReportTable"))$("#clientReportTable").innerHTML=table(["#","Cliente","RUT","Compras","Total comprado"],customers.slice(0,50).map((c,i)=>`<tr><td>${i+1}</td><td><strong>${esc(c.nombre||"")}</strong></td><td>${esc(c.rut?formatRutChile(c.rut):"-")}</td><td>${Number(c.compras||0)}</td><td><strong>${money(c.total||0)}</strong></td></tr>`).join(""));
