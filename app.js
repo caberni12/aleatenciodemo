@@ -11,7 +11,7 @@ const isProductActive = p => {
   const v=String(p.activo??"SI").trim().toUpperCase();
   return !["NO","FALSE","0","INACTIVO"].includes(v);
 };
-const MEDIA_VERSION = "20260916-r9187-seguimiento-reportes";
+const MEDIA_VERSION = "20260916-r9188-seguimiento-premium";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -404,8 +404,15 @@ function paymentLabel(v){const s=String(v||"PENDIENTE").toUpperCase();return({PE
 function trackingTimeline(order){
   const status=String(order.estado||"PENDIENTE").toUpperCase(),paid=String(order.estado_pago||"").toUpperCase()==="PAGADO";
   const rank={PENDIENTE:0,CONFIRMADO:1,"EN PREPARACION":2,LISTO:3,ENTREGADO:4,CANCELADO:-1};const current=rank[status]??0;
-  const steps=[{label:"Pedido recibido",done:true},{label:"Pago confirmado",done:paid},{label:"En preparación",done:current>=2},{label:"Listo para entrega",done:current>=3},{label:"Entregado",done:current>=4}];
-  return `<div class="tracking-timeline">${steps.map((x,i)=>`<div class="tracking-step ${x.done?"done":(!x.done&&((i===1&&!paid)||(i>=2&&current===i))?"current":"")}"><span class="tracking-step-dot">${x.done?'<i class="bi bi-check-lg"></i>':i+1}</span><div><strong>${esc(x.label)}</strong>${i===1&&order.fecha_pago?`<small>${esc(new Date(order.fecha_pago).toLocaleString("es-CL"))}</small>`:""}</div></div>`).join("")}</div>`;
+  const steps=[
+    {label:"Pedido recibido",done:true,meta:order.fecha?new Date(order.fecha).toLocaleString("es-CL"):""},
+    {label:"Pago confirmado",done:paid,meta:paid&&order.fecha_pago?new Date(order.fecha_pago).toLocaleString("es-CL"):""},
+    {label:"En preparación",done:current>=2,meta:""},
+    {label:"Listo para entrega",done:current>=3,meta:""},
+    {label:"Entregado",done:current>=4,meta:""}
+  ];
+  const activeIndex=status==="CANCELADO"?-1:(current>=4?4:current>=3?3:current>=2?2:paid?1:0);
+  return `<div class="tracking-progress" aria-label="Línea de tiempo del pedido"><div class="tracking-progress-title"><i class="bi bi-clock-history"></i><span>Seguimiento del pedido</span></div><div class="tracking-timeline">${steps.map((x,i)=>`<div class="tracking-step ${x.done?"done":""} ${i===activeIndex?"current":""}"><span class="tracking-step-dot" aria-hidden="true">${x.done?'<i class="bi bi-check-lg"></i>':''}</span><div class="tracking-step-copy"><strong>${esc(x.label)}</strong>${x.meta?`<small>${esc(x.meta)}</small>`:""}</div></div>`).join("")}</div></div>`;
 }
 function trackingRouteData(){
   const raw=location.hash.replace(/^#seguimiento\/?/,"")||"",qPos=raw.indexOf("?");
@@ -414,8 +421,20 @@ function trackingRouteData(){
 }
 function trackingView(){
   const route=trackingRouteData();
-  return `<section class="view-hero tracking-hero"><div class="view-hero-inner"><span class="eyebrow">Seguimiento</span><h1>Consulta tu pedido</h1><p>Busca por RUT o número de pedido y revisa su avance.</p></div></section>
-  <section class="section tracking-section"><div class="tracking-search-card"><div><span class="eyebrow">Estado en línea</span><h2>¿Dónde va mi pedido?</h2><p>Ingresa tu RUT o número de pedido. Si no abriste el enlace seguro de tu compra, valida con el teléfono usado en el pedido.</p></div><form id="trackingForm" class="tracking-form"><input id="trackingQuery" value="${esc(route.ref)}" placeholder="RUT o N.º de pedido" autocomplete="off"><input id="trackingPhone" inputmode="tel" placeholder="Teléfono de compra (verificación)" autocomplete="tel"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Consultar</button></form><div id="trackingMessage" class="tracking-message"></div></div><div id="trackingResults" class="tracking-results"></div></section>${footer()}`;
+  return `<section class="view-hero tracking-hero"><div class="view-hero-inner"><span class="eyebrow">Seguimiento</span><h1>Consulta tu pedido</h1><p>Revisa el estado de tu compra de forma rápida y segura.</p></div></section>
+  <section class="section tracking-section">
+    <div class="tracking-search-card">
+      <div class="tracking-search-heading"><span class="tracking-search-icon"><i class="bi bi-box-seam"></i></span><div><span class="eyebrow">Estado en línea</span><h2>¿Dónde va mi pedido?</h2><p>Consulta el avance, el estado del pago y la entrega en un solo lugar.</p></div></div>
+      <div class="tracking-security-note"><span class="tracking-security-icon"><i class="bi bi-shield-check"></i></span><div><strong>Consulta protegida</strong><span>Usa tu RUT o número de pedido. Si entras sin el enlace privado de compra, te pediremos el teléfono registrado para validar tu identidad.</span></div></div>
+      <form id="trackingForm" class="tracking-form">
+        <label class="tracking-field"><span>RUT o N.º de pedido</span><div class="tracking-input-wrap"><i class="bi bi-search"></i><input id="trackingQuery" value="${esc(route.ref)}" placeholder="Ej. 12.345.678-9 o PED-000012" autocomplete="off"></div></label>
+        <label class="tracking-field"><span>Teléfono de compra</span><div class="tracking-input-wrap"><i class="bi bi-telephone"></i><input id="trackingPhone" inputmode="tel" placeholder="Solo si se solicita verificación" autocomplete="tel"></div></label>
+        <button class="btn btn-primary tracking-submit" type="submit"><i class="bi bi-arrow-right-circle"></i><span>Consultar pedido</span></button>
+      </form>
+      <div id="trackingMessage" class="tracking-message" aria-live="polite"></div>
+    </div>
+    <div id="trackingResults" class="tracking-results"></div>
+  </section>${footer()}`;
 }
 function renderTrackingResults(orders){
   const host=$("#trackingResults");if(!host)return;if(!orders?.length){host.innerHTML='<div class="empty-card">No encontramos pedidos con esos datos.</div>';return}
