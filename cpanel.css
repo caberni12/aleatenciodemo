@@ -1788,3 +1788,41 @@ body.order-detail-open{overflow:hidden}
 .payment-status-badge{display:inline-flex;align-items:center;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:900;letter-spacing:.02em;background:#f1ece8;color:#6f625c;white-space:nowrap}
 .payment-pagado{background:#eaf8ef;color:#237544}.payment-rechazado,.payment-cancelado{background:#fdeceb;color:#9b3b36}.payment-iniciado,.payment-verificacion-pendiente{background:#fff4dc;color:#8b6416}
 @media(max-width:760px){.gateway-runtime-grid{grid-template-columns:1fr}}
+
+
+/* =========================================================
+   R9.18.6 · MONTOS LINEALES EN TODOS LOS MÓDULOS
+   Evita cortes como $40.0 / 00 y mantiene CLP en una línea.
+   ========================================================= */
+.admin-table th.money-column,
+.admin-table td.money-column{
+  white-space:nowrap !important;
+  word-break:normal !important;
+  overflow-wrap:normal !important;
+  min-width:118px !important;
+  width:1% !important;
+  font-variant-numeric:tabular-nums;
+}
+.admin-table td.money-column strong,
+.admin-table td.money-column span,
+.admin-table td.money-column a{
+  white-space:nowrap !important;
+  word-break:normal !important;
+  overflow-wrap:normal !important;
+}
+.order-detail-line>span:nth-child(3),
+.order-detail-line>span:nth-child(4),
+.order-detail-totals strong,
+.quote-line-total,
+.quote-totals strong,
+.product-preview-price,
+.report-kpi-card strong{
+  white-space:nowrap !important;
+  word-break:normal !important;
+  overflow-wrap:normal !important;
+  font-variant-numeric:tabular-nums;
+}
+@media (max-width:760px){
+  .admin-table th.money-column,
+  .admin-table td.money-column{min-width:104px !important;}
+}

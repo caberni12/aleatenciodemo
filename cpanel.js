@@ -625,7 +625,36 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-const CPANEL_MEDIA_VERSION="20260916-r9160-rut-orders-pdf";
+
+// R9.18.6 · Montos siempre lineales en todos los módulos/tablas del cPanel.
+const MONEY_COLUMN_TOKENS=["total","subtotal","precio","p unitario","monto","valor","costo","iva","despacho","saldo","importe","total comprado"];
+function adminHeaderKey(value){return normalizeText(String(value||"").replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ0-9 ]/g," ")).replace(/\s+/g," ").trim()}
+function isMoneyColumnHeader(value){const key=adminHeaderKey(value);return MONEY_COLUMN_TOKENS.some(token=>key===token||key.startsWith(token+" ")||key.endsWith(" "+token))}
+function decorateMoneyColumns(scope=document){
+  const tables=[];
+  if(scope?.matches?.("table.admin-table"))tables.push(scope);
+  if(scope?.querySelectorAll)tables.push(...scope.querySelectorAll("table.admin-table"));
+  [...new Set(tables)].forEach(tbl=>{
+    const headers=[...tbl.querySelectorAll("thead th")];
+    headers.forEach((th,index)=>{
+      if(!isMoneyColumnHeader(th.textContent))return;
+      th.classList.add("money-column");
+      tbl.querySelectorAll("tbody tr").forEach(tr=>tr.children[index]?.classList?.add("money-column"));
+    });
+  });
+}
+function scheduleMoneyColumns(){requestAnimationFrame(()=>decorateMoneyColumns(document))}
+const moneyColumnObserver=new MutationObserver(mutations=>{
+  let needsRefresh=false;
+  for(const mutation of mutations){
+    if(mutation.addedNodes?.length){needsRefresh=true;break}
+  }
+  if(needsRefresh)scheduleMoneyColumns();
+});
+if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
+else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
+
+const CPANEL_MEDIA_VERSION="20260916-r9186-montos-lineales-global";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;

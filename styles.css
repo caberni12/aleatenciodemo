@@ -2231,3 +2231,19 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
 .checkout-payment-intent{display:flex;align-items:center;gap:10px;margin:14px 0;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fbf8ff;color:var(--cocoa);font-size:13px;font-weight:700}
 .order-success-panel .btn-transbank{margin-top:9px}
 @media(max-width:620px){#solicitud-formulario{scroll-margin-top:82px}.request-layout{gap:14px}.request-card,.request-form{padding:20px;border-radius:20px}}
+
+
+/* R9.18.6 · Precios y totales CLP siempre en una sola línea */
+.price,
+.cart-item small,
+.cart-summary>div>span:last-child,
+.cart-summary>div>strong:last-child,
+.grand-total,
+#cartSubtotal,
+#cartDelivery,
+#cartTotal{
+  white-space:nowrap !important;
+  word-break:normal !important;
+  overflow-wrap:normal !important;
+  font-variant-numeric:tabular-nums;
+}
