@@ -204,6 +204,21 @@
       return request("generateorderpdf", {id:String(id||"")}, token, {timeoutMs:45000});
     },
 
+    async salesReport(data = {}, token = "") {
+      let lastErr = null;
+      for (const timeoutMs of [20000, 45000]) {
+        try { return await request("salesreport", data, token, {timeoutMs}); }
+        catch (err) {
+          lastErr = err;
+          const code=String(err?.message||err||"").toUpperCase();
+          const transient=["API_TIMEOUT","API_CONEXION_FALLIDA","HTTP_502","HTTP_503","HTTP_504"].some(x=>code.includes(x));
+          if(!transient) throw err;
+          await sleep(500);
+        }
+      }
+      throw lastErr || makeError("REPORTE_SIN_RESPUESTA");
+    },
+
     async backendStatus() {
       try {
         const out = await pingReliable();

@@ -1351,7 +1351,17 @@ function reportFilters(){const def=reportDefaultDates();return{from:$("#reportFr
 function setReportCircle(id,pct){const el=$(id);if(!el)return;const n=Number(pct||0);el.style.setProperty("--pct",String(Math.min(100,Math.abs(n))));el.classList.toggle("negative",n<0);el.classList.toggle("positive",n>=0)}
 async function loadReports(silent=false){
   if(reportLoading)return;reportLoading=true;const btn=$("#refreshReports");if(btn&&!silent)beginBusy(btn);
-  try{const out=await AleAPI.post("salesreport",reportFilters(),token);reportAnalytics=out;renderReports()}catch(err){console.warn("salesreport",err);if(!silent)toast("No fue posible actualizar los reportes");if($("#reportFilterSummary"))$("#reportFilterSummary").innerHTML='<i class="bi bi-exclamation-triangle"></i><span>No se pudo consultar la analítica de ventas.</span>'}finally{reportLoading=false;if(btn&&!silent)endBusy(btn)}
+  try{
+    const filters=reportFilters();
+    const out=AleAPI.salesReport?await AleAPI.salesReport(filters,token):await AleAPI.post("salesreport",filters,token);
+    if(!out?.ok)throw new Error(out?.error||"REPORTE_RESPUESTA_INVALIDA");
+    reportAnalytics=out;renderReports();
+  }catch(err){
+    console.warn("salesreport",err);reportAnalytics=null;
+    const code=String(err?.message||err||"ERROR_DESCONOCIDO").replace(/^Error:\s*/i,"");
+    if(!silent)toast(code==="API_TIMEOUT"?"El reporte tardó demasiado. Reintentando conexión…":"No fue posible actualizar los reportes");
+    if($("#reportFilterSummary"))$("#reportFilterSummary").innerHTML=`<i class="bi bi-exclamation-triangle"></i><span>No se pudo consultar la analítica de ventas. <small>${esc(code)}</small></span>`;
+  }finally{reportLoading=false;if(btn&&!silent)endBusy(btn)}
 }
 function renderReports(){
   if(!reportAnalytics){const def=reportDefaultDates();if($("#reportFrom")&&!$("#reportFrom").value)$("#reportFrom").value=def.from;if($("#reportTo")&&!$("#reportTo").value)$("#reportTo").value=def.to;return}
