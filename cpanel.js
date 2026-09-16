@@ -184,12 +184,25 @@ async function deleteSelected(kind,btn){
 }
 
 
-// Menú lateral R9.5: fijo, scroll independiente y hamburguesa siempre visible.
+// Menú lateral R9.17.2: rail compacto + expansión automática por cursor.
 const adminSidebar=$("#adminSidebar"), sidebarBackdrop=$("#sidebarBackdrop"), menuToggle=$("#menuToggle"), sidebarClose=$("#sidebarClose"), sidebarRailToggle=$("#sidebarRailToggle");
-const SIDEBAR_COLLAPSED_KEY="aleAtencioSidebarCollapsedR97";
 const sidebarIsMobile=()=>window.matchMedia("(max-width: 1000px)").matches;
+let sidebarHoverCloseTimer=null;
+
+function syncSidebarA11y(open){
+  const next=!!open;
+  menuToggle?.setAttribute("aria-expanded",String(next));
+  sidebarRailToggle?.setAttribute("aria-expanded",String(next));
+  if(menuToggle)menuToggle.setAttribute("aria-label",next?"Cerrar menú":"Abrir menú");
+  if(sidebarRailToggle){
+    sidebarRailToggle.setAttribute("aria-label",next?"Menú expandido":"Expandir menú");
+    sidebarRailToggle.title=next?"Menú expandido":"Expandir menú";
+  }
+}
+
 function setSidebarOpen(open){
   if(!adminSidebar)return;
+  clearTimeout(sidebarHoverCloseTimer);
   if(sidebarIsMobile()){
     const next=!!open;
     adminSidebar.classList.toggle("is-open",next);
@@ -197,38 +210,62 @@ function setSidebarOpen(open){
     document.body.classList.toggle("menu-open",next);
     document.body.classList.toggle("sidebar-peek-open",next);
     document.body.classList.remove("sidebar-collapsed");
-    menuToggle?.setAttribute("aria-expanded",String(next));
-    if(menuToggle)menuToggle.setAttribute("aria-label",next?"Cerrar menú":"Abrir menú");
+    syncSidebarA11y(next);
     return;
   }
   const next=!!open;
   document.body.classList.toggle("sidebar-collapsed",!next);
+  document.body.classList.toggle("sidebar-hover-open",next);
   adminSidebar.classList.remove("is-open");
   sidebarBackdrop?.classList.remove("is-open");
-  document.body.classList.remove("menu-open");
-  document.body.classList.remove("sidebar-peek-open");
-  localStorage.setItem(SIDEBAR_COLLAPSED_KEY,next?"0":"1");
-  menuToggle?.setAttribute("aria-expanded",String(next));
-  if(menuToggle)menuToggle.setAttribute("aria-label",next?"Ocultar menú":"Mostrar menú");
-  sidebarRailToggle?.setAttribute("aria-expanded",String(next));
-  if(sidebarRailToggle){
-    sidebarRailToggle.setAttribute("aria-label",next?"Menú expandido":"Expandir menú");
-    sidebarRailToggle.title=next?"Menú expandido":"Expandir menú";
-  }
+  document.body.classList.remove("menu-open","sidebar-peek-open");
+  syncSidebarA11y(next);
 }
+
+function scheduleSidebarCollapse(){
+  if(sidebarIsMobile())return;
+  clearTimeout(sidebarHoverCloseTimer);
+  sidebarHoverCloseTimer=setTimeout(()=>{
+    // Si el usuario navega con teclado dentro del menú, se mantiene abierto.
+    if(adminSidebar?.contains(document.activeElement))return;
+    setSidebarOpen(false);
+  },140);
+}
+
 function restoreSidebarState(){
-  if(sidebarIsMobile()) setSidebarOpen(false);
-  else setSidebarOpen(localStorage.getItem(SIDEBAR_COLLAPSED_KEY)==="0");
+  // Escritorio siempre inicia como rail compacto. En móvil permanece off-canvas.
+  setSidebarOpen(false);
 }
+
+// Escritorio: entrar con el cursor abre; salir vuelve automáticamente al ancho de iconos.
+adminSidebar?.addEventListener("pointerenter",()=>{
+  if(sidebarIsMobile())return;
+  clearTimeout(sidebarHoverCloseTimer);
+  setSidebarOpen(true);
+});
+adminSidebar?.addEventListener("pointerleave",scheduleSidebarCollapse);
+
+// Accesibilidad por teclado: el rail también se expande al recibir foco.
+adminSidebar?.addEventListener("focusin",()=>{if(!sidebarIsMobile())setSidebarOpen(true)});
+adminSidebar?.addEventListener("focusout",e=>{
+  if(sidebarIsMobile())return;
+  if(adminSidebar?.contains(e.relatedTarget))return;
+  scheduleSidebarCollapse();
+});
+
 menuToggle?.addEventListener("click",()=>{
   if(sidebarIsMobile()) setSidebarOpen(!adminSidebar.classList.contains("is-open"));
-  else setSidebarOpen(document.body.classList.contains("sidebar-collapsed"));
+  else setSidebarOpen(true);
 });
 sidebarRailToggle?.addEventListener("click",()=>setSidebarOpen(true));
 sidebarClose?.addEventListener("click",()=>setSidebarOpen(false));
 sidebarBackdrop?.addEventListener("click",()=>setSidebarOpen(false));
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&sidebarIsMobile())setSidebarOpen(false)});
+document.addEventListener("keydown",e=>{
+  if(e.key!=="Escape")return;
+  setSidebarOpen(false);
+});
 window.addEventListener("resize",restoreSidebarState);
+
 // Tooltips accesibles para el rail compacto de escritorio.
 $$('.admin-nav button').forEach(btn=>{const label=btn.textContent.trim();if(label){btn.title=label;btn.setAttribute('aria-label',label)}});
 $$('.sidebar-bottom .btn').forEach(btn=>{const label=btn.textContent.trim();if(label){btn.title=label;btn.setAttribute('aria-label',label)}});

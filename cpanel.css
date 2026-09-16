@@ -1729,3 +1729,49 @@ body.order-detail-open{overflow:hidden}
   #view-integrations .integration-card .field-group input[type="url"]{min-height:48px;font-size:16px}
   #view-payments .payment-form-grid .field-group input{font-size:16px}
 }
+
+
+/* ========================================================================
+   R9.17.2 · SIDEBAR HOVER FLOW
+   Escritorio: rail compacto estable de 76 px. Al entrar con cursor/foco,
+   se expande a 270 px sobre el contenido; al salir vuelve al rail.
+   Móvil/tablet conserva el flujo off-canvas existente.
+   ======================================================================== */
+@media (min-width:1001px){
+  .admin-sidebar{
+    will-change:width,box-shadow;
+    transition:width .18s cubic-bezier(.2,.8,.2,1),padding .18s cubic-bezier(.2,.8,.2,1),box-shadow .18s ease!important;
+  }
+  .admin-body.sidebar-collapsed .admin-sidebar{
+    width:var(--aa-sidebar-mini)!important;
+    padding:18px 10px!important;
+  }
+  .admin-body.sidebar-hover-open .admin-sidebar{
+    width:var(--aa-sidebar-open)!important;
+    padding:22px 16px!important;
+    box-shadow:18px 0 42px rgba(35,24,20,.16)!important;
+  }
+  /* El contenido nunca salta ni cambia de ancho durante el hover. */
+  .admin-body.sidebar-hover-open .admin-main,
+  .admin-body.sidebar-collapsed .admin-main{
+    margin-left:var(--aa-sidebar-mini)!important;
+    transform:none!important;
+  }
+  /* Con hover automático ya no hace falta un segundo botón hamburguesa dentro del rail. */
+  .sidebar-rail-toggle{display:none!important}
+  .admin-body.sidebar-collapsed .sidebar-rail-toggle{display:none!important}
+
+  /* Microfeedback visual del rail compacto para indicar que es interactivo. */
+  .admin-body.sidebar-collapsed .admin-sidebar::after{
+    content:"";
+    position:fixed;
+    left:calc(var(--aa-sidebar-mini) - 3px);
+    top:0;
+    width:3px;
+    height:100dvh;
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.18),rgba(255,255,255,.05));
+    pointer-events:none;
+    opacity:.65;
+  }
+  .admin-body.sidebar-hover-open .admin-sidebar::after{opacity:0}
+}
