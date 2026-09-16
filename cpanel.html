@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260915-r9149-uniform-product-images"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9150-bulk-delete"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260915-r9149-uniform-product-images"><link rel="stylesheet" href="cpanel.css?v=20260915-r9149-uniform-product-images">
+  <link rel="stylesheet" href="styles.css?v=20260916-r9150-bulk-delete"><link rel="stylesheet" href="cpanel.css?v=20260916-r9150-bulk-delete">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -103,6 +103,10 @@
         </div>
         <div class="admin-toolbar product-toolbar"><input id="productSearch" placeholder="Buscar producto..."><select id="productFilter"><option value="">Todas las categorías</option></select><select id="productStatusFilter"><option value="">Todos los estados</option><option value="SI">Activo</option><option value="NO">Inactivo</option></select><button class="btn btn-light" id="clearProductFilter" type="button">Ver todos</button></div>
         <div class="product-results-meta" id="productResultsMeta">Mostrando todos los productos</div>
+        <div class="bulk-actions hidden" id="productsBulkBar">
+          <div class="bulk-actions-info"><i class="bi bi-check2-square"></i><strong id="productsSelectedCount">0 seleccionados</strong><span>Puedes seleccionar varias filas y eliminarlas en una sola operación.</span></div>
+          <button class="btn btn-danger-soft" id="deleteSelectedProducts" type="button"><i class="bi bi-trash3"></i> Eliminar seleccionados</button>
+        </div>
         <div class="table-wrap" id="productsTable"></div>
       </div>
     </section>
@@ -143,7 +147,12 @@
     </section>
 
     <section class="admin-view" id="view-orders"><div class="admin-card"><span class="eyebrow">Ventas</span><h2>Pedidos</h2><div class="table-wrap" id="ordersTable"></div></div></section>
-    <section class="admin-view" id="view-requests"><div class="admin-card"><span class="eyebrow">Cotizaciones</span><h2>Solicitudes</h2><div class="table-wrap" id="requestsTable"></div></div></section>
+    <section class="admin-view" id="view-requests"><div class="admin-card"><span class="eyebrow">Cotizaciones</span><h2>Solicitudes</h2>
+      <div class="bulk-actions hidden" id="requestsBulkBar">
+        <div class="bulk-actions-info"><i class="bi bi-check2-square"></i><strong id="requestsSelectedCount">0 seleccionadas</strong><span>Las cotizaciones vinculadas se conservan y quedan sin solicitud asociada.</span></div>
+        <button class="btn btn-danger-soft" id="deleteSelectedRequests" type="button"><i class="bi bi-trash3"></i> Eliminar seleccionadas</button>
+      </div>
+      <div class="table-wrap" id="requestsTable"></div></div></section>
 
 
 
@@ -220,6 +229,10 @@
           </div>
         </div>
 
+        <div class="bulk-actions hidden" id="quotesBulkBar">
+          <div class="bulk-actions-info"><i class="bi bi-check2-square"></i><strong id="quotesSelectedCount">0 seleccionadas</strong><span>Se eliminarán también los PDF guardados en Supabase Storage cuando correspondan.</span></div>
+          <button class="btn btn-danger-soft" id="deleteSelectedQuotes" type="button"><i class="bi bi-trash3"></i> Eliminar seleccionadas</button>
+        </div>
         <div class="table-wrap" id="quotesTable"></div>
       </div>
     </section>
@@ -342,5 +355,5 @@
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260915-r9149-uniform-product-images"></script><script src="api.js?v=20260915-r9149-uniform-product-images"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260915-r9149-uniform-product-images"></script>
+<script src="config.js?v=20260916-r9150-bulk-delete"></script><script src="api.js?v=20260916-r9150-bulk-delete"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9150-bulk-delete"></script>
 </body></html>

@@ -18,6 +18,61 @@ function toNumber(value){
 let token=localStorage.getItem("aleAdminToken")||sessionStorage.getItem("aleAdminToken")||"", data={products:[],categories:[],banners:[],orders:[],requests:[],quotes:[],clients:[],users:[],config:{},currentUser:null};
 
 
+// R9.15.0 · Selección múltiple para eliminación masiva.
+const bulkSelection={products:new Set(),requests:new Set(),quotes:new Set()};
+function selectedSet(kind){return bulkSelection[kind]||new Set()}
+function pruneSelection(kind,items){
+  const valid=new Set((items||[]).map(x=>String(x.id)));
+  const set=selectedSet(kind);for(const id of [...set])if(!valid.has(String(id)))set.delete(id);
+}
+function bulkCheckbox(kind,id){
+  const checked=selectedSet(kind).has(String(id));
+  return `<input class="bulk-check" type="checkbox" data-bulk-kind="${esc(kind)}" data-bulk-id="${esc(id)}" ${checked?"checked":""} aria-label="Seleccionar registro">`;
+}
+function bulkHeaderCheckbox(kind,visibleIds){
+  const ids=(visibleIds||[]).map(String),set=selectedSet(kind);
+  const all=ids.length>0&&ids.every(id=>set.has(id));
+  return `<input class="bulk-check" type="checkbox" data-bulk-select-all="${esc(kind)}" ${all?"checked":""} aria-label="Seleccionar todos los registros visibles" title="Seleccionar todos los registros visibles">`;
+}
+function updateBulkBar(kind){
+  const set=selectedSet(kind),count=set.size;
+  const map={products:["#productsBulkBar","#productsSelectedCount","producto","productos"],requests:["#requestsBulkBar","#requestsSelectedCount","solicitud","solicitudes"],quotes:["#quotesBulkBar","#quotesSelectedCount","cotización","cotizaciones"]};
+  const m=map[kind];if(!m)return;
+  const bar=$(m[0]),label=$(m[1]);if(label)label.textContent=`${count} ${count===1?m[2]:m[3]} seleccionado${kind==="products"?(count===1?"":"s"):(count===1?"a":"as")}`;
+  if(bar)bar.classList.toggle("hidden",count===0);
+}
+function syncSelectedRows(host){
+  host?.querySelectorAll('input[data-bulk-id]').forEach(cb=>cb.closest('tr')?.classList.toggle('is-selected',cb.checked));
+}
+function handleBulkCheckboxChange(e){
+  const cb=e.target.closest?.('input[data-bulk-id]');if(!cb)return false;
+  const kind=cb.dataset.bulkKind,id=String(cb.dataset.bulkId||"");const set=selectedSet(kind);if(cb.checked)set.add(id);else set.delete(id);
+  cb.closest('tr')?.classList.toggle('is-selected',cb.checked);updateBulkBar(kind);
+  const host=cb.closest('.table-wrap');const head=host?.querySelector(`input[data-bulk-select-all="${CSS.escape(kind)}"]`);
+  if(head){const rows=[...host.querySelectorAll(`input[data-bulk-kind="${CSS.escape(kind)}"]`)];head.checked=rows.length>0&&rows.every(x=>x.checked);head.indeterminate=rows.some(x=>x.checked)&&!head.checked}
+  return true;
+}
+function handleBulkSelectAllChange(e,visibleIds){
+  const cb=e.target.closest?.('input[data-bulk-select-all]');if(!cb)return false;
+  const kind=cb.dataset.bulkSelectAll,set=selectedSet(kind);for(const id of visibleIds.map(String)){if(cb.checked)set.add(id);else set.delete(id)}
+  return true;
+}
+function clearBulkSelection(kind){selectedSet(kind).clear();updateBulkBar(kind)}
+async function deleteSelected(kind,btn){
+  const ids=[...selectedSet(kind)];if(!ids.length)return;
+  const names={products:"productos",requests:"solicitudes",quotes:"cotizaciones"};
+  const extra=kind==="products"?" Los productos se eliminarán definitivamente de la base. Las imágenes locales de GitHub no se borran; las imágenes propias de Supabase Storage sí se limpian cuando corresponda.":kind==="requests"?" Las cotizaciones ya creadas se conservarán, pero quedarán sin solicitud asociada.":" Los PDF asociados guardados en Supabase Storage también se eliminarán cuando correspondan.";
+  if(!confirm(`¿Eliminar definitivamente ${ids.length} ${names[kind]} seleccionados?${extra}\n\nEsta acción no se puede deshacer.`))return;
+  await busy(btn,async()=>{
+    try{
+      const out=await AleAPI.post("bulkDeleteEntities",{kind,ids},token);
+      const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0);
+      clearBulkSelection(kind);toast(`✓ ${deleted} registro${deleted===1?"":"s"} eliminado${deleted===1?"":"s"}${missing?` · ${missing} ya no existían`:""}`);await reload();
+    }catch(err){console.warn(err);toast("✕ No fue posible completar la eliminación múltiple")}
+  });
+}
+
+
 // Menú lateral R9.5: fijo, scroll independiente y hamburguesa siempre visible.
 const adminSidebar=$("#adminSidebar"), sidebarBackdrop=$("#sidebarBackdrop"), menuToggle=$("#menuToggle"), sidebarClose=$("#sidebarClose"), sidebarRailToggle=$("#sidebarRailToggle");
 const SIDEBAR_COLLAPSED_KEY="aleAtencioSidebarCollapsedR97";
@@ -325,7 +380,7 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-const CPANEL_MEDIA_VERSION="20260915-r9148-hybrid-images";
+const CPANEL_MEDIA_VERSION="20260916-r9150-bulk-delete";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -354,13 +409,18 @@ function imgTag(url){const src=resolveMediaUrl(url);return src?`<img class="thum
 
 function renderProducts(){
   const q=normalizeText($("#productSearch").value), f=$("#productFilter").value, status=$("#productStatusFilter")?.value||"";
+  pruneSelection("products",data.products);
   const list=data.products.filter(p=>{
     const active=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";
     return normalizeText([p.nombre,p.descripcion,p.categoria_nombre,p.ocasion].filter(Boolean).join(" ")).includes(q)&&(!f||p.categoria_nombre===f)&&(!status||active===status);
   });
   const meta=$("#productResultsMeta");
   if(meta)meta.textContent=`Mostrando ${list.length} de ${data.products.length} productos${f?` · Categoría: ${f}`:""}${status?` · Estado: ${status==="SI"?"Activos":"Inactivos"}`:""}${q?` · Búsqueda: “${$("#productSearch").value.trim()}”`:""}`;
-  $("#productsTable").innerHTML=table(["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"],list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";return `<tr class="${active?"":"product-row-inactive"}"><td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="product-state-badge ${active?"is-active":"is-inactive"}"><span class="product-state-dot" aria-hidden="true"></span>${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button><button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button></div></td></tr>`}).join(""));
+  const canDelete=!!data.permissions?.products?.delete;if(!canDelete)selectedSet("products").clear();
+  const visibleIds=list.map(p=>String(p.id));
+  const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("products",visibleIds)}</span>`,"Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"]:["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"];
+  const rows=list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";const selected=selectedSet("products").has(String(p.id));return `<tr class="${active?"":"product-row-inactive"} ${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("products",p.id)}</td>`:""}<td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="product-state-badge ${active?"is-active":"is-inactive"}"><span class="product-state-dot" aria-hidden="true"></span>${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button>${canDelete?`<button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("");
+  $("#productsTable").innerHTML=table(headers,rows);updateBulkBar("products");syncSelectedRows($("#productsTable"));
 }
 let productPreviewObjectUrl="";
 function revokeProductPreviewObjectUrl(){
@@ -446,6 +506,11 @@ $("#productsTable").addEventListener("click",e=>{
   const save=e.target.closest("[data-save-price]"); if(save){window.saveQuickPrice(save.dataset.savePrice,save);return}
   const del=e.target.closest("[data-delete-product]"); if(del){window.removeEntity("product",del.dataset.deleteProduct,del);return}
 });
+$("#productsTable").addEventListener("change",e=>{
+  if(handleBulkCheckboxChange(e))return;
+  const all=e.target.closest('input[data-bulk-select-all="products"]');if(all){const ids=data.products.filter(p=>{const q=normalizeText($("#productSearch").value),f=$("#productFilter").value,status=$("#productStatusFilter")?.value||"",active=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";return normalizeText([p.nombre,p.descripcion,p.categoria_nombre,p.ocasion].filter(Boolean).join(" ")).includes(q)&&(!f||p.categoria_nombre===f)&&(!status||active===status)}).map(p=>String(p.id));handleBulkSelectAllChange(e,ids);renderProducts()}
+});
+$("#deleteSelectedProducts")?.addEventListener("click",e=>deleteSelected("products",e.currentTarget));
 ["pName","pPrice","pCategory","pStock","pActive","pOccasion","pDescription","pFeatured"].forEach(id=>{
   const el=$("#"+id); if(!el)return;
   const eventName=(id==="pFeatured"||id==="pActive"||id==="pCategory")?"change":"input";
@@ -481,47 +546,31 @@ $("#saveBanner").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{
 
 function renderOrders(){$("#ordersTable").innerHTML=table(["Fecha","Cliente","Contacto","Entrega","Total","Estado"],data.orders.map(o=>`<tr><td>${esc(formatDate(o.fecha))}</td><td><strong>${esc(o.nombre)}</strong><br><small>${esc(o.id)}</small></td><td>${esc(o.telefono)}<br><small>${esc(o.email||"")}</small></td><td>${esc(o.metodo_entrega||"")}<br><small>${esc(o.direccion||"")}</small></td><td>${money(o.total)}</td><td><select class="status-select" onchange="changeStatus('order','${o.id}',this.value)">${["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO","CANCELADO"].map(s=>`<option ${String(o.estado).toUpperCase()===s?"selected":""}>${s}</option>`).join("")}</select></td></tr>`).join(""))}
 function renderRequests(){
-  const canDelete=!!data.permissions?.requests?.delete;
-  $("#requestsTable").innerHTML=table(["N.º solicitud","Fecha","Cliente","Tipo","Evento","Detalle","Estado","Acciones"],data.requests.map(r=>`<tr><td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.telefono)}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions"><button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`).join(""))
+  pruneSelection("requests",data.requests);
+  const canDelete=!!data.permissions?.requests?.delete;if(!canDelete)selectedSet("requests").clear();
+  const visibleIds=data.requests.map(r=>String(r.id));
+  const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("requests",visibleIds)}</span>`,"N.º solicitud","Fecha","Cliente","Tipo","Evento","Detalle","Estado","Acciones"]:["N.º solicitud","Fecha","Cliente","Tipo","Evento","Detalle","Estado","Acciones"];
+  const rows=data.requests.map(r=>{const selected=selectedSet("requests").has(String(r.id));return `<tr class="${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("requests",r.id)}</td>`:""}<td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.telefono)}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions"><button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`}).join("");
+  $("#requestsTable").innerHTML=table(headers,rows);updateBulkBar("requests");syncSelectedRows($("#requestsTable"));
 }
-window.changeStatus=async(kind,id,status)=>{try{await AleAPI.post("updateStatus",{kind,id,status},token);toast("Estado actualizado");await reload()}catch(e){console.warn(e);toast("No fue posible actualizar")}};
+$("#requestsTable")?.addEventListener("change",e=>{
+  if(handleBulkCheckboxChange(e))return;
+  const all=e.target.closest('input[data-bulk-select-all="requests"]');if(all){handleBulkSelectAllChange(e,data.requests.map(r=>String(r.id)));renderRequests()}
+});
+$("#deleteSelectedRequests")?.addEventListener("click",e=>deleteSelected("requests",e.currentTarget));
 window.deleteRequest=async(id,btn)=>{
-  const r=(data.requests||[]).find(x=>String(x.id)===String(id));
+  const r=data.requests.find(x=>String(x.id)===String(id));
   const label=r?.numero_solicitud||id;
-  const cliente=r?.nombre?` de ${r.nombre}`:"";
-  if(!confirm(`¿Eliminar definitivamente la solicitud ${label}${cliente}?
-
-Esta acción no se puede deshacer. Las cotizaciones existentes se conservarán.`))return;
+  if(!confirm(`¿Eliminar definitivamente la solicitud ${label}?\n\nLas cotizaciones vinculadas se conservarán y quedarán sin solicitud asociada.`))return;
   await busy(btn,async()=>{
     try{
       const res=await AleAPI.post("deleteEntity",{kind:"request",id},token);
-      if(!res?.deleted)throw new Error("SOLICITUD_NO_ENCONTRADA");
-      toast("✓ Solicitud eliminada");
-      await reload();
-    }catch(e){
-      console.warn(e);
-      toast(e?.message==="PERMISO_DENEGADO"?"No tienes permiso para eliminar solicitudes":"No fue posible eliminar la solicitud");
-    }
+      if(!res?.deleted)throw new Error("SOLICITUD_NO_ELIMINADA");
+      selectedSet("requests").delete(String(id));toast("✓ Solicitud eliminada");await reload();
+    }catch(e){console.warn(e);toast("✕ No fue posible eliminar la solicitud")}
   });
 };
-
-function renderUsers(){
-  const list=data.users||[];
-  $("#usersTable").innerHTML=table(["Perfil","Nombre / usuario","Rol","Estado","Último acceso","Acciones"],list.map(u=>`<tr><td><img class="user-avatar" src="${esc(u.profile_url||'logo-ale-icon-card.png')}" alt=""></td><td><strong>${esc(u.nombre||'')}</strong><br><small>@${esc(u.usuario||'')}</small></td><td><span class="role-badge">${esc(String(u.rol||'EDITOR').toUpperCase()==='ADMIN'?'Administrador':'Editor')}</span></td><td><span class="role-badge ${String(u.activo).toUpperCase()==='NO'?'inactive-badge':''}">${String(u.activo).toUpperCase()==='NO'?'Inactivo':'Activo'}</span></td><td>${esc(formatDate(u.ultimo_acceso))}</td><td><div class="row-actions"><button onclick="editUser('${u.id}')">Editar</button>${u.id!==data.currentUser?.id?`<button class="danger" onclick="deleteUser('${u.id}',this)">Desactivar</button>`:''}</div></td></tr>`).join(""));
-}
-function clearUser(){["uId","uProfileId","uProfileUrl","uName","uUsername","uPassword"].forEach(id=>$("#"+id).value="");$("#uRole").value="EDITOR";$("#uActive").value="SI";resetFilePicker("#uProfile");$("#uProfilePreview").src="logo-ale-icon-card.png"}
-$("#newUser").addEventListener("click",()=>{clearUser();$("#userEditor").classList.remove("hidden")});
-window.editUser=id=>{const u=(data.users||[]).find(x=>x.id===id);if(!u)return;resetFilePicker("#uProfile");$("#uId").value=u.id;$("#uProfileId").value=u.profile_file_id||"";$("#uProfileUrl").value=u.profile_url||"";$("#uName").value=u.nombre||"";$("#uUsername").value=u.usuario||"";$("#uPassword").value="";$("#uRole").value=String(u.rol||"EDITOR").toUpperCase();$("#uActive").value=String(u.activo||"SI").toUpperCase();$("#uProfilePreview").src=u.profile_url||"logo-ale-icon-card.png";$("#userEditor").classList.remove("hidden")};
-$("#uProfile").addEventListener("change",e=>{const f=e.target.files[0];if(f)$("#uProfilePreview").src=URL.createObjectURL(f)});
-$("#saveUser").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let profileId=$("#uProfileId").value,profileUrl=$("#uProfileUrl").value;const f=$("#uProfile").files[0];if(f){const u=await upload(f,"USUARIOS");profileId=u.fileId;profileUrl=u.imageUrl||profileUrl}const payload={id:$("#uId").value,nombre:$("#uName").value.trim(),usuario:$("#uUsername").value.trim(),password:$("#uPassword").value,rol:$("#uRole").value,activo:$("#uActive").value,profile_file_id:profileId,profile_url:profileUrl};await AleAPI.post("saveUser",payload,token);toast("Usuario guardado");$("#userEditor").classList.add("hidden");await reload()}catch(err){console.warn(err);toast(err.message==="USUARIO_YA_EXISTE"?"Ese usuario ya existe":err.message==="CLAVE_MINIMO_8_CARACTERES"?"La contraseña debe tener al menos 8 caracteres":"No fue posible guardar el usuario")}}));
-window.deleteUser=async(id,btn)=>{if(!confirm("¿Desactivar este usuario?"))return;await busy(btn,async()=>{try{await AleAPI.post("deleteUser",{id},token);toast("Usuario desactivado");await reload()}catch(e){console.warn(e);toast("No fue posible desactivar")}})};
-$("#changeMyPassword").addEventListener("click",e=>busy(e.currentTarget,async()=>{const password=$("#myNewPassword").value;if(password.length<8){toast("La contraseña debe tener al menos 8 caracteres");return}try{await AleAPI.post("changeMyPassword",{password},token);$("#myNewPassword").value="";toast("Contraseña actualizada") }catch(err){console.warn(err);toast("No fue posible cambiar la contraseña")}}));
-
-function renderSettings(){const c=data.config||{};resetFilePicker("#sLogo");$("#sLogoId").value=c.logo_drive_file_id||"";$("#sBusiness").value=c.empresa||"";$("#sWhatsapp").value=c.whatsapp||"";$("#sEmail").value=c.email||"";$("#sAddress").value=c.direccion||"";$("#sInstagram").value=c.instagram||"";$("#sFacebook").value=c.facebook||"";$("#sTiktok").value=c.tiktok||"";$("#sDelivery").value=c.valor_despacho||0;$("#sIva").value=c.iva_porcentaje||19;$("#sQuoteValidity").value=c.cotizacion_validez_dias||15}
-$("#saveSettings").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let logoId=$("#sLogoId").value,logoUrl=data.config?.logo_url||"";const f=$("#sLogo").files[0];if(f){const up=await upload(f,"LOGO");logoId=up.fileId;logoUrl=up.imageUrl||logoUrl}await AleAPI.post("saveConfig",{empresa:$("#sBusiness").value.trim(),whatsapp:$("#sWhatsapp").value.trim(),email:$("#sEmail").value.trim(),direccion:$("#sAddress").value.trim(),instagram:$("#sInstagram").value.trim(),facebook:$("#sFacebook").value.trim(),tiktok:$("#sTiktok").value.trim(),valor_despacho:$("#sDelivery").value,iva_porcentaje:$("#sIva").value,cotizacion_validez_dias:$("#sQuoteValidity").value,logo_drive_file_id:logoId,logo_url:logoUrl},token);toast("Configuración guardada");await reload()}catch(err){console.warn(err);toast("No fue posible guardar")}}));
-
-async function upload(file,kind){if(file.size>6*1024*1024)throw new Error("IMAGEN_MUY_GRANDE");const dataUrl=await AleAPI.fileToDataUrl(file);return AleAPI.post("uploadImage",{kind,fileName:file.name,dataUrl},token)}
-window.removeEntity=async(kind,id,btn)=>{if(!confirm("¿Eliminar este registro?"))return;await busy(btn,async()=>{try{await AleAPI.post("deleteEntity",{kind,id},token);toast("Registro eliminado");await reload()}catch(e){console.warn(e);toast("No fue posible eliminar")}})};
+window.removeEntity=async(kind,id,btn)=>{const label=kind==="product"?"producto":"registro";const extra=kind==="product"?"\n\nEl producto se eliminará definitivamente. Si su imagen fue subida a Supabase Storage, también se limpiará. Las imágenes locales de GitHub no se modifican.":"";if(!confirm(`¿Eliminar definitivamente este ${label}?${extra}`))return;await busy(btn,async()=>{try{const out=await AleAPI.post("deleteEntity",{kind,id},token);if(!out?.deleted)throw new Error("REGISTRO_NO_ELIMINADO");selectedSet(kind==="product"?"products":kind+"s").delete(String(id));toast("Registro eliminado");await reload()}catch(e){console.warn(e);toast("No fue posible eliminar")}})};
 $$('[data-cancel]').forEach(b=>b.addEventListener("click",()=>{if(b.dataset.cancel==="productEditor")closeProductEditor();else if(b.dataset.cancel==="quoteEditor")closeQuoteEditor();else $("#"+b.dataset.cancel)?.classList.add("hidden")}));
 // ========================= COTIZACIONES R9.5 =========================
 let quoteDraftItems=[];
@@ -741,7 +790,12 @@ async function persistQuote(){
 
 function renderQuotes(){
   const host=$("#quotesTable");if(!host)return;
-  host.innerHTML=table(["N.º cotización","Solicitud","Fecha","Cliente","Neto","IVA","Total","Estado","PDF","Acciones"],data.quotes.map(q=>`<tr>
+  pruneSelection("quotes",data.quotes);
+  const canDelete=!!data.permissions?.quotes?.delete;if(!canDelete)selectedSet("quotes").clear();
+  const visibleIds=data.quotes.map(q=>String(q.id));
+  const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("quotes",visibleIds)}</span>`,"N.º cotización","Solicitud","Fecha","Cliente","Neto","IVA","Total","Estado","PDF","Acciones"]:["N.º cotización","Solicitud","Fecha","Cliente","Neto","IVA","Total","Estado","PDF","Acciones"];
+  const rows=data.quotes.map(q=>{const selected=selectedSet("quotes").has(String(q.id));return `<tr class="${selected?"is-selected":""}">
+    ${canDelete?`<td class="bulk-select-col">${bulkCheckbox("quotes",q.id)}</td>`:""}
     <td><strong>${esc(q.numero_cotizacion||q.id)}</strong></td>
     <td>${esc(q.numero_solicitud||"-")}</td>
     <td>${esc(formatDate(q.fecha||q.creado_en))}</td>
@@ -751,9 +805,21 @@ function renderQuotes(){
     <td><strong>${money(q.total)}</strong></td>
     <td><select class="status-select" onchange="changeQuoteStatus('${q.id}',this.value)">${["BORRADOR","ENVIADA","ACEPTADA","RECHAZADA","VENCIDA","ANULADA"].map(st=>`<option ${String(q.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td>
     <td>${q.pdf_url?`<a class="pdf-link" href="${esc(q.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:"Pendiente"}</td>
-    <td><div class="row-actions"><button type="button" onclick="editQuote('${q.id}')">Editar</button><button type="button" onclick="generateQuoteFromList('${q.id}',this)"><i class="bi bi-file-earmark-pdf"></i></button><button type="button" onclick="sendQuoteFromList('${q.id}',this)"><i class="bi bi-whatsapp"></i></button></div></td>
-  </tr>`).join(""));
+    <td><div class="row-actions"><button type="button" onclick="editQuote('${q.id}')">Editar</button><button type="button" onclick="generateQuoteFromList('${q.id}',this)"><i class="bi bi-file-earmark-pdf"></i></button><button type="button" onclick="sendQuoteFromList('${q.id}',this)"><i class="bi bi-whatsapp"></i></button>${canDelete?`<button type="button" class="danger" onclick="deleteQuote('${q.id}',this)" title="Eliminar cotización"><i class="bi bi-trash3"></i></button>`:""}</div></td>
+  </tr>`}).join("");
+  host.innerHTML=table(headers,rows);updateBulkBar("quotes");syncSelectedRows(host);
 }
+$("#quotesTable")?.addEventListener("change",e=>{
+  if(handleBulkCheckboxChange(e))return;
+  const all=e.target.closest('input[data-bulk-select-all="quotes"]');if(all){handleBulkSelectAllChange(e,data.quotes.map(q=>String(q.id)));renderQuotes()}
+});
+$("#deleteSelectedQuotes")?.addEventListener("click",e=>deleteSelected("quotes",e.currentTarget));
+window.deleteQuote=async(id,btn)=>{
+  const q=data.quotes.find(x=>String(x.id)===String(id));
+  const label=q?.numero_cotizacion||id;
+  if(!confirm(`¿Eliminar definitivamente la cotización ${label}?\n\nSi tiene PDF almacenado en Supabase, también será eliminado.`))return;
+  await busy(btn,async()=>{try{const out=await AleAPI.post("deleteEntity",{kind:"quote",id},token);if(!out?.deleted)throw new Error("COTIZACION_NO_ELIMINADA");selectedSet("quotes").delete(String(id));toast("✓ Cotización eliminada");await reload()}catch(e){console.warn(e);toast("✕ No fue posible eliminar la cotización")}});
+};
 window.changeQuoteStatus=async(id,status)=>{try{const out=await AleAPI.post("updatequotestatus",{id,status},token);const ix=data.quotes.findIndex(x=>String(x.id)===String(id));if(ix>=0&&out.quote)data.quotes[ix]=out.quote;toast("Estado de cotización actualizado");renderQuotes()}catch(e){console.warn(e);toast("No fue posible actualizar el estado")}};
 
 function addCatalogProductToQuote(){

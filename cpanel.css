@@ -1376,3 +1376,30 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
   transform:scale(1.055);
   transform-origin:center center;
 }
+
+
+/* ========================================================================== */
+/* R9.15.0 · Selección múltiple y eliminación masiva                          */
+/* ========================================================================== */
+.bulk-actions{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  margin:14px 0;padding:12px 14px;border:1px solid rgba(117,83,57,.16);
+  border-radius:14px;background:linear-gradient(135deg,#fffdfa,#f8f2ec);
+  box-shadow:0 8px 24px rgba(74,49,31,.06)
+}
+.bulk-actions.hidden{display:none!important}
+.bulk-actions-info{display:flex;align-items:center;gap:9px;min-width:0;color:#6f5648;font-size:.88rem}
+.bulk-actions-info>i{font-size:1.05rem;color:#a87845}
+.bulk-actions-info strong{color:#4c3021;white-space:nowrap}
+.bulk-actions-info span{color:#8b7567}
+.btn-danger-soft{border:1px solid rgba(172,46,46,.26)!important;background:#fff5f5!important;color:#9f2f2f!important;white-space:nowrap}
+.btn-danger-soft:hover{background:#fdeaea!important;color:#842424!important}
+.admin-table th.bulk-select-col,.admin-table td.bulk-select-col{width:44px;min-width:44px;text-align:center;padding-left:10px;padding-right:6px}
+.bulk-check{width:18px;height:18px;accent-color:#a87443;cursor:pointer;vertical-align:middle}
+.admin-table tr.is-selected td{background:rgba(213,176,126,.10)}
+.admin-table tr.is-selected td:first-child{box-shadow:inset 3px 0 0 #b78149}
+@media(max-width:760px){
+  .bulk-actions{align-items:flex-start;flex-direction:column}
+  .bulk-actions-info{align-items:flex-start;flex-wrap:wrap}
+  .bulk-actions .btn{width:100%;justify-content:center}
+}
