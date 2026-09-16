@@ -2270,3 +2270,6 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
 @media(max-width:860px){.tracking-form{grid-template-columns:1fr 1fr}.tracking-submit{grid-column:1/-1;width:100%}}
 @media(max-width:620px){.tracking-search-card{padding:20px;border-radius:22px}.tracking-search-heading{align-items:flex-start}.tracking-search-icon{width:42px;height:42px;flex-basis:42px;border-radius:13px}.tracking-form{grid-template-columns:1fr}.tracking-submit{grid-column:auto}.tracking-status-grid{grid-template-columns:1fr}.tracking-order-head{align-items:center}.tracking-order-card{padding:20px}.tracking-progress{padding:16px 14px 8px}.tracking-security-note{padding:12px}}
 
+
+/* R9.18.9 · Detección flexible de RUT */
+.tracking-input-wrap input.rut-detected{border-color:rgba(170,128,58,.55);box-shadow:0 0 0 3px rgba(170,128,58,.08)}

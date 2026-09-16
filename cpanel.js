@@ -7,6 +7,19 @@ function isValidRutChile(value){const rut=normalizeRutChile(value);if(!/^[0-9]{7
 function formatRutChile(value){const rut=normalizeRutChile(value);if(!rut)return"";const body=rut.slice(0,-1),dv=rut.slice(-1);return `${body.replace(/\B(?=(\d{3})+(?!\d))/g,".")}-${dv}`}
 function requireRutChile(value){const rut=formatRutChile(value);if(!rut)throw new Error("RUT_REQUERIDO");if(!isValidRutChile(rut))throw new Error("RUT_INVALIDO");return rut}
 function wireRutInput(selector){const el=$(selector);if(!el)return;el.addEventListener("blur",()=>{if(el.value)el.value=formatRutChile(el.value)});el.addEventListener("input",()=>el.setCustomValidity(el.value&&!isValidRutChile(el.value)?"RUT inválido":""))}
+
+function rutSearchMatch(value,query){
+  const candidate=normalizeRutChile(query);
+  if(!candidate||candidate.length<4)return false;
+  return normalizeRutChile(value).includes(candidate);
+}
+function flexibleSearchMatch(values,query){
+  const raw=String(query??"").trim();
+  if(!raw)return true;
+  const text=normalizeText(values.filter(Boolean).join(" "));
+  if(text.includes(normalizeText(raw)))return true;
+  return values.some(v=>rutSearchMatch(v,raw));
+}
 function toNumber(value){
   if(typeof value==="number") return Number.isFinite(value)?value:0;
   const raw=String(value??"").trim();
@@ -665,7 +678,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260916-r9187-seguimiento-reportes";
+const CPANEL_MEDIA_VERSION="20260916-r9188-seguimiento-premium";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1011,10 +1024,9 @@ $("#qIva")?.addEventListener("input",updateQuoteTotals);
 let quoteRequestHighlight=-1;
 function requestLabel(r){return `${r.numero_solicitud||r.id||"Solicitud"} · ${r.nombre||"Cliente"}${r.rut?` · ${formatRutChile(r.rut)}`:""}${r.telefono?` · ${r.telefono}`:""}`}
 function quoteRequestCandidates(term=""){
-  const q=normalizeText(term);
+  const raw=String(term??"").trim();
   return (data.requests||[]).slice().sort((a,b)=>new Date(b.fecha||0)-new Date(a.fecha||0)).filter(r=>{
-    if(!q)return true;
-    return normalizeText([r.numero_solicitud,r.id,r.nombre,r.rut,r.telefono,r.email,r.tipo,r.detalle].filter(Boolean).join(" ")).includes(q);
+    return flexibleSearchMatch([r.numero_solicitud,r.id,r.nombre,r.rut,r.telefono,r.email,r.tipo,r.detalle],raw);
   }).slice(0,18);
 }
 function setQuoteRequestResultsOpen(open){
@@ -1322,7 +1334,7 @@ $("#confirmProductImport")?.addEventListener("click",e=>busy(e.currentTarget,asy
 
 // ========================= R9.6 CLIENTES =========================
 function renderClients(){
-  const host=$("#clientsTable");if(!host)return;const q=normalizeText($("#clientSearch")?.value||"");const list=(data.clients||[]).filter(c=>!q||normalizeText([c.nombre,c.rut,c.telefono,c.email,c.numero_cliente].join(" ")).includes(q));
+  const host=$("#clientsTable");if(!host)return;const q=String($("#clientSearch")?.value||"").trim();const list=(data.clients||[]).filter(c=>flexibleSearchMatch([c.nombre,c.rut,c.telefono,c.email,c.numero_cliente],q));
   $("#clientResultsMeta").textContent=`Mostrando ${list.length} de ${(data.clients||[]).length} clientes`;
   host.innerHTML=table(["N.º cliente","Cliente","RUT","Contacto","Solicitudes","Pedidos","Cotizaciones","Total comprado","Última interacción"],list.map(c=>`<tr><td><strong>${esc(c.numero_cliente||c.id)}</strong></td><td><strong>${esc(c.nombre||"")}</strong></td><td>${esc(c.rut?formatRutChile(c.rut):"-")}</td><td>${esc(c.telefono||"")}<br><small>${esc(c.email||"")}</small></td><td>${Number(c.total_solicitudes||0)}</td><td>${Number(c.total_pedidos||0)}</td><td>${Number(c.total_cotizaciones||0)}</td><td>${money(c.total_comprado||0)}</td><td>${esc(formatDate(c.ultima_interaccion))}</td></tr>`).join(""));
 }

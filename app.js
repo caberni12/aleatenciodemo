@@ -425,9 +425,9 @@ function trackingView(){
   <section class="section tracking-section">
     <div class="tracking-search-card">
       <div class="tracking-search-heading"><span class="tracking-search-icon"><i class="bi bi-box-seam"></i></span><div><span class="eyebrow">Estado en línea</span><h2>¿Dónde va mi pedido?</h2><p>Consulta el avance, el estado del pago y la entrega en un solo lugar.</p></div></div>
-      <div class="tracking-security-note"><span class="tracking-security-icon"><i class="bi bi-shield-check"></i></span><div><strong>Consulta protegida</strong><span>Usa tu RUT o número de pedido. Si entras sin el enlace privado de compra, te pediremos el teléfono registrado para validar tu identidad.</span></div></div>
+      <div class="tracking-security-note"><span class="tracking-security-icon"><i class="bi bi-shield-check"></i></span><div><strong>Consulta protegida</strong><span>Puedes escribir tu RUT con o sin puntos y guion. También puedes usar tu número de pedido. Si entras sin el enlace privado de compra, te pediremos el teléfono registrado para validar tu identidad.</span></div></div>
       <form id="trackingForm" class="tracking-form">
-        <label class="tracking-field"><span>RUT o N.º de pedido</span><div class="tracking-input-wrap"><i class="bi bi-search"></i><input id="trackingQuery" value="${esc(route.ref)}" placeholder="Ej. 12.345.678-9 o PED-000012" autocomplete="off"></div></label>
+        <label class="tracking-field"><span>RUT o N.º de pedido</span><div class="tracking-input-wrap"><i class="bi bi-search"></i><input id="trackingQuery" value="${esc(route.ref)}" placeholder="Ej. 123456789, 12.345.678-9 o PED-000012" autocomplete="off"></div></label>
         <label class="tracking-field"><span>Teléfono de compra</span><div class="tracking-input-wrap"><i class="bi bi-telephone"></i><input id="trackingPhone" inputmode="tel" placeholder="Solo si se solicita verificación" autocomplete="tel"></div></label>
         <button class="btn btn-primary tracking-submit" type="submit"><i class="bi bi-arrow-right-circle"></i><span>Consultar pedido</span></button>
       </form>
@@ -443,11 +443,11 @@ function renderTrackingResults(orders){
   host.querySelectorAll("[data-copy-tracking]").forEach(b=>b.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(b.dataset.copyTracking);toast("Enlace de seguimiento copiado","success")}catch(_){toast("No fue posible copiar el enlace","error")}}));
 }
 async function lookupTracking(query,phone=""){
-  const q=String(query||"").trim();if(!q)return;const cred=trackingCredential(q),route=trackingRouteData();const payload={query:q};const routeToken=route.ref===q?route.token:"";if(routeToken)payload.tracking_token=routeToken;else if(cred?.tracking_token)payload.tracking_token=cred.tracking_token;if(phone)payload.verify_phone=String(phone).trim();
+  const q=String(query||"").trim();if(!q)return;const rutCandidate=normalizeRut(q);const queryValue=isValidRut(rutCandidate)?rutCandidate:q;const cred=trackingCredential(q)||trackingCredential(queryValue),route=trackingRouteData();const payload={query:queryValue};const routeToken=route.ref===q||route.ref===queryValue?route.token:"";if(routeToken)payload.tracking_token=routeToken;else if(cred?.tracking_token)payload.tracking_token=cred.tracking_token;if(phone)payload.verify_phone=String(phone).trim();
   const msg=$("#trackingMessage"),host=$("#trackingResults");if(msg)msg.textContent="Consultando pedido…";if(host)host.innerHTML='<div class="tracking-loading"><span></span> Consultando...</div>';
   try{const out=await AleAPI.postPublic("trackorder",payload);renderTrackingResults(out?.orders||[]);if(msg)msg.textContent=out?.count?`${out.count} pedido${out.count===1?"":"s"} encontrado${out.count===1?"":"s"}.`:out?.needs_verification?"Para proteger tus datos, ingresa el teléfono usado en la compra.":"Sin resultados."}catch(err){console.warn("TRACK_ORDER",err);if(msg)msg.textContent="No fue posible consultar en este momento.";if(host)host.innerHTML=""}
 }
-function wireTracking(){const form=$("#trackingForm"),input=$("#trackingQuery"),phone=$("#trackingPhone");if(!form)return;form.addEventListener("submit",e=>{e.preventDefault();lookupTracking(input?.value,phone?.value)});if(input?.value)setTimeout(()=>lookupTracking(input.value,phone?.value),120)}
+function wireTracking(){const form=$("#trackingForm"),input=$("#trackingQuery"),phone=$("#trackingPhone");if(!form)return;if(input){input.addEventListener("blur",()=>{const raw=input.value.trim();if(raw&&isValidRut(raw))input.value=formatRutInput(raw)});input.addEventListener("input",()=>{input.classList.toggle("rut-detected",isValidRut(input.value))})}form.addEventListener("submit",e=>{e.preventDefault();lookupTracking(input?.value,phone?.value)});if(input?.value)setTimeout(()=>lookupTracking(input.value,phone?.value),120)}
 
 function footer(){
   const c=state.config;
