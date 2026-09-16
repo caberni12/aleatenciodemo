@@ -95,10 +95,24 @@ async function deleteSelected(kind,btn){
   if(!confirm(`¿Eliminar definitivamente ${ids.length} ${names[kind]} seleccionados?${extra}\n\nEsta acción no se puede deshacer.`))return;
   await busy(btn,async()=>{
     try{
-      const out=await AleAPI.post("bulkDeleteEntities",{kind,ids},token);
-      const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0);
-      clearBulkSelection(kind);toast(`✓ ${deleted} registro${deleted===1?"":"s"} eliminado${deleted===1?"":"s"}${missing?` · ${missing} ya no existían`:""}`);await reload();
-    }catch(err){console.warn(err);toast("✕ No fue posible completar la eliminación múltiple")}
+      const out=typeof AleAPI.bulkDeleteEntities==="function"
+        ? await AleAPI.bulkDeleteEntities({kind,ids},token)
+        : await AleAPI.post("bulkDeleteEntities",{kind,ids},token);
+      const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0),remaining=Number(out?.remaining||0);
+      if(out?.ok===false||remaining>0)throw Object.assign(new Error(out?.error||"ELIMINACION_INCOMPLETA"),{payload:out});
+      clearBulkSelection(kind);
+      toast(`✓ Eliminación confirmada: ${deleted} eliminado${deleted===1?"":"s"}${missing?` · ${missing} ya no existían`:""}`);
+      await reload();
+    }catch(err){
+      console.warn("bulk delete",err);
+      const code=String(err?.message||err||"").toUpperCase();
+      if(code.includes("PERMISO_DENEGADO"))return toast("✕ Tu usuario no tiene permiso para eliminar estos registros");
+      if(code.includes("ACCION_NO_VALIDA"))return toast("✕ La Edge Function está desactualizada. Despliega el index.ts de esta versión");
+      if(code.includes("ELIMINACION_INCOMPLETA"))return toast("✕ Algunos registros no pudieron eliminarse. Se conservaron seleccionados para reintentar");
+      if(code.includes("SESION_"))return toast("✕ La sesión ya no es válida. Vuelve a iniciar sesión");
+      if(code.includes("TIMEOUT")||code.includes("CONEXION"))return toast("✕ Supabase no confirmó la eliminación. Revisa conexión y reintenta");
+      toast(`✕ No fue posible completar la eliminación múltiple${code?` (${code.slice(0,80)})`:""}`);
+    }
   });
 }
 

@@ -105,6 +105,25 @@
       return request(action, data, token);
     },
 
+    async bulkDeleteEntities(data = {}, token = "") {
+      // DELETE múltiple es idempotente: ante timeout/conexión se puede reintentar sin duplicar efectos.
+      let lastErr = null;
+      const timeouts = [18000, 30000, 45000];
+      for (let i = 0; i < timeouts.length; i++) {
+        try {
+          return await request("bulkdeleteentities", data, token, {timeoutMs:timeouts[i]});
+        } catch (err) {
+          lastErr = err;
+          const code = String(err?.message || err || "").toUpperCase();
+          if (["SESION_INVALIDA","SESION_EXPIRADA","SESION_REQUERIDA","USUARIO_INACTIVO","PERMISO_DENEGADO","IDS_REQUERIDOS","TIPO_NO_VALIDO","ELIMINACION_INCOMPLETA","ACCION_NO_VALIDA"].some(x=>code.includes(x))) throw err;
+          const transient = ["API_TIMEOUT","API_CONEXION_FALLIDA","RESPUESTA_API_INVALIDA","HTTP_502","HTTP_503","HTTP_504"].some(x=>code.includes(x)) || Number(err?.status||0) >= 500;
+          if (!transient || i === timeouts.length - 1) throw err;
+          await sleep(500 + i * 700);
+        }
+      }
+      throw lastErr || makeError("ELIMINACION_MULTIPLE_SIN_CONFIRMACION");
+    },
+
     async postPublic(action, data = {}) {
       return request(action, data, "", {timeoutMs:/^(createorder|createrequest)$/i.test(String(action||"")) ? 18000 : undefined});
     },
