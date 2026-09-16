@@ -301,7 +301,7 @@ async function login(username,password){
   // La carga pesada del dashboard ocurre después y ya no bloquea el login.
   showAdmin();
   renderSessionHeader(r.user);
-  reload().then(()=>startNotificationWatcher()).catch(err=>{console.warn("adminBootstrap",err);toast("No fue posible actualizar todos los datos. Reintenta.")});
+  reload().catch(err=>console.warn("admin reload",err)).finally(()=>startNotificationWatcher());
   return r;
 }
 function normalizePanelData(src={}){
@@ -320,49 +320,137 @@ function normalizePanelData(src={}){
     currentUser:src.currentUser||data.currentUser||null
   };
 }
-const ADMIN_DATA_MODULES=["orders","requests","quotes","clients","users"];
-let adminModulesRetryTimer=null;
-async function loadAdminModules({notify=true,retry=true}={}){
-  const results=await Promise.allSettled(ADMIN_DATA_MODULES.map(module=>AleAPI.adminModule(module,token)));
-  const failed=[];
-  results.forEach((res,i)=>{
-    const module=ADMIN_DATA_MODULES[i];
-    if(res.status==="fulfilled") data=normalizePanelData(res.value||{});
-    else{failed.push(module);console.warn(`adminModule:${module}`,res.reason)}
-  });
-  renderAll();
-  if(adminModulesRetryTimer){clearTimeout(adminModulesRetryTimer);adminModulesRetryTimer=null}
-  if(failed.length){
-    if(notify)toast(`Datos principales cargados. Pendiente${failed.length===1?"":"s"}: ${failed.join(", ")}. Reintentando…`);
-    if(retry)adminModulesRetryTimer=setTimeout(()=>loadAdminModules({notify:false,retry:false}).catch(e=>console.warn("adminModules retry",e)),3000);
+const ADMIN_CORE_MODULES=["products","categories","banners","config"];
+const ADMIN_SECONDARY_MODULES=["orders","requests","quotes","clients","users"];
+const ADMIN_DATA_MODULES=[...ADMIN_CORE_MODULES,...ADMIN_SECONDARY_MODULES];
+let adminModulesRetryTimer=null,adminReloadPromise=null,adminRetryAttempt=0;
+const adminRetryModules=new Set();
+let adminModuleCapability=null; // null=sin comprobar, true=nuevo backend, false=compatibilidad R9.15.0/R9.15.1
+function setSyncState(state,message=""){
+  const pill=$("#syncPill"),txt=$("#syncPillText");
+  if(pill){pill.dataset.state=state||"ok";pill.classList.toggle("syncing",state==="syncing");pill.classList.toggle("warning",state==="warning")}
+  if(txt)txt.textContent=message||(state==="syncing"?"Sincronizando":state==="warning"?"Conexión intermitente":"Conectado");
+}
+function isUnsupportedAdminModuleError(err){
+  if(typeof AleAPI?.isUnsupportedActionError==="function"&&AleAPI.isUnsupportedActionError(err))return true;
+  const code=sessionErrorCode(err);
+  return ["ACCION_NO_VALIDA","MODULO_ADMIN_NO_VALIDO","ADMINMODULE_NO_DISPONIBLE"].some(x=>code.includes(x));
+}
+async function mapWithConcurrency(items,limit,worker){
+  const out=new Array(items.length);let cursor=0;
+  async function runner(){
+    while(true){
+      const i=cursor++;if(i>=items.length)return;
+      try{out[i]={status:"fulfilled",value:await worker(items[i],i)}}
+      catch(reason){out[i]={status:"rejected",reason}}
+    }
   }
-  return{ok:failed.length===0,failed};
+  await Promise.all(Array.from({length:Math.min(Math.max(1,limit),items.length||1)},runner));
+  return out;
+}
+function scheduleAdminRetry(failed=[]){
+  (failed.length?failed:ADMIN_DATA_MODULES).forEach(m=>adminRetryModules.add(m));
+  // Un único temporizador acumula pendientes de núcleo y módulos secundarios.
+  // Así una carga secundaria exitosa no cancela el reintento de Productos/Config, etc.
+  if(adminModulesRetryTimer)return;
+  const delay=Math.min(30000,2500*Math.max(1,2**Math.min(adminRetryAttempt,3)));
+  adminRetryAttempt++;
+  adminModulesRetryTimer=setTimeout(()=>{
+    adminModulesRetryTimer=null;
+    const modules=[...adminRetryModules];adminRetryModules.clear();
+    loadAdminModules({modules:modules.length?modules:ADMIN_DATA_MODULES,retry:true}).catch(e=>{
+      if(isDefinitiveSessionError(e)){clearAdminToken();showLogin("La sesión venció o fue cerrada. Ingresa nuevamente.")}
+      else console.warn("admin retry",e);
+    });
+  },delay);
+}
+async function loadLegacyAdminBootstrap(){
+  setSyncState("syncing","Sincronizando");
+  const legacy=await AleAPI.adminBootstrap(token,{});
+  data=normalizePanelData(legacy||{});
+  if(legacy?.permissions)data.permissions=legacy.permissions;
+  if(legacy?.currentUser)data.currentUser=legacy.currentUser;
+  renderAll();
+  renderSessionHeader(data.currentUser);
+  adminModuleCapability=false;
+  adminRetryAttempt=0;
+  if(adminModulesRetryTimer){clearTimeout(adminModulesRetryTimer);adminModulesRetryTimer=null}
+  adminRetryModules.clear();
+  setSyncState("ok","Conectado");
+  return{ok:true,failed:[],loaded:ADMIN_DATA_MODULES.length,compatibility:true};
+}
+async function loadAdminModules({modules=ADMIN_DATA_MODULES,retry=true}={}){
+  const list=[...new Set(modules.filter(m=>ADMIN_DATA_MODULES.includes(m)))];
+  if(!list.length)return{ok:true,failed:[]};
+
+  // Compatibilidad automática: si el servidor aún es R9.15.0/R9.15.1,
+  // usamos el adminbootstrap clásico en vez de dejar el cPanel sin datos.
+  if(adminModuleCapability===false){
+    try{return await loadLegacyAdminBootstrap()}catch(err){
+      if(isDefinitiveSessionError(err))throw err;
+      setSyncState("warning","Reconectando");
+      if(retry)scheduleAdminRetry(list);
+      return{ok:false,failed:list,loaded:0,compatibility:true,error:err};
+    }
+  }
+
+  setSyncState("syncing","Sincronizando");
+  // Limitar concurrencia evita ráfagas de 9-18 solicitudes simultáneas a la Edge Function.
+  const results=await mapWithConcurrency(list,3,module=>AleAPI.adminModuleReliable(module,token,2));
+  const failed=[],definitive=[];let unsupported=false,loaded=0;
+  results.forEach((res,i)=>{
+    const module=list[i];
+    if(res.status==="fulfilled"){
+      loaded++;adminModuleCapability=true;data=normalizePanelData(res.value||{});
+      if(res.value?.permissions)data.permissions=res.value.permissions;
+      if(res.value?.currentUser)data.currentUser=res.value.currentUser;
+    }else{
+      failed.push(module);console.warn(`adminModule:${module}`,res.reason);
+      if(isDefinitiveSessionError(res.reason))definitive.push(res.reason);
+      if(isUnsupportedAdminModuleError(res.reason))unsupported=true;
+    }
+  });
+
+  if(definitive.length)throw definitive[0];
+  if(unsupported){
+    adminModuleCapability=false;
+    try{return await loadLegacyAdminBootstrap()}catch(err){
+      if(isDefinitiveSessionError(err))throw err;
+      setSyncState("warning","Reconectando");
+      if(retry)scheduleAdminRetry(list);
+      return{ok:false,failed:list,loaded:0,compatibility:true,error:err};
+    }
+  }
+
+  renderAll();
+  renderSessionHeader(data.currentUser);
+  // Quitar de la cola únicamente los módulos que esta ejecución sí recuperó.
+  list.forEach(m=>{if(!failed.includes(m))adminRetryModules.delete(m)});
+  if(failed.length){
+    setSyncState("warning",`Sincronizando ${failed.length} módulo${failed.length===1?"":"s"}`);
+    if(retry)scheduleAdminRetry(failed);
+  }else if(adminRetryModules.size===0){
+    adminRetryAttempt=0;setSyncState("ok","Conectado");
+  }
+  return{ok:failed.length===0,failed,loaded};
 }
 async function reload(){
-  // R9.15.2: catálogo + núcleo administrativo primero; módulos pesados después.
-  // Un módulo lento o con error ya no invalida toda la carga del cPanel.
-  let publicLoaded=false,coreLoaded=false;
-  try{
-    const pub=await AleAPI.publicBootstrap();
-    data=normalizePanelData(pub);
-    renderAll();
-    publicLoaded=true;
-  }catch(err){console.warn("publicBootstrap",err)}
-
-  try{
-    const core=await AleAPI.adminBootstrap(token,{mode:"core"});
-    data=normalizePanelData(core);
-    renderAll();
-    coreLoaded=true;
-    if(core?.partial&&Array.isArray(core.warnings)&&core.warnings.length)console.warn("adminBootstrap core warnings",core.warnings);
-  }catch(err){
-    console.warn("adminBootstrap core",err);
-    if(!publicLoaded)throw err;
-  }
-
-  // No bloquear login ni mostrar desconexión por pedidos/cotizaciones/clientes/usuarios.
-  loadAdminModules({notify:true,retry:true}).catch(err=>console.warn("loadAdminModules",err));
-  return{ok:publicLoaded||coreLoaded,coreLoaded,publicLoaded};
+  // Production Ready: primero núcleo, luego datos secundarios en segundo plano.
+  // Una falla parcial jamás invalida login/sesión.
+  if(adminReloadPromise)return adminReloadPromise;
+  adminReloadPromise=(async()=>{
+    try{
+      const core=await loadAdminModules({modules:ADMIN_CORE_MODULES,retry:true});
+      if(adminModuleCapability===false)return core; // el fallback clásico ya cargó todo.
+      // Pedidos/Solicitudes/Cotizaciones/Clientes/Usuarios no bloquean la entrada.
+      loadAdminModules({modules:ADMIN_SECONDARY_MODULES,retry:true}).catch(err=>{
+        if(isDefinitiveSessionError(err)){clearAdminToken();showLogin("La sesión venció o fue cerrada. Ingresa nuevamente.")}
+        else console.warn("secondary admin modules",err);
+      });
+      return core;
+    }finally{adminReloadPromise=null}
+  })();
+  return adminReloadPromise;
 }
 function renderSessionHeader(user){
   const me=user||data.currentUser||{};
@@ -1035,7 +1123,9 @@ async function restoreAdminSession(){
     // La sesión ya fue validada. Una falla al cargar datos NO debe cerrar sesión.
     try{await reload()}catch(err){
       console.warn("reload after restored session",err);
-      toast("Sesión activa. No fue posible actualizar todos los datos; reintentaremos automáticamente.");
+      if(isDefinitiveSessionError(err))throw err;
+      setSyncState("warning","Reconectando");
+      scheduleAdminRetry(ADMIN_DATA_MODULES);
     }
     startNotificationWatcher();
     AleAPI.backendStatus().then(st=>{
@@ -1054,8 +1144,8 @@ async function restoreAdminSession(){
   }finally{sessionRestoreBusy=false}
 }
 
-window.addEventListener("online",()=>{if(token&&!document.body.classList.contains("auth-active"))restoreAdminSession()});
-window.addEventListener("focus",()=>{if(token&&!document.body.classList.contains("auth-active")&&!sessionRestoreBusy)restoreAdminSession()});
+window.addEventListener("online",()=>{if(!token)return;if(document.body.classList.contains("auth-active"))reload().catch(e=>console.warn("online reload",e));else restoreAdminSession()});
+window.addEventListener("focus",()=>{if(!token)return;if(document.body.classList.contains("auth-active"))reload().catch(e=>console.warn("focus reload",e));else if(!sessionRestoreBusy)restoreAdminSession()});
 
 (async()=>{
   if(!AleAPI.configured()) return showLogin("Configura la URL de Supabase Edge Function en config.js.");

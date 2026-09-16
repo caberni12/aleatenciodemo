@@ -1403,3 +1403,11 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
   .bulk-actions-info{align-items:flex-start;flex-wrap:wrap}
   .bulk-actions .btn{width:100%;justify-content:center}
 }
+
+/* R9.15.3 · Estado de sincronización Production Ready */
+.online-pill{gap:6px}
+.online-pill b{font:inherit;font-weight:700;white-space:nowrap}
+.online-pill.syncing span{animation:aleSyncPulse 1s ease-in-out infinite}
+.online-pill.warning{opacity:.9}
+.online-pill.warning span{box-shadow:0 0 0 4px rgba(181,128,46,.12)}
+@keyframes aleSyncPulse{0%,100%{transform:scale(1);opacity:.65}50%{transform:scale(1.35);opacity:1}}

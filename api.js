@@ -85,6 +85,11 @@
     return ["API_TIMEOUT","API_CONEXION_FALLIDA","RESPUESTA_API_INVALIDA","REGISTRO_NO_CONFIRMADO"].some(x=>code.includes(x));
   }
 
+  function isUnsupportedActionError(err){
+    const code=String(err?.message||err||"").toUpperCase();
+    return ["ACCION_NO_VALIDA","MODULO_ADMIN_NO_VALIDO","ADMINMODULE_NO_DISPONIBLE"].some(x=>code.includes(x));
+  }
+
   window.AleAPI = {
     configured,
 
@@ -119,8 +124,29 @@
       return request("adminbootstrap", options, token, {timeoutMs:22000});
     },
 
-    async adminModule(module, token) {
-      return request("adminmodule", {module:String(module||"")}, token, {timeoutMs:22000});
+    async adminModule(module, token, options = {}) {
+      return request("adminmodule", {module:String(module||"")}, token, {timeoutMs:Number(options.timeoutMs||16000)});
+    },
+
+    async adminModuleReliable(module, token, attempts = 2) {
+      let lastErr = null;
+      for (let i = 0; i < attempts; i++) {
+        try { return await request("adminmodule", {module:String(module||"")}, token, {timeoutMs:i===0?12000:20000}); }
+        catch (err) {
+          lastErr = err;
+          const code = String(err?.message || err || "").toUpperCase();
+          if (["SESION_INVALIDA","SESION_EXPIRADA","SESION_REQUERIDA","USUARIO_INACTIVO"].some(x=>code.includes(x))) throw err;
+          // Si el backend es R9.15.0/R9.15.1 no existe adminmodule.
+          // No tiene sentido reintentar la misma acción: el cPanel usará adminbootstrap compatible.
+          if (isUnsupportedActionError(err)) throw err;
+          if (i < attempts - 1) await sleep(450 + i * 450);
+        }
+      }
+      throw lastErr || makeError("ADMIN_MODULE_FAILED");
+    },
+
+    async session(token) {
+      return request("session", {}, token, {timeoutMs:12000});
     },
 
     async notificationFeed(since, token) {
@@ -157,6 +183,7 @@
 
     verifyRecord,
     isAmbiguousTransportError,
+    isUnsupportedActionError,
 
     fileToDataUrl(file) {
       return new Promise((resolve,reject)=>{
