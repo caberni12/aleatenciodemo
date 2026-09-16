@@ -1272,3 +1272,86 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
 .product-row-inactive .thumb{filter:grayscale(.35)}
 #productStatusFilter{min-width:150px}
 @media(max-width:760px){#productStatusFilter{width:100%;min-width:0}}
+
+
+/* =========================================================
+   CPANEL R9.14.5 - ESTADO DE PRODUCTO LEGIBLE
+   ========================================================= */
+.admin-body .product-status-field{min-width:0}
+.admin-body .product-status-field #pActive{
+  width:100%!important;
+  min-width:0!important;
+  min-height:52px!important;
+  height:52px!important;
+  padding:0 42px 0 14px!important;
+  line-height:1.2!important;
+  font-size:15px!important;
+  font-weight:800!important;
+  color:#4b3730!important;
+  text-overflow:clip!important;
+  overflow:visible!important;
+}
+.admin-body .product-status-field .field-hint{
+  display:block;
+  margin-top:7px;
+  min-height:18px;
+  color:#4f7d5a;
+  font-size:11px;
+  font-weight:700;
+  line-height:1.35;
+}
+.admin-body .product-status-field .field-hint.is-inactive{color:#a24f4f}
+.product-state-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-width:92px;
+  min-height:32px;
+  padding:0 12px;
+  border-radius:999px;
+  white-space:nowrap;
+  overflow:visible;
+  font-size:11px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:.01em;
+  text-transform:none;
+}
+.product-state-badge.is-active{background:#e9f6ec;color:#2f7b42;border:1px solid #cce8d3}
+.product-state-badge.is-inactive{background:#f8eaea;color:#a23f3f;border:1px solid #ebcaca}
+.product-state-dot{width:7px;height:7px;border-radius:50%;background:currentColor;flex:0 0 7px}
+#productStatusFilter{min-width:150px!important}
+@media(max-width:620px){
+  .admin-body .product-status-field #pActive{font-size:14px!important}
+  #productStatusFilter{min-width:0!important;width:100%!important}
+}
+
+/* =========================================================
+   R9.14.6 - MODAL PRODUCTO SINCRONIZADO CON TARJETA WEB
+   ========================================================= */
+#productEditor:not(.hidden){width:min(1120px,calc(100vw - 28px));}
+.product-editor-id{display:block;margin-top:5px;color:#907b71;font-size:11px;font-weight:800;letter-spacing:.04em}
+.product-editor-layout{display:grid;grid-template-columns:minmax(250px,320px) minmax(0,1fr);gap:22px;align-items:start}
+.product-editor-fields{min-width:0}
+.product-web-preview-panel{position:sticky;top:0;display:grid;gap:12px;min-width:0;padding:14px;border:1px solid #eadbd5;border-radius:20px;background:linear-gradient(180deg,#fff,#fff9f6)}
+.product-preview-heading{display:grid;gap:3px}.product-preview-heading strong{font-size:15px;color:#3b2b25}.product-preview-heading small{color:#8c776e;font-size:11px;line-height:1.35}
+.product-web-preview-card{overflow:hidden;border:1px solid #eadbd5;border-radius:22px;background:#fff;box-shadow:0 12px 34px rgba(73,48,40,.08)}
+.product-web-preview-card.is-inactive{opacity:.62;filter:saturate(.72)}
+.product-preview-media{position:relative;aspect-ratio:1.1/1;display:grid;place-items:center;overflow:hidden;background:linear-gradient(135deg,#fff6f1,#f5e6e9);font-size:64px}
+.product-preview-media img{width:100%;height:100%;display:block;object-fit:cover}
+.product-preview-badge{position:absolute;left:12px;top:12px;padding:6px 10px;border-radius:999px;background:#fff5d9;color:#8b681d;font-size:10px;font-weight:900;box-shadow:0 5px 18px rgba(0,0,0,.08)}
+.product-preview-status{position:absolute;right:12px;top:12px;padding:6px 9px;border-radius:999px;background:#e9f7ee;color:#247a43;font-size:10px;font-weight:900}.product-web-preview-card.is-inactive .product-preview-status{background:#f7e9ec;color:#a13f53}
+.product-preview-body{padding:16px}.product-preview-body>small{display:block;color:#9b7b69;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}.product-preview-body h4{margin:5px 0 7px;color:#3e2d26;font-size:20px;font-family:Georgia,serif;line-height:1.08}.product-preview-body p{margin:0;color:#78665e;font-size:12px;line-height:1.55;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;min-height:56px}
+.product-preview-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}.product-preview-price{font-size:18px;font-weight:900;color:#8d5060}.product-preview-action{border:0;border-radius:12px;padding:9px 11px;background:#533a32;color:#fff;font-size:11px;font-weight:900;white-space:nowrap}.product-preview-action:disabled{background:#b9aaa4;cursor:not-allowed}
+.current-product-image{display:block;color:#927e75;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:860px){.product-editor-layout{grid-template-columns:1fr}.product-web-preview-panel{position:static;grid-template-columns:minmax(180px,260px) minmax(0,1fr);align-items:start}.product-preview-heading{grid-column:1/-1}}
+@media(max-width:600px){.product-web-preview-panel{grid-template-columns:1fr}.product-web-preview-card{max-width:320px;width:100%;margin:0 auto}.product-editor-layout{gap:14px}}
+
+/* R9.14.8 · Origen de imagen local / Supabase */
+.current-product-image{display:flex!important;flex-wrap:wrap;align-items:center;gap:7px;min-height:22px;margin-top:2px;color:#75645d}
+.image-source-copy{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.image-source-badge{display:inline-flex;align-items:center;gap:5px;width:max-content;max-width:100%;padding:4px 8px;border-radius:999px;font-size:11px;font-weight:800;line-height:1.15;white-space:normal}
+.image-source-badge.local{background:#f4f0ee;color:#533a32;border:1px solid #e1d6d1}
+.image-source-badge.supabase{background:#edf8f2;color:#17633c;border:1px solid #bfe5cf}
+.image-source-badge.remote{background:#eef4fb;color:#315f8a;border:1px solid #cbdced}

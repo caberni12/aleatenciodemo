@@ -325,7 +325,32 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-function imgTag(url){const u=String(url||"").trim();const src=u&&!/^(?:https?:|data:|blob:)/i.test(u)?`${u}${u.includes("?")?"&":"?"}v=20260915-r9144-product-status`:u;return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
+const CPANEL_MEDIA_VERSION="20260915-r9148-hybrid-images";
+function resolveMediaUrl(value){
+  const u=String(value||"").trim();
+  if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
+  return `${u}${u.includes("?")?"&":"?"}v=${CPANEL_MEDIA_VERSION}`;
+}
+function imageSourceInfo(value){
+  const u=String(value||"").trim();
+  if(!u)return{label:"Sin imagen publicada",kind:"none",file:""};
+  if(/^https?:/i.test(u)){
+    const isSupabase=/\.supabase\.co\/storage\/v1\/object\/public\//i.test(u)||/\/storage\/v1\/object\/public\//i.test(u);
+    let file=u.split("?")[0].split("/").pop()||"imagen";
+    try{file=decodeURIComponent(file)}catch(_){}
+    return{label:isSupabase?"Supabase Storage":"Servidor externo",kind:isSupabase?"supabase":"remote",file};
+  }
+  return{label:"GitHub / archivo local",kind:"local",file:u.split("?")[0].split("/").pop()||u};
+}
+function renderProductImageSource(value,{pending=false}={}){
+  const el=$("#pCurrentImageName");if(!el)return;
+  if(pending){el.innerHTML=`<span class="image-source-copy">Nueva imagen seleccionada</span><span class="image-source-badge supabase"><i class="bi bi-cloud-arrow-up"></i> Se subirá a Supabase Storage al guardar</span>`;return}
+  const info=imageSourceInfo(value);
+  if(info.kind==="none"){el.textContent=info.label;return}
+  const icon=info.kind==="local"?"github":info.kind==="supabase"?"cloud-check":"globe2";
+  el.innerHTML=`<span class="image-source-copy">Imagen actual: ${esc(info.file)}</span><span class="image-source-badge ${esc(info.kind)}"><i class="bi bi-${icon}"></i> ${esc(info.label)}</span>`;
+}
+function imgTag(url){const src=resolveMediaUrl(url);return src?`<img class="thumb" src="${esc(src)}" alt="">`:'<div class="thumb"></div>'}
 
 function renderProducts(){
   const q=normalizeText($("#productSearch").value), f=$("#productFilter").value, status=$("#productStatusFilter")?.value||"";
@@ -335,21 +360,85 @@ function renderProducts(){
   });
   const meta=$("#productResultsMeta");
   if(meta)meta.textContent=`Mostrando ${list.length} de ${data.products.length} productos${f?` · Categoría: ${f}`:""}${status?` · Estado: ${status==="SI"?"Activos":"Inactivos"}`:""}${q?` · Búsqueda: “${$("#productSearch").value.trim()}”`:""}`;
-  $("#productsTable").innerHTML=table(["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"],list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";return `<tr class="${active?"":"product-row-inactive"}"><td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="role-badge ${active?"":"inactive-badge"}">${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button><button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button></div></td></tr>`}).join(""));
+  $("#productsTable").innerHTML=table(["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"],list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";return `<tr class="${active?"":"product-row-inactive"}"><td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="product-state-badge ${active?"is-active":"is-inactive"}"><span class="product-state-dot" aria-hidden="true"></span>${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button><button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button></div></td></tr>`}).join(""));
+}
+let productPreviewObjectUrl="";
+function revokeProductPreviewObjectUrl(){
+  if(productPreviewObjectUrl){
+    try{URL.revokeObjectURL(productPreviewObjectUrl)}catch(_){}
+    productPreviewObjectUrl="";
+  }
+}
+function productEditorSnapshot(imageOverride=""){
+  return {
+    id:$("#pId")?.value||"",
+    nombre:$("#pName")?.value.trim()||"Producto sin nombre",
+    descripcion:$("#pDescription")?.value.trim()||"Agrega una descripción para mostrarla en la tienda.",
+    precio:toNumber($("#pPrice")?.value),
+    categoria_nombre:$("#pCategory")?.value||"Categoría",
+    stock:toNumber($("#pStock")?.value),
+    activo:$("#pActive")?.value||"SI",
+    ocasion:$("#pOccasion")?.value.trim()||"",
+    destacado:$("#pFeatured")?.checked?"SI":"NO",
+    image_url:imageOverride||$("#pImageUrl")?.value||"",
+    orden:toNumber($("#pOrder")?.value)
+  };
+}
+function productPreviewMediaUrl(value){return resolveMediaUrl(value)}
+function productPreviewFallback(p){
+  return ({Tortas:"🍰",Galletas:"🍪","Dulcería":"🍫",Postres:"🧁",Regalos:"🎁"})[p.categoria_nombre]||"🍰";
+}
+function renderProductWebPreview(productOverride=null){
+  const box=$("#productWebPreview");
+  if(!box)return;
+  const p=productOverride||productEditorSnapshot(productPreviewObjectUrl);
+  const active=String(p.activo??"SI").toUpperCase()!=="NO";
+  const priced=Number(p.precio||0)>0;
+  const src=productPreviewMediaUrl(p.image_url);
+  box.classList.toggle("is-inactive",!active);
+  const media=src?`<img src="${esc(src)}" alt="${esc(p.nombre)}">`:`<span>${productPreviewFallback(p)}</span>`;
+  const badge=String(p.destacado).toUpperCase()==="SI"?'<span class="product-preview-badge">Destacado</span>':"";
+  box.innerHTML=`<div class="product-preview-media">${media}${badge}<span class="product-preview-status">${active?"Activo":"Inactivo"}</span></div><div class="product-preview-body"><small>${esc(p.categoria_nombre||"Categoría")}</small><h4>${esc(p.nombre||"Producto sin nombre")}</h4><p>${esc(p.descripcion||"Agrega una descripción para mostrarla en la tienda.")}</p><div class="product-preview-bottom"><span class="product-preview-price">${priced?money(p.precio):"Consultar"}</span><button type="button" class="product-preview-action" ${active?"":"disabled"}>${active?(priced?"Agregar":"Consultar"):"No disponible"}</button></div></div>`;
+  const idLabel=$("#productEditorIdLabel");
+  if(idLabel)idLabel.textContent=p.id?`ID ${p.id} · conectado al catálogo Web`:"Producto nuevo · se generará un ID al guardar";
 }
 function openProductEditor(id=""){
   const editor=$("#productEditor");
+  revokeProductPreviewObjectUrl();
   resetFilePicker("#pImage");
   if(id){
     const p=data.products.find(x=>String(x.id)===String(id));
     if(!p){toast("Producto no encontrado");return}
-    $("#pId").value=p.id||"";$("#pImageId").value=p.drive_file_id||"";$("#pImageUrl").value=p.image_url||"";$("#pName").value=p.nombre||"";$("#pPrice").value=toNumber(p.precio);$("#pCategory").value=p.categoria_nombre||"";$("#pStock").value=toNumber(p.stock);$("#pActive").value=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";$("#pOccasion").value=p.ocasion||"";$("#pDescription").value=p.descripcion||"";$("#pFeatured").checked=String(p.destacado).toUpperCase()==="SI";
-  }else clearProduct();
+    $("#pId").value=p.id||"";
+    $("#pImageId").value=p.drive_file_id||"";
+    $("#pImageUrl").value=p.image_url||"";
+    $("#pOrder").value=toNumber(p.orden);
+    $("#pName").value=p.nombre||"";
+    $("#pPrice").value=toNumber(p.precio);
+    $("#pCategory").value=p.categoria_nombre||"";
+    $("#pStock").value=toNumber(p.stock);
+    $("#pActive").value=String(p.activo??"SI").toUpperCase()==="NO"?"NO":"SI";
+    updateProductStatusHint();
+    $("#pOccasion").value=p.ocasion||"";
+    $("#pDescription").value=p.descripcion||"";
+    $("#pFeatured").checked=String(p.destacado).toUpperCase()==="SI";
+    renderProductImageSource(p.image_url||"");
+    renderProductWebPreview({...p,image_url:p.image_url||""});
+  }else{
+    clearProduct();
+    const nextOrder=Math.max(0,...data.products.map(p=>toNumber(p.orden)))+1;
+    $("#pOrder").value=nextOrder;
+    renderProductWebPreview();
+  }
   editor.classList.remove("hidden");
   document.body.classList.add("product-editor-open");
   requestAnimationFrame(()=>{editor.scrollTop=0;$("#pName")?.focus({preventScroll:true})});
 }
-function closeProductEditor(){$("#productEditor").classList.add("hidden");document.body.classList.remove("product-editor-open")}
+function closeProductEditor(){
+  revokeProductPreviewObjectUrl();
+  $("#productEditor").classList.add("hidden");
+  document.body.classList.remove("product-editor-open");
+}
 window.editProduct=id=>openProductEditor(id);
 window.saveQuickPrice=async(id,btn)=>busy(btn,async()=>{const input=$("#price-"+CSS.escape(String(id)));if(!input)return;const precio=toNumber(input.value);if(!Number.isFinite(precio)||precio<0){toast("Precio no válido");return}try{await AleAPI.savePriceVerified({id,precio},token);const p=data.products.find(x=>String(x.id)===String(id));if(p)p.precio=precio;input.value=precio;toast("✓ Precio actualizado")}catch(e){console.warn(e);toast("✕ No se confirmó el cambio de precio")}});
 $("#productsTable").addEventListener("click",e=>{
@@ -357,12 +446,26 @@ $("#productsTable").addEventListener("click",e=>{
   const save=e.target.closest("[data-save-price]"); if(save){window.saveQuickPrice(save.dataset.savePrice,save);return}
   const del=e.target.closest("[data-delete-product]"); if(del){window.removeEntity("product",del.dataset.deleteProduct,del);return}
 });
+["pName","pPrice","pCategory","pStock","pActive","pOccasion","pDescription","pFeatured"].forEach(id=>{
+  const el=$("#"+id); if(!el)return;
+  const eventName=(id==="pFeatured"||id==="pActive"||id==="pCategory")?"change":"input";
+  el.addEventListener(eventName,()=>{if(id==="pActive")updateProductStatusHint();renderProductWebPreview()});
+});
+$("#pImage")?.addEventListener("change",()=>{
+  revokeProductPreviewObjectUrl();
+  const file=$("#pImage")?.files?.[0];
+  if(file){productPreviewObjectUrl=URL.createObjectURL(file);renderProductImageSource("",{pending:true})}
+  else renderProductImageSource($("#pImageUrl")?.value||"");
+  renderProductWebPreview(productEditorSnapshot(productPreviewObjectUrl));
+});
 $("#productSearch").addEventListener("input",renderProducts);$("#productFilter").addEventListener("change",renderProducts);$("#productStatusFilter")?.addEventListener("change",renderProducts);
 $("#clearProductFilter")?.addEventListener("click",()=>{$("#productSearch").value="";$("#productFilter").value="";if($("#productStatusFilter"))$("#productStatusFilter").value="";renderProducts()});
 $("#newProduct").addEventListener("click",()=>openProductEditor());
-function clearProduct(){["pId","pImageId","pImageUrl","pName","pPrice","pStock","pOccasion","pDescription"].forEach(id=>$("#"+id).value="");$("#pFeatured").checked=false;if($("#pActive"))$("#pActive").value="SI";resetFilePicker("#pImage")}
+function updateProductStatusHint(){const select=$("#pActive"),hint=$("#pActiveHint");if(!select||!hint)return;const active=select.value!=="NO";hint.textContent=active?"Activo: el producto se muestra y puede comprarse en la Web.":"Inactivo: el producto se oculta y no puede comprarse en la Web.";hint.classList.toggle("is-inactive",!active)}
+$("#pActive")?.addEventListener("change",updateProductStatusHint);
+function clearProduct(){revokeProductPreviewObjectUrl();["pId","pImageId","pImageUrl","pOrder","pName","pPrice","pStock","pOccasion","pDescription"].forEach(id=>$("#"+id).value="");$("#pFeatured").checked=false;if($("#pActive"))$("#pActive").value="SI";updateProductStatusHint();resetFilePicker("#pImage");renderProductImageSource("");renderProductWebPreview()}
 $("#closeProductEditorX")?.addEventListener("click",closeProductEditor);
-$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:toNumber($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:$("#pActive")?.value||"SI",ocasion:$("#pOccasion").value.trim()};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast("✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
+$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:toNumber($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:$("#pActive")?.value||"SI",ocasion:$("#pOccasion").value.trim(),orden:toNumber($("#pOrder").value)};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast(file?"✓ Producto actualizado · imagen guardada en Supabase":"✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
 
 function renderCategories(){$("#categoriesTable").innerHTML=table(["Imagen","Categoría","Descripción","Orden","Acciones"],data.categories.map(c=>`<tr><td>${imgTag(c.image_url)}</td><td><strong>${esc(c.nombre)}</strong></td><td>${esc(c.descripcion||"")}</td><td>${Number(c.orden||0)}</td><td><div class="row-actions"><button onclick="editCategory('${c.id}')">Editar</button><button class="danger" onclick="removeEntity('category','${c.id}',this)">Eliminar</button></div></td></tr>`).join(""))}
 $("#newCategory").addEventListener("click",()=>{clearCategory();$("#categoryEditor").classList.remove("hidden")});
