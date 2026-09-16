@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9183-transbank-dominios"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9187-seguimiento-reportes"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260916-r9183-transbank-dominios"><link rel="stylesheet" href="cpanel.css?v=20260916-r9183-transbank-dominios">
+  <link rel="stylesheet" href="styles.css?v=20260916-r9187-seguimiento-reportes"><link rel="stylesheet" href="cpanel.css?v=20260916-r9187-seguimiento-reportes">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -75,7 +75,7 @@
     </header>
 
     <section class="admin-view active" id="view-dashboard">
-      <div class="kpi-grid"><div class="kpi-card"><span>Productos</span><strong id="kpiProducts">0</strong></div><div class="kpi-card"><span>Pedidos pendientes</span><strong id="kpiOrders">0</strong></div><div class="kpi-card"><span>Solicitudes nuevas</span><strong id="kpiRequests">0</strong></div><div class="kpi-card"><span>Stock total</span><strong id="kpiStock">0</strong></div></div>
+      <div class="kpi-grid"><div class="kpi-card"><span>Productos</span><strong id="kpiProducts">0</strong></div><div class="kpi-card"><span>Pedidos pendientes</span><strong id="kpiOrders">0</strong></div><div class="kpi-card"><span>Solicitudes nuevas</span><strong id="kpiRequests">0</strong></div><div class="kpi-card"><span>Stock total</span><strong id="kpiStock">0</strong></div><div class="kpi-card"><span>Ventas pagadas hoy</span><strong id="dashboardSalesToday">$0</strong></div><div class="kpi-card"><span>Ventas pagadas mes</span><strong id="dashboardSalesMonth">$0</strong></div></div>
       <div class="admin-card"><h2>Resumen</h2><div id="dashboardSummary" class="summary-list"></div></div>
     </section>
 
@@ -164,9 +164,12 @@
           <div id="orderDetailItems"></div>
         </div>
         <div class="order-detail-totals" id="orderDetailTotals"></div>
+        <div class="order-detail-history"><span class="eyebrow">Trazabilidad</span><h4>Línea de tiempo del pedido</h4><div id="orderDetailHistory"></div></div>
         <div class="editor-actions">
           <a class="btn btn-light hidden" id="orderDetailPdfLink" href="#" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>
           <button class="btn btn-primary" id="regenerateOrderPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar / actualizar PDF</button>
+          <button class="btn btn-light" id="copyOrderTracking" type="button"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button>
+          <button class="btn btn-light" id="sendOrderTrackingWhatsApp" type="button"><i class="bi bi-whatsapp"></i> Enviar seguimiento</button>
           <button class="btn btn-light" id="closeOrderDetail" type="button">Cerrar</button>
         </div>
       </div>
@@ -271,62 +274,46 @@
     </section>
 
     <section class="admin-view" id="view-reports">
-      <div class="admin-card report-dashboard-card">
+      <div class="admin-card report-dashboard-card report-pro">
         <div class="card-head report-main-head">
-          <div>
-            <span class="eyebrow">Analítica comercial</span>
-            <h2>Reportes de ventas y clientes</h2>
-            <p class="report-subtitle">Visualiza ventas, pedidos y comportamiento de clientes en un solo panel.</p>
-          </div>
-          <div class="card-head-actions report-export-actions">
-            <button class="btn btn-light" id="exportSalesXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> Ventas XLSX</button>
-            <button class="btn btn-light" id="exportSalesPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Ventas PDF</button>
-          </div>
+          <div><span class="eyebrow">Analítica comercial en vivo</span><h2>Ventas, demanda y clientes</h2><p class="report-subtitle">Solo considera ventas realmente pagadas. Los indicadores se calculan desde pedidos + detalle de productos, no desde datos visuales del cPanel.</p></div>
+          <div class="card-head-actions report-export-actions"><button class="btn btn-light" id="refreshReports" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button><button class="btn btn-light" id="exportSalesXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button><button class="btn btn-light" id="exportSalesPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF</button></div>
         </div>
-
         <div class="report-filter-card">
-          <div class="report-filter-head">
-            <div>
-              <span class="eyebrow">Filtros</span>
-              <h3>Período y estado de venta</h3>
-              <p>Filtra el reporte sin perder la vista general del cPanel.</p>
-            </div>
-            <button class="btn btn-light report-reset-btn" id="resetReports" type="button"><i class="bi bi-arrow-counterclockwise"></i> Restablecer</button>
+          <div class="report-filter-head"><div><span class="eyebrow">Filtros</span><h3>Período de ventas pagadas</h3><p>La fecha utilizada es la fecha efectiva de pago.</p></div><button class="btn btn-light report-reset-btn" id="resetReports" type="button"><i class="bi bi-arrow-counterclockwise"></i> Año actual</button></div>
+          <div class="report-filters report-filters-pro">
+            <label class="report-filter-field"><span>Desde</span><div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportFrom" type="date"></div></label>
+            <label class="report-filter-field"><span>Hasta</span><div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportTo" type="date"></div></label>
+            <label class="report-filter-field"><span>Estado operativo</span><div class="report-input-shell"><i class="bi bi-funnel"></i><select id="reportOrderStatus"><option value="" selected>Todos los pedidos pagados</option><option value="PENDIENTE">Pedido recibido</option><option value="CONFIRMADO">Pedido aceptado</option><option value="EN PREPARACION">En preparación</option><option value="LISTO">Listo para entrega</option><option value="ENTREGADO">Entregado</option><option value="CANCELADO">Cancelado</option></select></div></label>
+            <label class="report-filter-field"><span>Ranking productos</span><div class="report-input-shell"><i class="bi bi-trophy"></i><select id="reportTopLimit"><option value="1">Top 1</option><option value="10" selected>Top 10</option><option value="20">Top 20</option><option value="50">Top 50</option></select></div></label>
+            <button class="btn btn-primary report-apply-btn" id="applyReports" type="button"><i class="bi bi-funnel-fill"></i><span>Aplicar</span></button>
           </div>
-          <div class="report-filters">
-            <label class="report-filter-field">
-              <span>Desde</span>
-              <div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportFrom" type="date"></div>
-            </label>
-            <label class="report-filter-field">
-              <span>Hasta</span>
-              <div class="report-input-shell"><i class="bi bi-calendar3"></i><input id="reportTo" type="date"></div>
-            </label>
-            <label class="report-filter-field">
-              <span>Estado del pedido</span>
-              <div class="report-input-shell"><i class="bi bi-funnel"></i><select id="reportOrderStatus"><option value="ENTREGADO" selected>Ventas efectivas (ENTREGADO)</option><option value="">Todos</option><option>LISTO</option><option>EN PREPARACION</option><option>CONFIRMADO</option><option>PENDIENTE</option><option>CANCELADO</option></select></div>
-            </label>
-            <button class="btn btn-primary report-apply-btn" id="applyReports" type="button"><i class="bi bi-funnel-fill"></i><span>Aplicar filtros</span></button>
-          </div>
-          <div class="report-filter-summary" id="reportFilterSummary"><i class="bi bi-info-circle"></i><span>Mostrando ventas entregadas.</span></div>
+          <div class="report-filter-summary" id="reportFilterSummary"><i class="bi bi-info-circle"></i><span>Cargando ventas pagadas…</span></div>
         </div>
 
-        <div class="report-kpis">
-          <div class="report-kpi-card sales"><span class="report-kpi-icon"><i class="bi bi-cash-stack"></i></span><div><small>Ventas</small><strong id="reportSalesTotal">$0</strong><em>Total del período</em></div></div>
-          <div class="report-kpi-card orders"><span class="report-kpi-icon"><i class="bi bi-bag-check"></i></span><div><small>Pedidos</small><strong id="reportOrdersCount">0</strong><em>Registros filtrados</em></div></div>
-          <div class="report-kpi-card clients"><span class="report-kpi-icon"><i class="bi bi-people"></i></span><div><small>Clientes registrados</small><strong id="reportClientsCount">0</strong><em>Base comercial</em></div></div>
-          <div class="report-kpi-card repeat"><span class="report-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><small>Clientes recurrentes</small><strong id="reportRepeatClients">0</strong><em>Con actividad repetida</em></div></div>
+        <div class="report-kpis report-kpis-pro">
+          <div class="report-kpi-card sales"><span class="report-kpi-icon"><i class="bi bi-cash-stack"></i></span><div><small>Ventas período</small><strong id="reportSalesTotal">$0</strong><em>Solo PAGADO</em></div></div>
+          <div class="report-kpi-card orders"><span class="report-kpi-icon"><i class="bi bi-bag-check"></i></span><div><small>Pedidos pagados</small><strong id="reportOrdersCount">0</strong><em>Período filtrado</em></div></div>
+          <div class="report-kpi-card clients"><span class="report-kpi-icon"><i class="bi bi-people"></i></span><div><small>Clientes compradores</small><strong id="reportClientsCount">0</strong><em>Únicos del período</em></div></div>
+          <div class="report-kpi-card repeat"><span class="report-kpi-icon"><i class="bi bi-arrow-repeat"></i></span><div><small>Clientes recurrentes</small><strong id="reportRepeatClients">0</strong><em>Más de una compra</em></div></div>
+          <div class="report-kpi-card"><span class="report-kpi-icon"><i class="bi bi-receipt"></i></span><div><small>Ticket promedio</small><strong id="reportAvgTicket">$0</strong><em>Promedio por pedido</em></div></div>
+          <div class="report-kpi-card"><span class="report-kpi-icon"><i class="bi bi-sun"></i></span><div><small>Ventas del día</small><strong id="reportTodaySales">$0</strong><em>Hoy</em></div></div>
+          <div class="report-kpi-card"><span class="report-kpi-icon"><i class="bi bi-calendar2-month"></i></span><div><small>Ventas del mes</small><strong id="reportMonthSales">$0</strong><em>Mes en curso</em></div></div>
+          <div class="report-kpi-card"><span class="report-kpi-icon"><i class="bi bi-trophy"></i></span><div><small>Producto N.º 1</small><strong id="reportTopProduct">—</strong><em id="reportTopProductMeta">Sin ventas</em></div></div>
         </div>
 
-        <div class="report-section-card">
-          <div class="report-section-head"><div><span class="eyebrow">Ventas</span><h3>Ventas por pedido</h3></div><span class="report-section-badge" id="salesRowsBadge">0 registros</span></div>
-          <div class="table-wrap report-table-wrap" id="salesReportTable"></div>
+        <div class="report-circular-grid">
+          <article class="report-circle-card"><div class="report-circle" id="reportYearCircle" style="--pct:0"><div><strong id="reportYearPct">0%</strong><span>variación</span></div></div><div><small>Año actual vs anterior</small><strong id="reportYearSales">$0</strong><span id="reportPrevYearSales">Anterior: $0</span></div></article>
+          <article class="report-circle-card"><div class="report-circle" id="reportMonthCircle" style="--pct:0"><div><strong id="reportMonthPct">0%</strong><span>variación</span></div></div><div><small>Mes actual vs mismo mes anterior</small><strong id="reportMonthCompareSales">$0</strong><span id="reportPrevMonthSales">Anterior: $0</span></div></article>
+          <article class="report-highlight-card"><span class="eyebrow">Cliente con más compras</span><h3 id="reportTopCustomer">—</h3><strong id="reportTopCustomerTotal">$0</strong><small id="reportTopCustomerMeta">Sin compras</small></article>
         </div>
 
-        <div class="report-section-card">
-          <div class="report-section-head"><div><span class="eyebrow">Clientes</span><h3>Resumen de clientes</h3></div><span class="report-section-badge" id="clientRowsBadge">0 clientes</span></div>
-          <div class="table-wrap report-table-wrap" id="clientReportTable"></div>
+        <div class="report-grid-2">
+          <div class="report-section-card"><div class="report-section-head"><div><span class="eyebrow">Ranking</span><h3 id="topProductsTitle">Top 10 productos</h3></div><span class="report-section-badge" id="topProductsBadge">0</span></div><div class="table-wrap report-table-wrap" id="topProductsTable"></div></div>
+          <div class="report-section-card"><div class="report-section-head"><div><span class="eyebrow">Demanda</span><h3>Productos con alta demanda</h3></div><span class="report-section-badge">Últimos 30 días</span></div><div class="table-wrap report-table-wrap" id="highDemandTable"></div></div>
         </div>
+        <div class="report-section-card"><div class="report-section-head"><div><span class="eyebrow">Clientes</span><h3>Clientes por compras pagadas</h3></div><span class="report-section-badge" id="clientRowsBadge">0 clientes</span></div><div class="table-wrap report-table-wrap" id="clientReportTable"></div></div>
+        <div class="report-section-card"><div class="report-section-head"><div><span class="eyebrow">Ventas</span><h3>Detalle de ventas pagadas</h3></div><span class="report-section-badge" id="salesRowsBadge">0 registros</span></div><div class="table-wrap report-table-wrap" id="salesReportTable"></div></div>
       </div>
     </section>
 
@@ -430,5 +417,5 @@
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260916-r9183-transbank-dominios"></script><script src="api.js?v=20260916-r9183-transbank-dominios"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9183-transbank-dominios"></script>
+<script src="config.js?v=20260916-r9187-seguimiento-reportes"></script><script src="api.js?v=20260916-r9187-seguimiento-reportes"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9187-seguimiento-reportes"></script>
 </body></html>

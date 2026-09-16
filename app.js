@@ -11,7 +11,7 @@ const isProductActive = p => {
   const v=String(p.activo??"SI").trim().toUpperCase();
   return !["NO","FALSE","0","INACTIVO"].includes(v);
 };
-const MEDIA_VERSION = "20260916-r9185-transbank-retorno-robusto";
+const MEDIA_VERSION = "20260916-r9187-seguimiento-reportes";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -390,12 +390,52 @@ function syncSocialButtons(){
   Object.entries(map).forEach(([platform,id])=>{const el=document.getElementById(id);if(!el)return;const url=socialLink(platform);el.classList.toggle("is-unconfigured",!url);el.href=url||"#";el.onclick=e=>{e.preventDefault();openSocial(platform)}});
 }
 
+
+const TRACKING_STORE_KEY="aleAtencioTrackingCredentialsV1";
+function trackingStore(){try{const v=JSON.parse(localStorage.getItem(TRACKING_STORE_KEY)||"{}");return v&&typeof v==="object"?v:{}}catch(_){return{}}}
+function rememberTracking(orderId,orderNumber,trackingToken,trackingUrl,pdfUrl=""){
+  if(!trackingToken)return;const store=trackingStore();const row={order_id:String(orderId||""),numero_pedido:String(orderNumber||""),tracking_token:String(trackingToken),tracking_url:String(trackingUrl||""),pdf_url:String(pdfUrl||""),saved_at:new Date().toISOString()};
+  if(row.order_id)store[row.order_id]=row;if(row.numero_pedido)store[row.numero_pedido]=row;localStorage.setItem(TRACKING_STORE_KEY,JSON.stringify(store));
+}
+function trackingCredential(ref){const store=trackingStore();return store[String(ref||"")]||null}
+function trackingHash(number){return `#seguimiento/${encodeURIComponent(String(number||""))}`}
+function statusLabel(v){const s=String(v||"").toUpperCase();return({PENDIENTE:"Pedido recibido",CONFIRMADO:"Pedido aceptado","EN PREPARACION":"En preparación",LISTO:"Listo para entrega",ENTREGADO:"Entregado",CANCELADO:"Cancelado"})[s]||s||"Pedido recibido"}
+function paymentLabel(v){const s=String(v||"PENDIENTE").toUpperCase();return({PENDIENTE:"Pendiente",INICIADO:"Pago iniciado",PAGADO:"Pagado",RECHAZADO:"Rechazado",CANCELADO:"Cancelado",VERIFICACION_PENDIENTE:"Verificación pendiente"})[s]||s}
+function trackingTimeline(order){
+  const status=String(order.estado||"PENDIENTE").toUpperCase(),paid=String(order.estado_pago||"").toUpperCase()==="PAGADO";
+  const rank={PENDIENTE:0,CONFIRMADO:1,"EN PREPARACION":2,LISTO:3,ENTREGADO:4,CANCELADO:-1};const current=rank[status]??0;
+  const steps=[{label:"Pedido recibido",done:true},{label:"Pago confirmado",done:paid},{label:"En preparación",done:current>=2},{label:"Listo para entrega",done:current>=3},{label:"Entregado",done:current>=4}];
+  return `<div class="tracking-timeline">${steps.map((x,i)=>`<div class="tracking-step ${x.done?"done":(!x.done&&((i===1&&!paid)||(i>=2&&current===i))?"current":"")}"><span class="tracking-step-dot">${x.done?'<i class="bi bi-check-lg"></i>':i+1}</span><div><strong>${esc(x.label)}</strong>${i===1&&order.fecha_pago?`<small>${esc(new Date(order.fecha_pago).toLocaleString("es-CL"))}</small>`:""}</div></div>`).join("")}</div>`;
+}
+function trackingRouteData(){
+  const raw=location.hash.replace(/^#seguimiento\/?/,"")||"",qPos=raw.indexOf("?");
+  const ref=decodeURIComponent(qPos>=0?raw.slice(0,qPos):raw);const params=new URLSearchParams(qPos>=0?raw.slice(qPos+1):"");
+  return{ref,token:params.get("t")||""};
+}
+function trackingView(){
+  const route=trackingRouteData();
+  return `<section class="view-hero tracking-hero"><div class="view-hero-inner"><span class="eyebrow">Seguimiento</span><h1>Consulta tu pedido</h1><p>Busca por RUT o número de pedido y revisa su avance.</p></div></section>
+  <section class="section tracking-section"><div class="tracking-search-card"><div><span class="eyebrow">Estado en línea</span><h2>¿Dónde va mi pedido?</h2><p>Ingresa tu RUT o número de pedido. Si no abriste el enlace seguro de tu compra, valida con el teléfono usado en el pedido.</p></div><form id="trackingForm" class="tracking-form"><input id="trackingQuery" value="${esc(route.ref)}" placeholder="RUT o N.º de pedido" autocomplete="off"><input id="trackingPhone" inputmode="tel" placeholder="Teléfono de compra (verificación)" autocomplete="tel"><button class="btn btn-primary" type="submit"><i class="bi bi-search"></i> Consultar</button></form><div id="trackingMessage" class="tracking-message"></div></div><div id="trackingResults" class="tracking-results"></div></section>${footer()}`;
+}
+function renderTrackingResults(orders){
+  const host=$("#trackingResults");if(!host)return;if(!orders?.length){host.innerHTML='<div class="empty-card">No encontramos pedidos con esos datos.</div>';return}
+  orders.forEach(o=>{try{const raw=String(o.tracking_url||"").split("#")[1]||"",q=raw.indexOf("?");const params=new URLSearchParams(q>=0?raw.slice(q+1):"");const t=params.get("t")||"";if(t)rememberTracking(o.id,o.numero_pedido,t,o.tracking_url,o.pdf_url||"")}catch(_){}});
+  host.innerHTML=orders.map(o=>{const cred=trackingCredential(o.numero_pedido)||trackingCredential(o.id);const pdf=o.pdf_url||(cred?.pdf_url||"");return `<article class="tracking-order-card"><div class="tracking-order-head"><div><span class="eyebrow">Pedido</span><h3>${esc(o.numero_pedido||o.id)}</h3><small>${esc(o.fecha?new Date(o.fecha).toLocaleString("es-CL"):"")}</small></div><div class="tracking-total"><small>Total</small><strong>${money(o.total)}</strong></div></div><div class="tracking-status-grid"><div><span>Pago</span><strong class="tracking-pill payment-${esc(String(o.estado_pago||"pendiente").toLowerCase().replace(/[^a-z0-9]+/g,"-"))}">${esc(paymentLabel(o.estado_pago))}</strong></div><div><span>Pedido</span><strong>${esc(o.estado_label||statusLabel(o.estado))}</strong></div><div><span>Entrega</span><strong>${esc(o.metodo_entrega||"Por coordinar")}</strong></div></div>${trackingTimeline(o)}<div class="tracking-actions">${pdf?`<a class="btn btn-light" href="${esc(pdf)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</a>`:""}<button class="btn btn-light" type="button" data-copy-tracking="${esc(o.tracking_url||location.origin+location.pathname+trackingHash(o.numero_pedido))}"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button></div></article>`}).join("");
+  host.querySelectorAll("[data-copy-tracking]").forEach(b=>b.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(b.dataset.copyTracking);toast("Enlace de seguimiento copiado","success")}catch(_){toast("No fue posible copiar el enlace","error")}}));
+}
+async function lookupTracking(query,phone=""){
+  const q=String(query||"").trim();if(!q)return;const cred=trackingCredential(q),route=trackingRouteData();const payload={query:q};const routeToken=route.ref===q?route.token:"";if(routeToken)payload.tracking_token=routeToken;else if(cred?.tracking_token)payload.tracking_token=cred.tracking_token;if(phone)payload.verify_phone=String(phone).trim();
+  const msg=$("#trackingMessage"),host=$("#trackingResults");if(msg)msg.textContent="Consultando pedido…";if(host)host.innerHTML='<div class="tracking-loading"><span></span> Consultando...</div>';
+  try{const out=await AleAPI.postPublic("trackorder",payload);renderTrackingResults(out?.orders||[]);if(msg)msg.textContent=out?.count?`${out.count} pedido${out.count===1?"":"s"} encontrado${out.count===1?"":"s"}.`:out?.needs_verification?"Para proteger tus datos, ingresa el teléfono usado en la compra.":"Sin resultados."}catch(err){console.warn("TRACK_ORDER",err);if(msg)msg.textContent="No fue posible consultar en este momento.";if(host)host.innerHTML=""}
+}
+function wireTracking(){const form=$("#trackingForm"),input=$("#trackingQuery"),phone=$("#trackingPhone");if(!form)return;form.addEventListener("submit",e=>{e.preventDefault();lookupTracking(input?.value,phone?.value)});if(input?.value)setTimeout(()=>lookupTracking(input.value,phone?.value),120)}
+
 function footer(){
   const c=state.config;
   return `<footer class="site-footer"><div class="footer-inner"><div class="footer-grid">
     <div class="footer-brand-block"><img class="footer-logo" src="${esc(c.logo_url||"logo-ale-atencio.png")}" alt="Ale Atencio"><p>Tortas, galletas, postres y regalos preparados para tus momentos especiales.</p>${socialIcons()}</div>
     <div class="footer-shop-block"><div class="footer-title">Tienda</div><div class="footer-links"><a href="#inicio">Inicio</a><a href="#productos/tortas">Tortas</a><a href="#productos/galletas">Galletas</a><a href="#productos/postres">Postres</a><a href="#productos/regalos">Regalos</a></div></div>
-    <div class="footer-help-block"><div class="footer-title">Ayuda</div><div class="footer-links"><a href="#solicitud">Solicitud</a><a href="#politicas">Políticas</a><a href="#politicas">Despachos</a><a href="#politicas">Cambios</a></div></div>
+    <div class="footer-help-block"><div class="footer-title">Ayuda</div><div class="footer-links"><a href="#seguimiento">Consulta tu pedido</a><a href="#solicitud">Solicitud</a><a href="#politicas">Políticas</a><a href="#politicas">Despachos</a><a href="#politicas">Cambios</a></div></div>
     <div class="footer-contact-block"><div class="footer-title">Contacto</div><div class="footer-links">${normalizePhone(c.whatsapp)?`<a href="#" onclick="openWhatsApp();return false">${esc(c.whatsapp)}</a>`:""}${c.email?`<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>`:""}${c.direccion?`<span>${esc(c.direccion)}</span>`:""}</div></div>
   </div><div class="footer-line"></div><div class="footer-bottom"><span>© 2026 Ale Atencio Repostería</span><div class="footer-policies"><a href="#politicas">Privacidad</a><a href="#politicas">Términos</a><a href="#politicas">Despacho</a></div></div><div class="developer-credit" aria-label="Créditos de desarrollo"><span>Design by</span> <a href="https://serviciosinformaticosas.cl/" target="_blank" rel="noopener noreferrer">SERVICIOS INFORMÁTICOS AS</a><span class="developer-credit-sep">·</span><span>Desarrollo Web, Sistemas y Android</span></div></div></footer>`;
 }
@@ -412,10 +452,11 @@ function render(){
   else if(hash==="ofertas") $("#app").innerHTML=offersView();
   else if(hash==="nosotros") $("#app").innerHTML=aboutView();
   else if(hash==="solicitud") $("#app").innerHTML=requestView();
+  else if(hash.startsWith("seguimiento")) $("#app").innerHTML=trackingView();
   else if(hash==="politicas") $("#app").innerHTML=policiesView();
   else $("#app").innerHTML=homeView();
   if(hash==="solicitud") focusRequestForm(); else window.scrollTo({top:0,behavior:"smooth"});
-  closeMobile(); wireCarousel(); wireCatalog(); wireRequest();
+  closeMobile(); wireCarousel(); wireCatalog(); wireRequest(); wireTracking();
 }
 
 function wireCarousel(){
@@ -483,7 +524,7 @@ async function sendAndConfirm(action, type, data){
   let postError = null;
   try{
     const r=await AleAPI.postPublic(action,data);
-    if(r?.ok!==false) return {ok:true,id:r?.id||data.id,numero_solicitud:r?.numero_solicitud||"",numero_pedido:r?.numero_pedido||"",pdf_url:r?.pdf_url||"",pdf_pending:!!r?.pdf_pending,total:r?.total,checkout_token:r?.checkout_token||"",source:"transport",persisted:r?.persisted!==false};
+    if(r?.ok!==false) return {ok:true,id:r?.id||data.id,numero_solicitud:r?.numero_solicitud||"",numero_pedido:r?.numero_pedido||"",pdf_url:r?.pdf_url||"",pdf_pending:!!r?.pdf_pending,total:r?.total,checkout_token:r?.checkout_token||"",tracking_token:r?.tracking_token||"",tracking_url:r?.tracking_url||"",source:"transport",persisted:r?.persisted!==false};
   }catch(err){ postError=err; }
 
   // Ante timeout/CORS/conexión ambigua, la escritura puede haber quedado confirmada.
@@ -493,7 +534,7 @@ async function sendAndConfirm(action, type, data){
       const check=await AleAPI.verifyRecord(type,data.id,1);
       if(check?.ok&&check?.exists){
         if(String(action||"").toLowerCase()==="createorder"){
-          try{const recovered=await AleAPI.postPublic(action,data);if(recovered?.checkout_token)return {ok:true,id:recovered?.id||data.id,numero_pedido:recovered?.numero_pedido||check?.numero_pedido||"",pdf_url:recovered?.pdf_url||check?.pdf_url||"",pdf_pending:!!recovered?.pdf_pending,total:recovered?.total,checkout_token:recovered.checkout_token,source:"recovered-after-transport",persisted:true};}catch(_){ }
+          try{const recovered=await AleAPI.postPublic(action,data);if(recovered?.checkout_token)return {ok:true,id:recovered?.id||data.id,numero_pedido:recovered?.numero_pedido||check?.numero_pedido||"",pdf_url:recovered?.pdf_url||check?.pdf_url||"",pdf_pending:!!recovered?.pdf_pending,total:recovered?.total,checkout_token:recovered.checkout_token,tracking_token:recovered?.tracking_token||"",tracking_url:recovered?.tracking_url||"",source:"recovered-after-transport",persisted:true};}catch(_){ }
         }
         return {ok:true,id:data.id,numero_solicitud:check?.numero_solicitud||"",numero_pedido:check?.numero_pedido||"",pdf_url:check?.pdf_url||"",source:"verified-after-transport"};
       }
@@ -625,6 +666,7 @@ async function handleTransbankReturnUi(){
   toast(messages[status]||"Retorno de Transbank recibido.",status==="success"?"success":status==="pending"?"info":"error");
   if(pending&&["failed","cancelled"].includes(status)){const panel=$("#orderSuccessPanel"),numberEl=$("#orderSuccessNumber");if(numberEl)numberEl.textContent=order||pending.numero_pedido||"";panel?.classList.remove("hidden");$("#submitOrderBtn")?.classList.add("hidden");openModal("#checkoutModal");syncPaymentUI();}
   ["tbk","order"].forEach(k=>u.searchParams.delete(k));history.replaceState({},"",u.pathname+(u.search||"")+u.hash);
+  if(status==="success"&&order)setTimeout(()=>{location.hash=trackingHash(order)},850);
 }
 function setCheckoutPaymentIntent(provider=""){
   checkoutPaymentIntent=provider;const isTb=provider==="TRANSBANK";const intent=$("#checkoutPaymentIntent"),submit=$("#submitOrderBtn");
@@ -677,9 +719,12 @@ async function submitOrder(){
   const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre} - ${money(x.precio*x.cantidad)}`).join("\n");
   if(saved){
     cart=[];saveCart();closeCart();
-    const panel=$("#orderSuccessPanel"),pdfLink=$("#orderSuccessPdf"),pdfPending=$("#orderSuccessPdfPending"),numberEl=$("#orderSuccessNumber");
+    const panel=$("#orderSuccessPanel"),pdfLink=$("#orderSuccessPdf"),pdfPending=$("#orderSuccessPdfPending"),numberEl=$("#orderSuccessNumber"),trackingLink=$("#orderSuccessTracking"),pdfGenerate=$("#orderSuccessPdfGenerate");
     if(numberEl)numberEl.textContent=orderId;
+    rememberTracking(result?.id||data.id,orderId,result?.tracking_token||"",result?.tracking_url||"",result?.pdf_url||"");
+    if(trackingLink){trackingLink.href=result?.tracking_url||trackingHash(orderId);trackingLink.hidden=false}
     if(pdfLink){if(result?.pdf_url){pdfLink.href=result.pdf_url;pdfLink.hidden=false}else{pdfLink.hidden=true;pdfLink.removeAttribute("href")}}
+    if(pdfGenerate){pdfGenerate.hidden=!!result?.pdf_url||!result?.tracking_token;pdfGenerate.dataset.orderId=String(result?.id||data.id);pdfGenerate.dataset.trackingToken=String(result?.tracking_token||"")}
     if(pdfPending)pdfPending.hidden=!!result?.pdf_url;
     panel?.classList.remove("hidden");
     btn?.classList.add("hidden");
@@ -711,6 +756,7 @@ window.openWhatsApp=(custom="")=>{const phone=normalizePhone(state.config.whatsa
 function openCart(){$("#cartDrawer").classList.add("open");$("#overlay").classList.add("show")}function closeCart(){$("#cartDrawer").classList.remove("open");$("#overlay").classList.remove("show")}
 function openModal(id){$(id).classList.add("show")}function closeModal(){$$(".modal").forEach(x=>x.classList.remove("show"))}
 $("#cartBtn").addEventListener("click",openCart);$("#closeCart").addEventListener("click",closeCart);$("#overlay").addEventListener("click",closeCart);$("#clearCart").addEventListener("click",()=>{cart=[];saveCart()});
+$("#orderSuccessPdfGenerate")?.addEventListener("click",async e=>{const b=e.currentTarget,orderId=b.dataset.orderId,trackingToken=b.dataset.trackingToken;if(!orderId||!trackingToken)return;beginButtonLoader(b);try{const out=await AleAPI.postPublic("publicorderpdf",{order_id:orderId,tracking_token:trackingToken});if(out?.pdf_url){const link=$("#orderSuccessPdf");link.href=out.pdf_url;link.hidden=false;b.hidden=true;$("#orderSuccessPdfPending").hidden=true;const cred=trackingCredential(out.numero_pedido)||trackingCredential(orderId);if(cred)rememberTracking(orderId,out.numero_pedido,trackingToken,cred.tracking_url,out.pdf_url);toast("PDF generado correctamente","success")}}catch(err){console.warn(err);toast("No fue posible generar el PDF ahora","error")}finally{endButtonLoader(b)}});
 $("#checkoutBtn").addEventListener("click",()=>openCheckout(""));$("#transbankCartBtn")?.addEventListener("click",()=>{if(!transbankAvailable())return toast("Transbank aún no está listo. Verifica URL y credenciales del servidor.","error");openCheckout("TRANSBANK")});$("#orderSuccessTransbank")?.addEventListener("click",async e=>{const b=e.currentTarget,p=getPendingTransbank();if(!p)return toast("No hay un pago Transbank pendiente.","error");beginButtonLoader(b);try{await startTransbankForOrder(p)}catch(err){console.warn(err);toast("No fue posible iniciar Transbank. Revisa la configuración del servidor.","error");endButtonLoader(b)}});$("#submitOrderBtn").addEventListener("click",submitOrder);wireRutField("#coRut");$("#orderSuccessClose")?.addEventListener("click",()=>{closeModal();setCheckoutPaymentIntent("");$("#orderSuccessPanel")?.classList.add("hidden");$("#submitOrderBtn")?.classList.remove("hidden")});$("#whatsappFloat").addEventListener("click",e=>{e.preventDefault();openWhatsApp()});
 $("#searchBtn").addEventListener("click",()=>openModal("#searchModal"));$$("[data-close-modal]").forEach(b=>b.addEventListener("click",closeModal));$$(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal()}));
 $("#searchAction").addEventListener("click",doSearch);$("#searchInput").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});

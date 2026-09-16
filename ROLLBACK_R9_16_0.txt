@@ -1,0 +1,8 @@
+ALE ATENCIO · R9.16.0 · PLAN DE ROLLBACK
+
+La migración SQL R9.16.0 es aditiva y compatible hacia atrás. Si fuera necesario volver temporalmente al frontend/backend R9.15.5:
+1) Redeplegar el index.ts R9.15.5 anterior.
+2) Restaurar los archivos Web/cPanel R9.15.5 en GitHub.
+3) NO eliminar las columnas RUT, pedido_items ni los campos PDF de PostgreSQL: dejarlos preserva datos y evita una reversión destructiva.
+
+Los nuevos pedidos creados por R9.16.0 conservan también pedidos.detalle en JSON, por lo que un backend anterior puede seguir mostrando la cabecera/detalle legado aunque no utilice pedido_items.
