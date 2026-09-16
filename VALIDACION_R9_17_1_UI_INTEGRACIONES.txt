@@ -1,0 +1,28 @@
+ALE ATENCIO · VALIDACION R9.17.1 · UI INTEGRACIONES
+===================================================
+
+RESULTADO GENERAL: OK
+
+[OK] Base completa R9.17.0 preservada.
+[OK] cpanel.css incorpora bloque R9.17.1 de pulido visual premium.
+[OK] Integraciones: tarjetas, iconos, jerarquía y estados activos refinados.
+[OK] Checkbox nativo reemplazado visualmente por switch moderno conservando el input real.
+[OK] Inputs URL tienen estilos dedicados de borde, fondo, hover, focus y placeholder.
+[OK] Nota de seguridad refinada.
+[OK] Botón Guardar integraciones refinado.
+[OK] Transbank mantiene funcionalidad R9.17.0 y recibe acabado visual coherente.
+[OK] Responsive específico <=760 px y <=440 px incorporado.
+[OK] Cache-busting cPanel actualizado a 20260916-r9171-ui-integraciones.
+[OK] app.js: node --check OK.
+[OK] cpanel.js: node --check OK.
+[OK] api.js: node --check OK.
+[OK] TESTS_R9_17_1_UI_INTEGRACIONES.js: todos los asserts OK.
+[OK] CSS: cantidad de llaves de apertura/cierre balanceada (739 / 739).
+[OK] index.ts es binariamente idéntico a R9.17.0; no existe cambio backend en este hotfix visual.
+[OK] cpanel.js, app.js y api.js son idénticos a R9.17.0; no se alteró lógica funcional.
+[OK] Estructura del proyecto continúa plana, sin carpeta contenedora.
+
+PUBLICACION
+- Si R9.17.0 ya está instalado: NO ejecutar SQL y NO redesplegar index.ts.
+- Reemplazar/publicar los archivos del ZIP R9.17.1.
+- Hacer Ctrl+F5 una vez en el cPanel para limpiar caché visual previa.

@@ -1455,3 +1455,277 @@ body.order-detail-open{overflow:hidden}
 .payment-provider-head{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin-bottom:18px}.payment-provider-logo{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#4d2f78;color:#fff;font-size:23px}.payment-provider-head strong,.payment-provider-head small{display:block}.payment-provider-head small{color:var(--muted);margin-top:3px}.gateway-status{padding:7px 10px;border-radius:999px;background:#f1ece8;color:var(--muted);font-size:12px;font-weight:900}.gateway-status.is-ready{background:#eaf8ef;color:#237544}
 .gateway-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.gateway-flow{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:13px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.gateway-flow span{font-weight:700}.gateway-flow b{color:var(--berry)}
 @media(max-width:760px){.integration-grid{grid-template-columns:1fr}.payment-provider-head{grid-template-columns:auto 1fr}.gateway-status{grid-column:1/-1;justify-self:start}.gateway-flow i{transform:rotate(90deg)}}
+
+
+/* ========================================================================
+   R9.17.1 · PULIDO VISUAL PREMIUM · INTEGRACIONES + TRANSBANK
+   - Inputs URL consistentes con el resto del cPanel.
+   - Switches modernos accesibles, sin checkbox nativo crudo.
+   - Tarjetas con jerarquía visual, estados activos y responsive real.
+   ======================================================================== */
+#view-integrations .admin-card,
+#view-payments .admin-card{
+  background:linear-gradient(180deg,#fff 0%,#fffdfc 100%);
+}
+
+#view-integrations .card-head,
+#view-payments .card-head{
+  margin-bottom:4px;
+}
+
+#view-integrations .module-help,
+#view-payments .module-help{
+  max-width:920px;
+  color:#7b6960;
+  font-size:13px;
+}
+
+.integration-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:18px;
+  margin:22px 0 20px;
+}
+
+.integration-card{
+  position:relative;
+  overflow:hidden;
+  gap:15px;
+  padding:19px;
+  border:1px solid #eaded8;
+  border-radius:20px;
+  background:linear-gradient(145deg,#ffffff 0%,#fffdfc 58%,#faf6f3 100%);
+  box-shadow:0 8px 24px rgba(69,43,34,.055);
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,background .18s ease;
+}
+.integration-card::before{
+  content:"";
+  position:absolute;
+  inset:0 auto 0 0;
+  width:4px;
+  background:linear-gradient(180deg,#cba9a1,#8d5060);
+  opacity:.34;
+  transition:opacity .18s ease,width .18s ease;
+}
+.integration-card:hover{
+  transform:translateY(-2px);
+  border-color:#dcc8c0;
+  box-shadow:0 14px 34px rgba(69,43,34,.095);
+}
+.integration-card:has(.integration-toggle input:checked){
+  border-color:#cba7b1;
+  background:linear-gradient(145deg,#fff 0%,#fffaf9 56%,#f8eff1 100%);
+  box-shadow:0 12px 34px rgba(141,80,96,.11);
+}
+.integration-card:has(.integration-toggle input:checked)::before{
+  width:5px;
+  opacity:1;
+}
+
+.integration-provider{
+  gap:13px;
+  min-width:0;
+}
+.integration-provider>i{
+  width:46px;
+  height:46px;
+  flex:0 0 46px;
+  border:1px solid #eaded8;
+  border-radius:15px;
+  background:linear-gradient(145deg,#fbf5f2,#f5ece8);
+  color:#70404d;
+  font-size:20px;
+  box-shadow:0 6px 15px rgba(83,52,42,.07);
+}
+.integration-provider>div{min-width:0}
+.integration-provider strong{
+  color:#3d2e28;
+  font-size:15px;
+  line-height:1.25;
+  font-weight:850;
+  letter-spacing:-.01em;
+}
+.integration-provider small{
+  margin-top:4px;
+  color:#8d7a71;
+  font-size:12px;
+  line-height:1.25;
+}
+
+/* Switch moderno: mantiene el input real para teclado, lector de pantalla y JS. */
+.integration-toggle{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+  min-height:46px;
+  padding:9px 11px 9px 13px;
+  border:1px solid #eee3de;
+  border-radius:14px;
+  background:rgba(250,247,245,.88);
+  color:#5c4840;
+  font-size:12px;
+  font-weight:850;
+  cursor:pointer;
+  user-select:none;
+  transition:border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.integration-toggle span{order:1;flex:1;min-width:0}
+.integration-toggle input{
+  order:2;
+  appearance:none;
+  -webkit-appearance:none;
+  flex:0 0 46px;
+  width:46px;
+  height:26px;
+  margin:0;
+  border:1px solid #d5c6bf;
+  border-radius:999px;
+  outline:none;
+  cursor:pointer;
+  background:
+    radial-gradient(circle at 13px 50%,#fff 0 9px,transparent 9.5px),
+    #d9cec8;
+  box-shadow:inset 0 1px 2px rgba(61,42,34,.08),0 1px 2px rgba(61,42,34,.06);
+  transition:background .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.integration-toggle input:checked{
+  border-color:#8d5060;
+  background:
+    radial-gradient(circle at 32px 50%,#fff 0 9px,transparent 9.5px),
+    linear-gradient(135deg,#9f6271,#7f4655);
+  box-shadow:inset 0 1px 2px rgba(65,26,38,.16),0 0 0 3px rgba(141,80,96,.07);
+}
+.integration-toggle:has(input:checked){
+  border-color:#d9bec5;
+  background:#fff8fa;
+  color:#70404d;
+}
+.integration-toggle input:focus-visible{
+  box-shadow:0 0 0 4px rgba(141,80,96,.16);
+}
+
+/* Cajas URL: acabado premium y estado de foco inequívoco. */
+#view-integrations .integration-card .field-group{
+  gap:8px;
+}
+#view-integrations .integration-card .field-group>span{
+  color:#705c53;
+  font-size:11px;
+  line-height:1.2;
+  font-weight:850;
+  letter-spacing:.055em;
+  text-transform:uppercase;
+}
+#view-integrations .integration-card .field-group input[type="url"]{
+  min-height:50px;
+  padding:12px 14px;
+  border:1px solid #dfd1cb;
+  border-radius:14px;
+  background:linear-gradient(180deg,#fff,#fdfbfa);
+  color:#3c2d27;
+  font-size:13px;
+  font-weight:600;
+  caret-color:#8d5060;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 2px 7px rgba(69,43,34,.035);
+  transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease;
+}
+#view-integrations .integration-card .field-group input[type="url"]::placeholder{
+  color:#ad9d96;
+  font-weight:500;
+  opacity:1;
+}
+#view-integrations .integration-card .field-group input[type="url"]:hover{
+  border-color:#cdbab2;
+  background:#fff;
+}
+#view-integrations .integration-card .field-group input[type="url"]:focus{
+  border-color:#9c6674;
+  background:#fff;
+  box-shadow:0 0 0 4px rgba(141,80,96,.105),0 7px 18px rgba(69,43,34,.06);
+}
+#view-integrations .integration-card:has(.integration-toggle input:checked) .field-group input[type="url"]{
+  border-color:#d7c1c7;
+}
+
+.integration-note{
+  position:relative;
+  gap:12px;
+  align-items:flex-start;
+  padding:15px 17px;
+  margin:2px 0 18px;
+  border:1px solid #eee1dc;
+  border-radius:16px;
+  background:linear-gradient(135deg,#fcf8f5,#faf5f2);
+  color:#79665d;
+  font-size:12.5px;
+  box-shadow:0 5px 16px rgba(69,43,34,.035);
+}
+.integration-note i{
+  display:grid;
+  place-items:center;
+  width:30px;
+  height:30px;
+  flex:0 0 30px;
+  margin:0;
+  border-radius:10px;
+  background:#fff;
+  color:#8d5060;
+  box-shadow:0 3px 10px rgba(69,43,34,.06);
+}
+#saveIntegrations{
+  min-height:48px;
+  padding-inline:18px;
+  border-radius:14px;
+  box-shadow:0 9px 20px rgba(109,63,76,.14);
+}
+
+/* Transbank: mismo lenguaje visual que Integraciones. */
+.payment-provider-card{
+  border-color:#e6d7d1;
+  border-radius:22px;
+  background:linear-gradient(145deg,#fff 0%,#fffdfc 56%,#faf6f3 100%);
+  box-shadow:0 10px 30px rgba(69,43,34,.065);
+}
+.payment-provider-logo{
+  border:1px solid rgba(255,255,255,.3);
+  background:linear-gradient(145deg,#6b4892,#4d2f78);
+  box-shadow:0 8px 18px rgba(77,47,120,.20);
+}
+#view-payments .payment-form-grid .field-group input{
+  min-height:50px;
+  border-radius:14px;
+  background:linear-gradient(180deg,#fff,#fdfbfa);
+}
+#view-payments .payment-form-grid .field-group input:focus{
+  background:#fff;
+}
+.gateway-status{
+  border:1px solid #e7dcd7;
+  box-shadow:0 3px 10px rgba(69,43,34,.035);
+}
+.gateway-status.is-ready{
+  border-color:#c8e7d3;
+  background:#edf9f1;
+  color:#237544;
+}
+
+@media(max-width:760px){
+  .integration-grid{grid-template-columns:1fr;gap:14px;margin-top:17px}
+  .integration-card{padding:16px;border-radius:18px}
+  .integration-card:hover{transform:none}
+  .integration-provider>i{width:44px;height:44px;flex-basis:44px}
+  .integration-note{padding:14px}
+  #saveIntegrations{width:100%;justify-content:center}
+  .payment-provider-card{padding:16px}
+}
+
+@media(max-width:440px){
+  .integration-card{padding:14px;gap:13px}
+  .integration-provider{gap:10px}
+  .integration-provider strong{font-size:14px}
+  .integration-toggle{min-height:44px}
+  #view-integrations .integration-card .field-group input[type="url"]{min-height:48px;font-size:16px}
+  #view-payments .payment-form-grid .field-group input{font-size:16px}
+}
