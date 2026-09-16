@@ -11,7 +11,7 @@ const isProductActive = p => {
   const v=String(p.activo??"SI").trim().toUpperCase();
   return !["NO","FALSE","0","INACTIVO"].includes(v);
 };
-const MEDIA_VERSION = "20260916-r9180-transbank-webpay";
+const MEDIA_VERSION = "20260916-r9185-transbank-retorno-robusto";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -54,7 +54,7 @@ async function loadStore(){
   buildCategoryMenu();
   render();
   updateCartUI();
-  handleTransbankReturnUi();
+  await handleTransbankReturnUi();
 }
 
 function buildCategoryMenu(){
@@ -606,12 +606,22 @@ async function startTransbankForOrder(pending){
   toast(`Abriendo pago seguro Transbank para ${pending.numero_pedido||"tu pedido"}…`,"success");
   setTimeout(()=>submitTransbankForm(out.url,out.token),250);
 }
-function handleTransbankReturnUi(){
-  const u=new URL(location.href),status=String(u.searchParams.get("tbk")||"").toLowerCase(),order=u.searchParams.get("order")||"";if(!status)return;
+async function handleTransbankReturnUi(){
+  const u=new URL(location.href);let status=String(u.searchParams.get("tbk")||"").toLowerCase(),order=u.searchParams.get("order")||"";if(!status)return;
   const pending=getPendingTransbank();
-  if(["success","pending","invalid"].includes(status))setPendingTransbank(null);
+  if(pending?.order_id&&pending?.checkout_token){
+    try{
+      const recovered=await AleAPI.postPublic("transbankrecover",{order_id:pending.order_id,checkout_token:pending.checkout_token});
+      const local=String(recovered?.estado_pago||"").toUpperCase();order=recovered?.numero_pedido||order||pending.numero_pedido||"";
+      if(local==="PAGADO")status="success";
+      else if(local==="RECHAZADO")status="failed";
+      else if(local==="CANCELADO")status="cancelled";
+      else if(["VERIFICACION_PENDIENTE","COMMIT_PENDIENTE","COMMIT_EN_PROCESO","INICIADO"].includes(local))status="pending";
+    }catch(err){console.warn("TRANSBANK_RECOVER_RETURN",err);if(status==="invalid")status="pending";}
+  }
+  if(status==="success")setPendingTransbank(null);
   syncPaymentUI();
-  const messages={success:`Pago confirmado${order?` · ${order}`:""}. Gracias por tu compra.`,failed:`El pago no fue autorizado${order?` para ${order}`:""}. Puedes volver a intentarlo.`,cancelled:`Pago cancelado${order?` · ${order}`:""}. El pedido quedó registrado y puedes reintentar el pago.`,pending:`El pago de ${order||"tu pedido"} quedó en verificación. No vuelvas a pagar hasta confirmar su estado.`,invalid:"No fue posible relacionar el retorno de Transbank con un pedido válido."};
+  const messages={success:`Pago confirmado${order?` · ${order}`:""}. Gracias por tu compra.`,failed:`El pago no fue autorizado${order?` para ${order}`:""}. Puedes volver a intentarlo.`,cancelled:`Pago cancelado${order?` · ${order}`:""}. El pedido quedó registrado y puedes reintentar el pago.`,pending:`Estamos confirmando el pago de ${order||"tu pedido"}. No vuelvas a pagar mientras se verifica.`,invalid:"No fue posible relacionar automáticamente el retorno de Transbank. El pago queda en verificación para evitar un cobro duplicado."};
   toast(messages[status]||"Retorno de Transbank recibido.",status==="success"?"success":status==="pending"?"info":"error");
   if(pending&&["failed","cancelled"].includes(status)){const panel=$("#orderSuccessPanel"),numberEl=$("#orderSuccessNumber");if(numberEl)numberEl.textContent=order||pending.numero_pedido||"";panel?.classList.remove("hidden");$("#submitOrderBtn")?.classList.add("hidden");openModal("#checkoutModal");syncPaymentUI();}
   ["tbk","order"].forEach(k=>u.searchParams.delete(k));history.replaceState({},"",u.pathname+(u.search||"")+u.hash);
