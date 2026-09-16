@@ -17,6 +17,36 @@ function toNumber(value){
 }
 let token=localStorage.getItem("aleAdminToken")||sessionStorage.getItem("aleAdminToken")||"", data={products:[],categories:[],banners:[],orders:[],requests:[],quotes:[],clients:[],users:[],config:{},currentUser:null};
 
+// R9.15.1 · Sesión estable: una falla temporal de red nunca borra una sesión válida.
+const sleepMs=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function sessionErrorCode(err){return String(err?.message||err||"").toUpperCase()}
+function isDefinitiveSessionError(err){
+  const code=sessionErrorCode(err);
+  return ["SESION_INVALIDA","SESION_EXPIRADA","SESION_REQUERIDA","USUARIO_INACTIVO"].some(x=>code.includes(x));
+}
+function isTransientSessionError(err){
+  const code=sessionErrorCode(err);
+  return ["API_TIMEOUT","API_CONEXION_FALLIDA","RESPUESTA_API_INVALIDA","HTTP_500","HTTP_502","HTTP_503","HTTP_504","NETWORK","FETCH"].some(x=>code.includes(x));
+}
+function persistAdminToken(value){
+  token=String(value||"");
+  if(token){localStorage.setItem("aleAdminToken",token);sessionStorage.setItem("aleAdminToken",token)}
+}
+function clearAdminToken(){
+  sessionStorage.removeItem("aleAdminToken");localStorage.removeItem("aleAdminToken");token="";data.currentUser=null;
+}
+async function validateStoredSession(attempts=3){
+  let last=null;
+  for(let i=0;i<attempts;i++){
+    try{return await AleAPI.post("session",{},token)}catch(err){
+      last=err;
+      if(isDefinitiveSessionError(err))throw err;
+      if(i<attempts-1)await sleepMs(550*(i+1));
+    }
+  }
+  throw last||new Error("API_CONEXION_FALLIDA");
+}
+
 
 // R9.15.0 · Selección múltiple para eliminación masiva.
 const bulkSelection={products:new Set(),requests:new Set(),quotes:new Set()};
@@ -262,11 +292,10 @@ document.addEventListener("change",e=>{const input=e.target.closest?.('input[typ
 
 async function login(username,password){
   const r=await AleAPI.login(username||"admin",password);
-  token=r.token;
-  localStorage.setItem("aleAdminToken",token);
-  sessionStorage.setItem("aleAdminToken",token);
+  persistAdminToken(r.token);
   localStorage.setItem("aleAdminUser",String(username||"admin"));
   if(r.user) data.currentUser=r.user;
+  if(r.permissions) data.permissions=r.permissions;
 
   // R9 Supabase: entrar al cPanel inmediatamente después de validar credenciales.
   // La carga pesada del dashboard ocurre después y ya no bloquea el login.
@@ -291,39 +320,49 @@ function normalizePanelData(src={}){
     currentUser:src.currentUser||data.currentUser||null
   };
 }
+const ADMIN_DATA_MODULES=["orders","requests","quotes","clients","users"];
+let adminModulesRetryTimer=null;
+async function loadAdminModules({notify=true,retry=true}={}){
+  const results=await Promise.allSettled(ADMIN_DATA_MODULES.map(module=>AleAPI.adminModule(module,token)));
+  const failed=[];
+  results.forEach((res,i)=>{
+    const module=ADMIN_DATA_MODULES[i];
+    if(res.status==="fulfilled") data=normalizePanelData(res.value||{});
+    else{failed.push(module);console.warn(`adminModule:${module}`,res.reason)}
+  });
+  renderAll();
+  if(adminModulesRetryTimer){clearTimeout(adminModulesRetryTimer);adminModulesRetryTimer=null}
+  if(failed.length){
+    if(notify)toast(`Datos principales cargados. Pendiente${failed.length===1?"":"s"}: ${failed.join(", ")}. Reintentando…`);
+    if(retry)adminModulesRetryTimer=setTimeout(()=>loadAdminModules({notify:false,retry:false}).catch(e=>console.warn("adminModules retry",e)),3000);
+  }
+  return{ok:failed.length===0,failed};
+}
 async function reload(){
-  // R9 Supabase: primero pinta el catálogo público para que el panel nunca quede vacío.
-  let publicLoaded=false, adminError=null;
+  // R9.15.2: catálogo + núcleo administrativo primero; módulos pesados después.
+  // Un módulo lento o con error ya no invalida toda la carga del cPanel.
+  let publicLoaded=false,coreLoaded=false;
   try{
     const pub=await AleAPI.publicBootstrap();
     data=normalizePanelData(pub);
     renderAll();
     publicLoaded=true;
-  }catch(err){
-    console.warn("publicBootstrap",err);
-  }
+  }catch(err){console.warn("publicBootstrap",err)}
+
   try{
-    const admin=await AleAPI.adminBootstrap(token);
-    data=normalizePanelData(admin);
+    const core=await AleAPI.adminBootstrap(token,{mode:"core"});
+    data=normalizePanelData(core);
     renderAll();
-    return admin;
+    coreLoaded=true;
+    if(core?.partial&&Array.isArray(core.warnings)&&core.warnings.length)console.warn("adminBootstrap core warnings",core.warnings);
   }catch(err){
-    adminError=err;
-    console.warn("adminBootstrap",err);
-    if(publicLoaded){
-      toast("Catálogo cargado. Reintentando datos administrativos…");
-      setTimeout(async()=>{
-        try{
-          const retry=await AleAPI.adminBootstrap(token);
-          data=normalizePanelData(retry);
-          renderAll();
-          toast("Información administrativa actualizada");
-        }catch(e){console.warn("adminBootstrap retry",e)}
-      },1400);
-      return data;
-    }
-    throw adminError;
+    console.warn("adminBootstrap core",err);
+    if(!publicLoaded)throw err;
   }
+
+  // No bloquear login ni mostrar desconexión por pedidos/cotizaciones/clientes/usuarios.
+  loadAdminModules({notify:true,retry:true}).catch(err=>console.warn("loadAdminModules",err));
+  return{ok:publicLoaded||coreLoaded,coreLoaded,publicLoaded};
 }
 function renderSessionHeader(user){
   const me=user||data.currentUser||{};
@@ -353,7 +392,7 @@ $("#loginForm").addEventListener("submit",async e=>{
     }
   });
 });
-$("#logoutBtn").addEventListener("click",async()=>{const oldToken=token;stopNotificationWatcher();sessionStorage.removeItem("aleAdminToken");localStorage.removeItem("aleAdminToken");token="";data.currentUser=null;showLogin();if(oldToken){try{await AleAPI.post("logout",{},oldToken)}catch(_){}}});
+$("#logoutBtn").addEventListener("click",async()=>{const oldToken=token;stopNotificationWatcher();clearAdminToken();showLogin();if(oldToken){try{await AleAPI.post("logout",{},oldToken)}catch(_){}}});
 
 function renderAll(){
   data=normalizePanelData(data);
@@ -380,7 +419,7 @@ function fillCategorySelects(){
   fillQuoteProductPicker();
 }
 function table(headers,rows){return `<table class="admin-table"><thead><tr>${headers.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows||`<tr><td colspan="${headers.length}">Sin registros</td></tr>`}</tbody></table>`}
-const CPANEL_MEDIA_VERSION="20260916-r9150-bulk-delete";
+const CPANEL_MEDIA_VERSION="20260916-r9152-admin-resilient";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -980,33 +1019,53 @@ $("#exportSalesPdf")?.addEventListener("click",()=>simplePdf("ALE ATENCIO · Rep
 function openAdminView(view){const target=$(`.admin-nav button[data-view="${CSS.escape(String(view||"dashboard"))}"]`);if(!target)return;$$('.admin-nav button').forEach(x=>x.classList.remove("active"));target.classList.add("active");$$('.admin-view').forEach(x=>x.classList.remove("active"));$("#view-"+target.dataset.view)?.classList.add("active");$("#viewTitle").textContent=target.textContent.trim();if(target.dataset.view==="products"){if($("#productSearch"))$("#productSearch").value="";if($("#productFilter"))$("#productFilter").value="";renderProducts()}if(sidebarIsMobile())setSidebarOpen(false);window.scrollTo({top:0,behavior:"smooth"})}
 $$('.admin-nav button').forEach(btn=>btn.addEventListener("click",()=>openAdminView(btn.dataset.view)));
 function formatDate(v){if(!v)return"";const d=new Date(v);return isNaN(d)?String(v):d.toLocaleString("es-CL")}
+let sessionRestoreTimer=null,sessionRestoreBusy=false;
+async function restoreAdminSession(){
+  if(sessionRestoreBusy||!token)return;
+  sessionRestoreBusy=true;
+  if(sessionRestoreTimer){clearTimeout(sessionRestoreTimer);sessionRestoreTimer=null}
+  showLogin("Validando sesión guardada…");
+  try{
+    const sess=await validateStoredSession(3);
+    if(!sess?.ok)throw new Error(sess?.error||"SESION_INVALIDA");
+    data.currentUser=sess.user||data.currentUser;
+    if(sess.permissions)data.permissions=sess.permissions;
+    showAdmin();
+    renderSessionHeader(sess.user);
+    // La sesión ya fue validada. Una falla al cargar datos NO debe cerrar sesión.
+    try{await reload()}catch(err){
+      console.warn("reload after restored session",err);
+      toast("Sesión activa. No fue posible actualizar todos los datos; reintentaremos automáticamente.");
+    }
+    startNotificationWatcher();
+    AleAPI.backendStatus().then(st=>{
+      if(!st?.ok&&$("#apiWarning"))$("#apiWarning").textContent="Conexión intermitente con Supabase. La sesión permanece iniciada.";
+    }).catch(()=>{});
+  }catch(e){
+    console.warn("restore session",e);
+    if(isDefinitiveSessionError(e)){
+      clearAdminToken();
+      showLogin("La sesión venció o fue cerrada. Ingresa nuevamente.");
+    }else{
+      // No borrar el token por timeout, pérdida momentánea de Internet o respuesta 5xx.
+      showLogin("No fue posible validar la conexión en este momento. Tu sesión se conserva y se reintentará automáticamente.");
+      sessionRestoreTimer=setTimeout(()=>restoreAdminSession(),4500);
+    }
+  }finally{sessionRestoreBusy=false}
+}
+
+window.addEventListener("online",()=>{if(token&&!document.body.classList.contains("auth-active"))restoreAdminSession()});
+window.addEventListener("focus",()=>{if(token&&!document.body.classList.contains("auth-active")&&!sessionRestoreBusy)restoreAdminSession()});
+
 (async()=>{
   if(!AleAPI.configured()) return showLogin("Configura la URL de Supabase Edge Function en config.js.");
-  try {
-    const st = await AleAPI.backendStatus();
-    if (!st.ok) $("#apiWarning").textContent = "Backend Supabase sin respuesta: " + (st.error || "SIN_RESPUESTA") + ". Revisa la Edge Function dynamic-processor.";
-  } catch (_) {}
   if(token){
-    // R9.13: una sesión guardada NO habilita la interfaz hasta validarla en servidor.
-    showLogin("Validando sesión guardada…");
-    try{
-      const sess=await AleAPI.post("session",{},token);
-      if(!sess?.ok)throw new Error(sess?.error||"SESION_INVALIDA");
-      data.currentUser=sess.user||data.currentUser;
-      showAdmin();
-      renderSessionHeader(sess.user);
-      await reload();
-      startNotificationWatcher();
-      return;
-    }catch(e){
-      console.warn("restore session",e);
-      sessionStorage.removeItem("aleAdminToken");
-      localStorage.removeItem("aleAdminToken");
-      token="";
-      data.currentUser=null;
-      showLogin("La sesión venció. Ingresa nuevamente.");
-      return;
-    }
+    // R9.15.1: validar primero la sesión; el ping no puede expulsar al usuario.
+    await restoreAdminSession();
+    return;
   }
   showLogin();
+  AleAPI.backendStatus().then(st=>{
+    if(!st?.ok&&$("#apiWarning"))$("#apiWarning").textContent="Backend Supabase sin respuesta: "+(st.error||"SIN_RESPUESTA")+". Revisa la Edge Function dynamic-processor.";
+  }).catch(()=>{});
 })();

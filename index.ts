@@ -1,8 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-const VERSION = "ALE-SUPABASE-R9.6-CLIENTES-REPORTES-XLSX";
+const VERSION = "ALE-SUPABASE-R9.15.2-CARGA-ADMIN-RESILIENTE";
 const BUCKET = "ale-atencio-public";
 const SESSION_HOURS = 24;
+const SESSION_TOUCH_MINUTES = 5;
 const MAX_LOGIN_FAILS = 5;
 const LOGIN_BLOCK_MINUTES = 10;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -219,13 +220,34 @@ async function requireSession(req: Request, body: Dict): Promise<SessionCtx> {
   const { data:user, error:userError } = await db.from("usuarios").select("*").eq("id", session.usuario_id).eq("activo", true).maybeSingle();
   if (userError) throw userError;
   if (!user) throw new Error("USUARIO_INACTIVO");
-  db.from("sesiones").update({ultimo_uso_en:nowIso()}).eq("id", session.id).then(()=>{}).catch(()=>{});
+
+  // R9.15.1: sesión deslizante. La actividad real renueva la vigencia, pero
+  // el touch se limita para evitar una escritura a BD en cada polling de 8 s.
+  const now=Date.now();
+  const lastUse=new Date(session.ultimo_uso_en||session.creado_en||0).getTime();
+  const shouldTouch=!Number.isFinite(lastUse)||(now-lastUse)>=SESSION_TOUCH_MINUTES*60_000;
+  if(shouldTouch){
+    const touchedAt=new Date(now).toISOString();
+    const refreshedExpiry=new Date(now+SESSION_HOURS*60*60_000).toISOString();
+    const {error:touchError}=await db.from("sesiones").update({ultimo_uso_en:touchedAt,expira_en:refreshedExpiry}).eq("id",session.id);
+    if(!touchError){session.ultimo_uso_en=touchedAt;session.expira_en=refreshedExpiry}
+  }
   return { user, session, token, permissions:normalizedPermissions(user) };
 }
 
-function legacyProduct(r: Dict) { return {...r,destacado:yesNo(r.destacado),activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
-function legacyCategory(r: Dict) { return {...r,activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
-function legacyBanner(r: Dict) { return {...r,activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
+function storagePublicUrl(path: unknown): string {
+  const p=clean(path,1000);
+  if(!p)return "";
+  try{return db.storage.from(BUCKET).getPublicUrl(p).data.publicUrl||""}catch(_){return ""}
+}
+function resolvedImageUrl(r: Dict): string {
+  const explicit=clean(r.image_url,2000);
+  if(explicit)return explicit;
+  return storagePublicUrl(r.storage_path);
+}
+function legacyProduct(r: Dict) { return {...r,image_url:resolvedImageUrl(r),destacado:yesNo(r.destacado),activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
+function legacyCategory(r: Dict) { return {...r,image_url:resolvedImageUrl(r),activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
+function legacyBanner(r: Dict) { return {...r,image_url:resolvedImageUrl(r),activo:yesNo(r.activo),drive_file_id:r.storage_path||""}; }
 
 async function configMap(): Promise<Dict> {
   const { data, error } = await db.from("config").select("clave,valor");
@@ -233,35 +255,91 @@ async function configMap(): Promise<Dict> {
   const out: Dict = {};
   for (const r of data || []) out[String(r.clave)] = String(r.valor ?? "");
   out.logo_drive_file_id = out.logo_drive_file_id || out.logo_storage_path || "";
+  if(!out.logo_url && out.logo_storage_path) out.logo_url = storagePublicUrl(out.logo_storage_path);
   return out;
 }
-async function adminBootstrap(ctx: SessionCtx) {
-  const [p,c,b,o,r,q,cl,u,cfg] = await Promise.all([
-    db.from("productos").select("*").order("orden").order("nombre"),
-    db.from("categorias").select("*").order("orden").order("nombre"),
-    db.from("banners").select("*").order("orden"),
-    db.from("pedidos").select("*").order("fecha",{ascending:false}).limit(1000),
-    db.from("solicitudes").select("*").order("fecha",{ascending:false}).limit(1000),
-    db.from("cotizaciones").select("*").order("fecha",{ascending:false}).limit(1000),
-    db.from("clientes").select("*").eq("activo",true).order("ultima_interaccion",{ascending:false}).limit(2000),
-    db.from("usuarios").select("*").order("nombre"),
-    configMap(),
+function apiWarning(scope:string, err:any): string {
+  const code=clean(err?.code||err?.message||err,160)||"ERROR_DESCONOCIDO";
+  return `${scope}:${code}`;
+}
+async function safeDbQuery(scope:string, promise:any): Promise<any> {
+  try{
+    const out=await promise;
+    if(out?.error)return{ok:false,scope,error:out.error,warning:apiWarning(scope,out.error)};
+    return{ok:true,scope,data:out?.data||[]};
+  }catch(err){return{ok:false,scope,error:err,warning:apiWarning(scope,err)}}
+}
+async function safeConfigQuery(): Promise<any> {
+  try{return{ok:true,scope:"config",data:await configMap()}}
+  catch(err){return{ok:false,scope:"config",error:err,warning:apiWarning("config",err)}}
+}
+
+async function adminModule(ctx: SessionCtx, d: Dict) {
+  const module=clean(d.module,40).toLowerCase();
+  if(module==="orders"){
+    if(!ctx.permissions.orders?.read)return{module,orders:[]};
+    const q=await db.from("pedidos").select("*").order("fecha",{ascending:false}).limit(1000);if(q.error)throw q.error;
+    return{module,orders:q.data||[]};
+  }
+  if(module==="requests"){
+    if(!ctx.permissions.requests?.read)return{module,requests:[]};
+    const q=await db.from("solicitudes").select("*").order("fecha",{ascending:false}).limit(1000);if(q.error)throw q.error;
+    return{module,requests:q.data||[]};
+  }
+  if(module==="quotes"){
+    if(!ctx.permissions.quotes?.read)return{module,quotes:[]};
+    const q=await db.from("cotizaciones").select("*").order("fecha",{ascending:false}).limit(1000);if(q.error)throw q.error;
+    return{module,quotes:q.data||[]};
+  }
+  if(module==="clients"){
+    if(!ctx.permissions.clients?.read)return{module,clients:[]};
+    const q=await db.from("clientes").select("*").eq("activo",true).order("ultima_interaccion",{ascending:false}).limit(2000);if(q.error)throw q.error;
+    return{module,clients:q.data||[]};
+  }
+  if(module==="users"){
+    if(!ctx.permissions.users?.read)return{module,users:[]};
+    const q=await db.from("usuarios").select("*").order("nombre");if(q.error)throw q.error;
+    return{module,users:(q.data||[]).map(x=>safeUser(x as Dict))};
+  }
+  throw new Error("MODULO_ADMIN_NO_VALIDO");
+}
+
+async function adminBootstrap(ctx: SessionCtx, d: Dict={}) {
+  const mode=clean(d.mode,30).toLowerCase();
+  const [p,c,b,cfg] = await Promise.all([
+    safeDbQuery("productos",db.from("productos").select("*").order("orden").order("nombre")),
+    safeDbQuery("categorias",db.from("categorias").select("*").order("orden").order("nombre")),
+    safeDbQuery("banners",db.from("banners").select("*").order("orden")),
+    safeConfigQuery(),
   ]);
-  for (const item of [p,c,b,o,r,q,cl,u]) if ((item as any).error) throw (item as any).error;
-  return {
-    products:ctx.permissions.products.read?(p.data||[]).map(x=>legacyProduct(x as Dict)):[],
-    categories:ctx.permissions.categories.read?(c.data||[]).map(x=>legacyCategory(x as Dict)):[],
-    banners:ctx.permissions.banners.read?(b.data||[]).map(x=>legacyBanner(x as Dict)):[],
-    config:cfg,
-    orders:ctx.permissions.orders.read?(o.data||[]):[],
-    requests:ctx.permissions.requests.read?(r.data||[]):[],
-    quotes:ctx.permissions.quotes.read?(q.data||[]):[],
-    clients:ctx.permissions.clients?.read?(cl.data||[]):[],
-    users:ctx.permissions.users.read?(u.data||[]).map(x=>safeUser(x as Dict)):[],
+  const warnings:string[]=[p,c,b,cfg].filter((x:any)=>!x.ok).map((x:any)=>x.warning);
+  const out:Dict={
     currentUser:safeUser(ctx.user), permissions:ctx.permissions,
     security:{mode:"TABLE_SESSION",session_ttl_seconds:SESSION_HOURS*3600,jwt:false,supabaseAuth:false},
     version:VERSION,
   };
+  if(p.ok)out.products=ctx.permissions.products.read?(p.data||[]).map((x:any)=>legacyProduct(x as Dict)):[];
+  if(c.ok)out.categories=ctx.permissions.categories.read?(c.data||[]).map((x:any)=>legacyCategory(x as Dict)):[];
+  if(b.ok)out.banners=ctx.permissions.banners.read?(b.data||[]).map((x:any)=>legacyBanner(x as Dict)):[];
+  if(cfg.ok)out.config=cfg.data||{};
+
+  // R9.15.2: el login/cPanel ya no depende de una respuesta gigante.
+  // Modo core entrega inmediatamente catálogo/config/permisos. Los módulos pesados se cargan por separado.
+  if(mode==="core"){
+    if(warnings.length){out.partial=true;out.warnings=warnings}
+    return out;
+  }
+
+  // Compatibilidad con cPanel anteriores: cargar módulos sin convertir un fallo aislado en fallo total.
+  const modules=["orders","requests","quotes","clients","users"];
+  const settled=await Promise.allSettled(modules.map(module=>adminModule(ctx,{module})));
+  settled.forEach((res,i)=>{
+    const module=modules[i];
+    if(res.status==="fulfilled")Object.assign(out,res.value);
+    else warnings.push(apiWarning(module,res.reason));
+  });
+  if(warnings.length){out.partial=true;out.warnings=warnings}
+  return out;
 }
 
 async function notificationFeed(ctx: SessionCtx, d: Dict) {
@@ -296,9 +374,11 @@ async function saveProduct(req: Request, ctx: SessionCtx, d: Dict) {
   const id=clean(d.id,100)||randomId("PROD");
   let categoriaId:string|null=null; const categoriaNombre=clean(d.categoria_nombre,180);
   if(categoriaNombre){const q=await db.from("categorias").select("id").ilike("nombre",categoriaNombre).maybeSingle();if(!q.error&&q.data)categoriaId=q.data.id;}
+  const storagePath=clean(d.storage_path||d.drive_file_id,1000)||null;
+  const imageUrl=clean(d.image_url,2000)||storagePublicUrl(storagePath)||null;
   const row={
     id,nombre,descripcion:clean(d.descripcion,5000),precio:money(d.precio),categoria_id:categoriaId,categoria_nombre:categoriaNombre,
-    stock:money(d.stock),storage_path:clean(d.storage_path||d.drive_file_id,1000)||null,image_url:clean(d.image_url,2000)||null,
+    stock:money(d.stock),storage_path:storagePath,image_url:imageUrl,
     destacado:bool(d.destacado),activo:d.activo===undefined?true:bool(d.activo,true),ocasion:clean(d.ocasion,180),orden:Number(d.orden||0)||0,
   };
   const {error}=await db.from("productos").upsert(row,{onConflict:"id"}); if(error)throw error;
@@ -341,9 +421,81 @@ async function uploadImage(req: Request, ctx: SessionCtx, d: Dict) {
   await audit(req,ctx,"SUBIR","IMAGEN",path,{kind,bytes:bytes.length});return{ok:true,fileId:path,storagePath:path,imageUrl:url,name};
 }
 
+async function cleanupStoragePaths(paths:string[]) {
+  const cleanPaths=[...new Set((paths||[]).map(x=>clean(x,1000)).filter(Boolean))];
+  if(!cleanPaths.length)return;
+  try{await db.storage.from(BUCKET).remove(cleanPaths);}catch(_){ }
+  try{await db.from("archivos").delete().eq("bucket",BUCKET).in("storage_path",cleanPaths);}catch(_){ }
+}
+
+async function bulkDeleteEntities(req: Request, ctx: SessionCtx, d: Dict) {
+  const kind=clean(d.kind,40).toLowerCase();
+  const ids=[...new Set((Array.isArray(d.ids)?d.ids:[]).map((x:any)=>clean(x,100)).filter(Boolean))].slice(0,250);
+  if(!ids.length)throw new Error("IDS_REQUERIDOS");
+
+  if(kind==="product"||kind==="products"||kind==="producto"||kind==="productos"){
+    requirePermission(ctx,"products","delete");
+    const before=await db.from("productos").select("id,nombre,storage_path,image_url").in("id",ids);
+    if(before.error)throw before.error;
+    const rows=before.data||[];
+    if(!rows.length)return{ok:true,deleted:0,missing:ids.length};
+    const del=await db.from("productos").delete().in("id",rows.map((x:any)=>x.id)).select("id");
+    if(del.error)throw del.error;
+    const paths=rows.map((x:any)=>clean(x.storage_path,1000)).filter(Boolean);
+    if(paths.length)deferTask(cleanupStoragePaths(paths));
+    await audit(req,ctx,"ELIMINAR_MULTIPLE","PRODUCTOS","MULTIPLE",{hard:true,count:(del.data||[]).length,ids:rows.map((x:any)=>x.id),nombres:rows.map((x:any)=>x.nombre)});
+    return{ok:true,deleted:(del.data||[]).length,missing:Math.max(0,ids.length-rows.length)};
+  }
+
+  if(kind==="request"||kind==="requests"||kind==="solicitud"||kind==="solicitudes"){
+    requirePermission(ctx,"requests","delete");
+    const before=await db.from("solicitudes").select("id,numero_solicitud,cliente_id,nombre,telefono").in("id",ids);
+    if(before.error)throw before.error;
+    const rows=before.data||[];
+    if(!rows.length)return{ok:true,deleted:0,missing:ids.length};
+    const del=await db.from("solicitudes").delete().in("id",rows.map((x:any)=>x.id)).select("id");
+    if(del.error)throw del.error;
+    const customerIds:string[]=[...new Set<string>(rows.map((x:any)=>clean(x.cliente_id,100)).filter(Boolean))];
+    for(const cid of customerIds)deferTask(refreshCustomerStats(cid));
+    await audit(req,ctx,"ELIMINAR_MULTIPLE","SOLICITUDES","MULTIPLE",{hard:true,count:(del.data||[]).length,ids:rows.map((x:any)=>x.id),numeros:rows.map((x:any)=>x.numero_solicitud||"")});
+    return{ok:true,deleted:(del.data||[]).length,missing:Math.max(0,ids.length-rows.length)};
+  }
+
+  if(kind==="quote"||kind==="quotes"||kind==="cotizacion"||kind==="cotizaciones"){
+    requirePermission(ctx,"quotes","delete");
+    const before=await db.from("cotizaciones").select("id,numero_cotizacion,cliente_id,pdf_bucket,pdf_path").in("id",ids);
+    if(before.error)throw before.error;
+    const rows=before.data||[];
+    if(!rows.length)return{ok:true,deleted:0,missing:ids.length};
+    const del=await db.from("cotizaciones").delete().in("id",rows.map((x:any)=>x.id)).select("id");
+    if(del.error)throw del.error;
+    const paths=rows.filter((x:any)=>!x.pdf_bucket||String(x.pdf_bucket)===BUCKET).map((x:any)=>clean(x.pdf_path,1000)).filter(Boolean);
+    if(paths.length)deferTask(cleanupStoragePaths(paths));
+    try{await db.from("archivos").delete().eq("entidad","COTIZACION").in("entidad_id",rows.map((x:any)=>x.id));}catch(_){ }
+    const customerIds:string[]=[...new Set<string>(rows.map((x:any)=>clean(x.cliente_id,100)).filter(Boolean))];
+    for(const cid of customerIds)deferTask(refreshCustomerStats(cid));
+    await audit(req,ctx,"ELIMINAR_MULTIPLE","COTIZACIONES","MULTIPLE",{hard:true,count:(del.data||[]).length,ids:rows.map((x:any)=>x.id),numeros:rows.map((x:any)=>x.numero_cotizacion||"")});
+    return{ok:true,deleted:(del.data||[]).length,missing:Math.max(0,ids.length-rows.length)};
+  }
+
+  throw new Error("TIPO_NO_VALIDO");
+}
+
 async function deleteEntity(req: Request, ctx: SessionCtx, d: Dict) {
-  const kind=clean(d.kind,40).toLowerCase();const map:Dict={product:["productos","products"],category:["categorias","categories"],banner:["banners","banners"]};const target=map[kind];if(!target)throw new Error("TIPO_NO_VALIDO");requirePermission(ctx,target[1],"delete");
-  const id=clean(d.id,100);const{data,error}=await db.from(target[0]).update({activo:false}).eq("id",id).select("id").maybeSingle();if(error)throw error;await audit(req,ctx,"ELIMINAR",target[0].toUpperCase(),id,{soft:true});return{ok:true,deleted:!!data};
+  const kind=clean(d.kind,40).toLowerCase();
+  const id=clean(d.id,100);
+  if(!id)throw new Error("ID_REQUERIDO");
+  const normalized=kind==="product"?"products":kind==="request"?"requests":kind==="quote"?"quotes":kind;
+  if(["products","requests","quotes"].includes(normalized)){
+    const out=await bulkDeleteEntities(req,ctx,{kind:normalized,ids:[id]});
+    return{ok:true,deleted:Number(out.deleted||0)>0,missing:out.missing||0};
+  }
+  const map:Dict={category:["categorias","categories"],banner:["banners","banners"]};
+  const target=map[kind];if(!target)throw new Error("TIPO_NO_VALIDO");
+  requirePermission(ctx,target[1],"delete");
+  const{data,error}=await db.from(target[0]).update({activo:false}).eq("id",id).select("id").maybeSingle();if(error)throw error;
+  await audit(req,ctx,"ELIMINAR",target[0].toUpperCase(),id,{soft:true});
+  return{ok:true,deleted:!!data};
 }
 async function updateStatus(req: Request, ctx: SessionCtx, d: Dict) {
   const kind=clean(d.kind,40).toLowerCase(),status=clean(d.status,80).toUpperCase();const allowed:Dict={order:["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO","CANCELADO"],request:["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"]};const map:Dict={order:["pedidos","orders"],request:["solicitudes","requests"]};
@@ -520,11 +672,33 @@ async function createPublicOrder(req: Request, d: Dict) {
   if(!nombre) throw new Error("NOMBRE_REQUERIDO");
   if(!telefono) throw new Error("TELEFONO_REQUERIDO");
   const id=requestedPublicId(d.id,"PED");
+  const rawDetail=Array.isArray(d.detalle)?d.detalle.slice(0,200):[];
+  if(!rawDetail.length) throw new Error("DETALLE_PEDIDO_INVALIDO");
+  const productIds=[...new Set(rawDetail.map((x:any)=>clean(x?.id,100)).filter(Boolean))];
+  if(!productIds.length) throw new Error("DETALLE_PEDIDO_INVALIDO");
+  const pq=await db.from("productos").select("id,nombre,precio,activo").in("id",productIds);
+  if(pq.error) throw pq.error;
+  const productMap=new Map((pq.data||[]).map((x:any)=>[String(x.id),x]));
+  const detail:any[]=[];
+  let subtotal=0;
+  for(const item of rawDetail){
+    const productId=clean(item?.id,100);
+    const product:any=productMap.get(productId);
+    if(!product || !bool(product.activo,false)) throw new Error(`PRODUCTO_NO_DISPONIBLE:${productId||"SIN_ID"}`);
+    const qtyRaw=Number(item?.cantidad??item?.qty??1);
+    const cantidad=Number.isFinite(qtyRaw)?Math.max(1,Math.min(999,Math.floor(qtyRaw))):1;
+    const precio=money(product.precio);
+    detail.push({id:productId,nombre:clean(product.nombre,250),cantidad,precio});
+    subtotal+=precio*cantidad;
+  }
+  subtotal=money(subtotal);
+  const despacho=money(d.despacho);
+  const total=money(subtotal+despacho);
   const customer=await upsertCustomer(req,d,"PEDIDO",id);
   const row={cliente_id:customer?.id||null,
     id,nombre,telefono,email:clean(d.email,250),direccion:clean(d.direccion,500),comuna:clean(d.comuna,180),
-    metodo_entrega:clean(d.metodo_entrega,120),detalle:Array.isArray(d.detalle)?d.detalle:[],subtotal:money(d.subtotal),
-    despacho:money(d.despacho),total:money(d.total),estado:"PENDIENTE",observaciones:clean(d.observaciones,3000),
+    metodo_entrega:clean(d.metodo_entrega,120),detalle:detail,subtotal,
+    despacho,total,estado:"PENDIENTE",observaciones:clean(d.observaciones,3000),
     origen:"WEB",created_ip:clientIp(req),user_agent:clean(req.headers.get("user-agent"),1000),
   };
   const {error}=await db.from("pedidos").insert(row);
@@ -558,6 +732,15 @@ async function createPublicRequest(req: Request, d: Dict) {
   return {ok:true,id,numero_solicitud:persisted?.numero_solicitud||"",duplicated:created.error?.code==="23505",persisted:true,cliente_id:customer?.id||null};
 }
 
+async function checkPublicProduct(id:string) {
+  const productId=clean(id,100);
+  if(!productId) return {ok:true,exists:false,active:false,id:productId};
+  const {data,error}=await db.from("productos").select("id,nombre,precio,activo").eq("id",productId).maybeSingle();
+  if(error) throw error;
+  if(!data) return {ok:true,exists:false,active:false,id:productId};
+  return {ok:true,exists:true,active:bool((data as Dict).activo,false),id:productId,nombre:clean((data as Dict).nombre,250),precio:money((data as Dict).precio)};
+}
+
 async function checkPublicRecord(type:string,id:string) {
   const map:Dict={
     order:{table:"pedidos",field:"estado"},pedido:{table:"pedidos",field:"estado"},
@@ -584,13 +767,15 @@ Deno.serve(async (req: Request) => {
     if(action==="createorder") return json(req,await createPublicOrder(req,data));
     if(action==="createrequest") return json(req,await createPublicRequest(req,data));
     if(action==="checkrecord") return json(req,await checkPublicRecord(clean(data.type,40),clean(data.id,100)));
+    if(action==="checkproduct") return json(req,await checkPublicProduct(clean(data.id,100)));
     if(action==="login"||action==="adminlogin") return json(req,await login(req,data));
 
     // Desde aquí todo requiere nuestra sesión propia en public.sesiones.
     const ctx=await requireSession(req,body);
     if(action==="session"||action==="adminsession") return json(req,{ok:true,user:safeUser(ctx.user),permissions:ctx.permissions,expires_at:ctx.session.expira_en,version:VERSION});
     if(action==="logout"||action==="adminlogout") return json(req,await logout(req,ctx));
-    if(action==="adminbootstrap") return json(req,{ok:true,...await adminBootstrap(ctx)});
+    if(action==="adminbootstrap") return json(req,{ok:true,...await adminBootstrap(ctx,data)});
+    if(action==="adminmodule") return json(req,{ok:true,...await adminModule(ctx,data)});
     if(action==="notificationfeed") return json(req,await notificationFeed(ctx,data));
     if(action==="saveproduct") return json(req,await saveProduct(req,ctx,data));
     if(action==="bulkimportproducts") return json(req,await bulkImportProducts(req,ctx,data));
@@ -603,6 +788,7 @@ Deno.serve(async (req: Request) => {
     if(action==="updatequotestatus") return json(req,await updateQuoteStatus(req,ctx,data));
     if(action==="uploadimage") return json(req,await uploadImage(req,ctx,data));
     if(action==="deleteentity") return json(req,await deleteEntity(req,ctx,data));
+    if(action==="bulkdeleteentities") return json(req,await bulkDeleteEntities(req,ctx,data));
     if(action==="updatestatus") return json(req,await updateStatus(req,ctx,data));
     if(action==="saveuser") return json(req,await saveUser(req,ctx,data));
     if(action==="deleteuser") return json(req,await deleteUser(req,ctx,data));

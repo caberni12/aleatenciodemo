@@ -115,8 +115,12 @@
       return request("bootstrap", {}, "", {timeoutMs:15000});
     },
 
-    async adminBootstrap(token) {
-      return request("adminbootstrap", {}, token, {timeoutMs:18000});
+    async adminBootstrap(token, options = {}) {
+      return request("adminbootstrap", options, token, {timeoutMs:22000});
+    },
+
+    async adminModule(module, token) {
+      return request("adminmodule", {module:String(module||"")}, token, {timeoutMs:22000});
     },
 
     async notificationFeed(since, token) {
