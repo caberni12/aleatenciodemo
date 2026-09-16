@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9160-rut-orders-pdf"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9170-transbank-integraciones"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260916-r9160-rut-orders-pdf"><link rel="stylesheet" href="cpanel.css?v=20260916-r9160-rut-orders-pdf">
+  <link rel="stylesheet" href="styles.css?v=20260916-r9170-transbank-integraciones"><link rel="stylesheet" href="cpanel.css?v=20260916-r9170-transbank-integraciones">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -38,6 +38,8 @@
       <button data-view="quotes"><i class="bi bi-receipt-cutoff"></i> Cotizaciones</button>
       <button data-view="clients"><i class="bi bi-person-vcard"></i> Clientes</button>
       <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
+      <button data-view="integrations"><i class="bi bi-diagram-3"></i> Integraciones</button>
+      <button data-view="payments"><i class="bi bi-credit-card-2-front"></i> Pasarela de pago</button>
       <button data-view="users" id="usersNavBtn"><i class="bi bi-people"></i> Usuarios</button>
       <button data-view="settings"><i class="bi bi-gear"></i> Configuración</button>
     </nav>
@@ -353,6 +355,45 @@
       </div>
     </section>
 
+    <section class="admin-view" id="view-integrations">
+      <div class="admin-card integration-shell">
+        <div class="card-head"><div><span class="eyebrow">Ecommerce</span><h2>Integraciones y canales</h2><p class="module-help">Centro único para dejar preparados los conectores ecommerce más comunes. Activa solamente los que realmente utilices.</p></div></div>
+        <div class="integration-grid">
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-shop"></i><div><strong>Shopify</strong><small>Tienda / catálogo</small></div></div><label class="integration-toggle"><input id="iShopifyEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL de tienda / endpoint</span><input id="iShopifyUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-wordpress"></i><div><strong>WooCommerce</strong><small>WordPress ecommerce</small></div></div><label class="integration-toggle"><input id="iWooEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL de tienda / endpoint</span><input id="iWooUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-bag"></i><div><strong>Mercado Libre</strong><small>Marketplace</small></div></div><label class="integration-toggle"><input id="iMercadoLibreEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL / endpoint</span><input id="iMercadoLibreUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-meta"></i><div><strong>Meta / Instagram Shopping</strong><small>Catálogo social</small></div></div><label class="integration-toggle"><input id="iMetaEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL / catálogo</span><input id="iMetaUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-google"></i><div><strong>Google Merchant Center</strong><small>Feed / catálogo</small></div></div><label class="integration-toggle"><input id="iGoogleMerchantEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL / feed</span><input id="iGoogleMerchantUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-tiktok"></i><div><strong>TikTok Shop</strong><small>Canal social</small></div></div><label class="integration-toggle"><input id="iTiktokShopEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL / endpoint</span><input id="iTiktokShopUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-whatsapp"></i><div><strong>WhatsApp Business Catalog</strong><small>Catálogo conversacional</small></div></div><label class="integration-toggle"><input id="iWhatsappCatalogEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL de catálogo</span><input id="iWhatsappCatalogUrl" type="url" placeholder="https://..."></label></article>
+          <article class="integration-card"><div class="integration-provider"><i class="bi bi-box-seam"></i><div><strong>Jumpseller</strong><small>Ecommerce</small></div></div><label class="integration-toggle"><input id="iJumpsellerEnabled" type="checkbox"><span>Activo</span></label><label class="field-group"><span>URL de tienda / endpoint</span><input id="iJumpsellerUrl" type="url" placeholder="https://..."></label></article>
+        </div>
+        <div class="integration-note"><i class="bi bi-shield-check"></i><span>Las URL quedan centralizadas en configuración. Las conexiones API que requieran credenciales deberán habilitarse con sus claves oficiales; no se guardan claves inventadas ni se simula una sincronización.</span></div>
+        <button class="btn btn-primary" id="saveIntegrations"><i class="bi bi-floppy"></i> Guardar integraciones</button>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-payments">
+      <div class="admin-card payment-gateway-shell">
+        <div class="card-head"><div><span class="eyebrow">Pagos online</span><h2>Pasarela de pago</h2><p class="module-help">Transbank queda listo en modo Link de Pago: pega la URL oficial y guarda. Con eso el botón queda activo en el carrito; no requiere API Key para este flujo.</p></div></div>
+        <div class="payment-provider-card">
+          <div class="payment-provider-head">
+            <div class="payment-provider-logo"><i class="bi bi-credit-card-2-front"></i></div>
+            <div><strong>Transbank · Webpay.cl</strong><small>Link de Pago / botón externo</small></div>
+            <span class="gateway-status" id="transbankStatus">Sin configurar</span>
+          </div>
+          <div class="form-grid payment-form-grid">
+            <label class="field-group"><span>Texto del botón</span><input id="pTransbankLabel" value="Pagar con Transbank" maxlength="80"></label>
+            <label class="field-group"><span>Activación</span><input id="pTransbankActivation" value="Automática al guardar una URL" readonly></label>
+            <label class="field-group span-2"><span>URL oficial del Link de Pago</span><input id="pTransbankUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://www.webpay.cl/..." aria-describedby="transbankUrlHelp"></label>
+            <div class="span-2 form-help" id="transbankUrlHelp">Copia desde Transbank la URL de “Link y botón de pago” y pégala aquí. Eso es todo: al guardar, el botón se activa automáticamente en el carrito. Para desactivarlo, borra la URL y guarda.</div>
+          </div>
+          <div class="gateway-actions"><button class="btn btn-primary" id="savePayments"><i class="bi bi-floppy"></i> Guardar Transbank</button><button class="btn btn-light" id="testTransbankLink" type="button"><i class="bi bi-box-arrow-up-right"></i> Probar enlace</button></div>
+          <div class="gateway-flow"><span><b>1.</b> Cliente agrega productos</span><i class="bi bi-arrow-right"></i><span><b>2.</b> Pulsa Transbank en carrito</span><i class="bi bi-arrow-right"></i><span><b>3.</b> Registra pedido</span><i class="bi bi-arrow-right"></i><span><b>4.</b> Sale al Link de Pago</span></div>
+        </div>
+      </div>
+    </section>
+
     <section class="admin-view" id="view-settings">
       <div class="admin-card"><span class="eyebrow">Tienda</span><h2>Configuración</h2>
         <input type="hidden" id="sLogoId">
@@ -379,5 +420,5 @@
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260916-r9160-rut-orders-pdf"></script><script src="api.js?v=20260916-r9160-rut-orders-pdf"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9160-rut-orders-pdf"></script>
+<script src="config.js?v=20260916-r9170-transbank-integraciones"></script><script src="api.js?v=20260916-r9170-transbank-integraciones"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9170-transbank-integraciones"></script>
 </body></html>

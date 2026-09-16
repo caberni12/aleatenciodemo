@@ -1443,3 +1443,15 @@ body.order-detail-open{overflow:hidden}
   .order-detail-lines-head,.order-detail-line{min-width:690px}
 }
 @media(max-width:520px){.order-detail-summary{grid-template-columns:1fr}.order-detail-editor{padding:16px;border-radius:18px}}
+
+/* R9.17.0 · Integraciones ecommerce + pasarela de pago */
+.module-help{margin:7px 0 0;color:var(--muted);max-width:840px;line-height:1.55}
+.integration-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
+.integration-card{border:1px solid var(--line);border-radius:18px;padding:16px;background:#fff;display:grid;gap:13px}
+.integration-provider{display:flex;align-items:center;gap:11px}.integration-provider>i{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;background:#f8f2ef;font-size:20px}.integration-provider strong,.integration-provider small{display:block}.integration-provider small{color:var(--muted);margin-top:3px}
+.integration-toggle{display:flex;align-items:center;gap:8px;font-weight:800}.integration-toggle input{width:18px;height:18px;accent-color:var(--berry)}
+.integration-note{display:flex;gap:10px;align-items:flex-start;padding:13px 15px;margin:0 0 16px;border-radius:14px;background:#faf7f4;color:var(--muted);line-height:1.5}.integration-note i{color:var(--berry);font-size:18px;margin-top:1px}
+.payment-provider-card{border:1px solid var(--line);border-radius:22px;padding:20px;background:linear-gradient(180deg,#fff,#fcfafc)}
+.payment-provider-head{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin-bottom:18px}.payment-provider-logo{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#4d2f78;color:#fff;font-size:23px}.payment-provider-head strong,.payment-provider-head small{display:block}.payment-provider-head small{color:var(--muted);margin-top:3px}.gateway-status{padding:7px 10px;border-radius:999px;background:#f1ece8;color:var(--muted);font-size:12px;font-weight:900}.gateway-status.is-ready{background:#eaf8ef;color:#237544}
+.gateway-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.gateway-flow{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:18px;padding:13px;border-top:1px solid var(--line);color:var(--muted);font-size:12px}.gateway-flow span{font-weight:700}.gateway-flow b{color:var(--berry)}
+@media(max-width:760px){.integration-grid{grid-template-columns:1fr}.payment-provider-head{grid-template-columns:auto 1fr}.gateway-status{grid-column:1/-1;justify-self:start}.gateway-flow i{transform:rotate(90deg)}}
