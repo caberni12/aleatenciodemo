@@ -1,0 +1,23 @@
+ALE ATENCIO - R9.14.9
+IMAGENES DE PRODUCTOS PAREJAS
+
+CAMBIO PRINCIPAL
+- Todas las tarjetas de producto de la Web utilizan exactamente el mismo marco cuadrado 1:1.
+- Las fotografias llenan el marco con object-fit: cover y centrado 50% / 50%.
+- Se aplica un zoom suave de 1.055 para reducir bordes internos y diferencias de encuadre entre fotografias.
+- El hover aumenta apenas el zoom a 1.075.
+- La vista previa del producto dentro del cPanel usa exactamente el mismo encuadre.
+- Funciona igual para imagenes locales/GitHub y para URLs de Supabase Storage.
+
+NO CAMBIA
+- Base de datos.
+- SQL.
+- Edge Function index.ts.
+- Logica de subida de imagenes a Supabase Storage.
+- Nombres de archivos de imagen.
+
+PUBLICACION
+1. Reemplazar los archivos del repositorio GitHub por esta entrega completa.
+2. No es necesario ejecutar SQL.
+3. No es necesario volver a desplegar index.ts si ya estaba desplegada la R9.14.8.
+4. Al terminar, abrir la Web con Ctrl+F5 para limpiar cache.

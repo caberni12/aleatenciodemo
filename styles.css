@@ -2172,3 +2172,43 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
 .developer-credit a:hover,.developer-credit a:focus-visible{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .developer-credit-sep{opacity:.48;margin:0 2px}
 @media(max-width:620px){.developer-credit{font-size:10.5px;gap:5px;margin-top:16px;padding-top:14px}}
+
+/* =========================================================
+   R9.14.9 - IMAGENES DE PRODUCTO PAREJAS EN TODAS LAS TARJETAS
+   Un mismo marco visual para fotos locales/GitHub y Supabase Storage.
+   ========================================================= */
+.products-grid{
+  align-items:stretch;
+}
+.product-card{
+  min-width:0;
+}
+.product-card .product-image{
+  width:100% !important;
+  aspect-ratio:1 / 1 !important;
+  min-height:0 !important;
+  overflow:hidden !important;
+  position:relative !important;
+  background:#f3eee9 !important;
+}
+.product-card .product-image img{
+  width:100% !important;
+  height:100% !important;
+  min-width:100% !important;
+  min-height:100% !important;
+  max-width:none !important;
+  display:block !important;
+  object-fit:cover !important;
+  object-position:50% 50% !important;
+  transform:scale(1.055);
+  transform-origin:center center;
+  transition:transform .35s ease;
+}
+.product-card:hover .product-image img{
+  transform:scale(1.075);
+}
+@media(max-width:620px){
+  .product-card .product-image{
+    aspect-ratio:1 / 1 !important;
+  }
+}

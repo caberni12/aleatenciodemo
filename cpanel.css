@@ -1355,3 +1355,24 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
 .image-source-badge.local{background:#f4f0ee;color:#533a32;border:1px solid #e1d6d1}
 .image-source-badge.supabase{background:#edf8f2;color:#17633c;border:1px solid #bfe5cf}
 .image-source-badge.remote{background:#eef4fb;color:#315f8a;border:1px solid #cbdced}
+
+/* =========================================================
+   R9.14.9 - VISTA PREVIA DE PRODUCTO IGUAL A LA WEB
+   ========================================================= */
+.product-preview-media{
+  aspect-ratio:1 / 1 !important;
+  overflow:hidden !important;
+  background:#f3eee9 !important;
+}
+.product-preview-media img{
+  width:100% !important;
+  height:100% !important;
+  min-width:100% !important;
+  min-height:100% !important;
+  max-width:none !important;
+  display:block !important;
+  object-fit:cover !important;
+  object-position:50% 50% !important;
+  transform:scale(1.055);
+  transform-origin:center center;
+}
