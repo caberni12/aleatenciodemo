@@ -88,30 +88,92 @@ function handleBulkSelectAllChange(e,visibleIds){
   return true;
 }
 function clearBulkSelection(kind){selectedSet(kind).clear();updateBulkBar(kind)}
+async function refreshAfterConfirmedDelete(kind){
+  // La sincronización visual es posterior al DELETE y nunca puede cambiar su resultado.
+  try{
+    const moduleMap={products:"products",requests:"requests",quotes:"quotes"};
+    const module=moduleMap[kind];
+    if(module&&typeof loadAdminModules==="function"){
+      const refreshed=await loadAdminModules({modules:[module],retry:true});
+      return refreshed?.ok!==false;
+    }
+    await reload();
+    return true;
+  }catch(err){
+    console.warn("post-delete refresh",err);
+    // El registro ya fue eliminado. Dejamos la sincronización general en segundo plano.
+    try{scheduleAdminRetry?.([kind])}catch(_){}
+    return false;
+  }
+}
+
+function applyVerifiedDeleteResult(kind,ids,out){
+  const remainingIds=Array.isArray(out?.remainingIds)?out.remainingIds.map(String):[];
+  const remaining=Number(out?.remaining||remainingIds.length||0);
+  if(out?.ok===false||remaining>0){
+    const set=selectedSet(kind);set.clear();for(const id of remainingIds)set.add(String(id));updateBulkBar(kind);
+    throw Object.assign(new Error(out?.error||"ELIMINACION_INCOMPLETA"),{payload:out});
+  }
+  clearBulkSelection(kind);
+  const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0);
+  const confirmed=Math.max(0,Number(out?.requested||ids.length)-remaining);
+  return{deleted,missing,confirmed};
+}
+
+async function verifyDeleteAfterAmbiguousError(kind,ids,err){
+  const code=String(err?.message||err||"").toUpperCase();
+  const ambiguous=["API_TIMEOUT","API_CONEXION_FALLIDA","RESPUESTA_API_INVALIDA","HTTP_502","HTTP_503","HTTP_504","NETWORK","FETCH"].some(x=>code.includes(x));
+  if(!ambiguous||typeof AleAPI.verifyBulkDelete!=="function")return null;
+  try{return await AleAPI.verifyBulkDelete({kind,ids},token)}catch(verifyErr){console.warn("bulk delete verification",verifyErr);return null}
+}
+
 async function deleteSelected(kind,btn){
   const ids=[...selectedSet(kind)];if(!ids.length)return;
   const names={products:"productos",requests:"solicitudes",quotes:"cotizaciones"};
   const extra=kind==="products"?" Los productos se eliminarán definitivamente de la base. Las imágenes locales de GitHub no se borran; las imágenes propias de Supabase Storage sí se limpian cuando corresponda.":kind==="requests"?" Las cotizaciones ya creadas se conservarán, pero quedarán sin solicitud asociada.":" Los PDF asociados guardados en Supabase Storage también se eliminarán cuando correspondan.";
   if(!confirm(`¿Eliminar definitivamente ${ids.length} ${names[kind]} seleccionados?${extra}\n\nEsta acción no se puede deshacer.`))return;
   await busy(btn,async()=>{
+    let out=null;
     try{
-      const out=typeof AleAPI.bulkDeleteEntities==="function"
+      out=typeof AleAPI.bulkDeleteEntities==="function"
         ? await AleAPI.bulkDeleteEntities({kind,ids},token)
         : await AleAPI.post("bulkDeleteEntities",{kind,ids},token);
-      const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0),remaining=Number(out?.remaining||0);
-      if(out?.ok===false||remaining>0)throw Object.assign(new Error(out?.error||"ELIMINACION_INCOMPLETA"),{payload:out});
-      clearBulkSelection(kind);
-      toast(`✓ Eliminación confirmada: ${deleted} eliminado${deleted===1?"":"s"}${missing?` · ${missing} ya no existían`:""}`);
-      await reload();
     }catch(err){
-      console.warn("bulk delete",err);
+      console.warn("bulk delete transport",err);
+      const verified=await verifyDeleteAfterAmbiguousError(kind,ids,err);
+      if(verified?.ok&&verified?.confirmed===true&&Number(verified.remaining||0)===0){
+        out={ok:true,requested:ids.length,deleted:Number(verified.absent||verified.deleted||ids.length),missing:0,remaining:0,remainingIds:[],verifiedAfterTransportError:true};
+      }else if(verified?.ok&&verified?.confirmed===false&&Number(verified.remaining||0)>0){
+        out={...verified,ok:false,error:"ELIMINACION_INCOMPLETA"};
+      }else{
+        const code=String(err?.message||err||"").toUpperCase();
+        if(code.includes("ELIMINACION_INCOMPLETA")&&err?.payload){
+          out={...err.payload,ok:false};
+        }else if(code.includes("PERMISO_DENEGADO")){
+          return toast("✕ Tu usuario no tiene permiso para eliminar estos registros");
+        }else if(code.includes("ACCION_NO_VALIDA")){
+          return toast("✕ La Edge Function está desactualizada. Despliega el index.ts de esta versión");
+        }else if(code.includes("SESION_")){
+          return toast("✕ La sesión ya no es válida. Vuelve a iniciar sesión");
+        }else if(code.includes("TIMEOUT")||code.includes("CONEXION")){
+          return toast("⚠ Supabase no respondió, pero el resultado no pudo verificarse. Actualiza la tabla antes de reintentar");
+        }else{
+          return toast(`✕ No fue posible solicitar la eliminación múltiple${code?` (${code.slice(0,80)})`:""}`);
+        }
+      }
+    }
+
+    try{
+      const result=applyVerifiedDeleteResult(kind,ids,out||{});
+      toast(`✓ Eliminación confirmada: ${result.confirmed} registro${result.confirmed===1?"":"s"} ya no ${result.confirmed===1?"está":"están"} en la base${result.missing?` · ${result.missing} ya no existían`:""}`);
+      // MUY IMPORTANTE: la recarga NO forma parte del resultado de la eliminación.
+      const refreshed=await refreshAfterConfirmedDelete(kind);
+      if(!refreshed)toast("✓ Eliminación realizada. La actualización visual se reintentará automáticamente");
+    }catch(err){
+      console.warn("bulk delete result",err);
       const code=String(err?.message||err||"").toUpperCase();
-      if(code.includes("PERMISO_DENEGADO"))return toast("✕ Tu usuario no tiene permiso para eliminar estos registros");
-      if(code.includes("ACCION_NO_VALIDA"))return toast("✕ La Edge Function está desactualizada. Despliega el index.ts de esta versión");
-      if(code.includes("ELIMINACION_INCOMPLETA"))return toast("✕ Algunos registros no pudieron eliminarse. Se conservaron seleccionados para reintentar");
-      if(code.includes("SESION_"))return toast("✕ La sesión ya no es válida. Vuelve a iniciar sesión");
-      if(code.includes("TIMEOUT")||code.includes("CONEXION"))return toast("✕ Supabase no confirmó la eliminación. Revisa conexión y reintenta");
-      toast(`✕ No fue posible completar la eliminación múltiple${code?` (${code.slice(0,80)})`:""}`);
+      if(code.includes("ELIMINACION_INCOMPLETA"))return toast("⚠ Eliminación parcial: algunos registros permanecen seleccionados para reintentar");
+      toast(`✕ No fue posible confirmar la eliminación${code?` (${code.slice(0,80)})`:""}`);
     }
   });
 }

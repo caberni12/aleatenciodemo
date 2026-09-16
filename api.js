@@ -124,6 +124,11 @@
       throw lastErr || makeError("ELIMINACION_MULTIPLE_SIN_CONFIRMACION");
     },
 
+    async verifyBulkDelete(data = {}, token = "") {
+      // Endpoint liviano: confirma únicamente si los IDs siguen presentes después de un timeout ambiguo.
+      return request("verifydeleteentities", data, token, {timeoutMs:12000});
+    },
+
     async postPublic(action, data = {}) {
       return request(action, data, "", {timeoutMs:/^(createorder|createrequest)$/i.test(String(action||"")) ? 18000 : undefined});
     },
