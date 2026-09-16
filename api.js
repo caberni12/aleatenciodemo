@@ -130,7 +130,9 @@
     },
 
     async postPublic(action, data = {}) {
-      return request(action, data, "", {timeoutMs:/^(createorder|createrequest)$/i.test(String(action||"")) ? 18000 : undefined});
+      const a=String(action||"").toLowerCase();
+      const timeoutMs=a==="createorder"?40000:a==="createrequest"?18000:undefined;
+      return request(action, data, "", {timeoutMs});
     },
 
     async login(username, password) {
@@ -189,6 +191,14 @@
 
     async uploadQuotePdf(data = {}, token = "") {
       return request("uploadquotepdf", data, token, {timeoutMs:30000});
+    },
+
+    async orderDetail(id, token = "") {
+      return request("orderdetail", {id:String(id||"")}, token, {timeoutMs:15000});
+    },
+
+    async generateOrderPdf(id, token = "") {
+      return request("generateorderpdf", {id:String(id||"")}, token, {timeoutMs:45000});
     },
 
     async backendStatus() {

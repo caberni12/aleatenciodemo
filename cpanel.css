@@ -1411,3 +1411,35 @@ body.product-import-open::before{content:"";position:fixed;inset:0;background:rg
 .online-pill.warning{opacity:.9}
 .online-pill.warning span{box-shadow:0 0 0 4px rgba(181,128,46,.12)}
 @keyframes aleSyncPulse{0%,100%{transform:scale(1);opacity:.65}50%{transform:scale(1.35);opacity:1}}
+
+/* ========================================================================== */
+/* R9.16.0 · PEDIDOS: detalle, líneas y PDF                                   */
+/* ========================================================================== */
+.order-detail-editor{
+  position:fixed;inset:50% auto auto 50%;transform:translate(-50%,-50%);
+  width:min(1080px,calc(100vw - 34px));max-height:90vh;overflow:auto;z-index:1200;
+  background:#fff;border:1px solid rgba(97,68,57,.14);border-radius:24px;
+  box-shadow:0 30px 80px rgba(51,31,24,.26);padding:24px;
+}
+.order-detail-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0 22px}
+.order-detail-summary>div{background:#faf7f5;border:1px solid #eee3de;border-radius:14px;padding:12px;min-width:0}
+.order-detail-summary span{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#8b756c;margin-bottom:5px}
+.order-detail-summary strong{display:block;font-size:14px;color:#402d26;overflow-wrap:anywhere}
+.order-detail-lines{border:1px solid #eee3de;border-radius:16px;overflow:hidden;background:#fff}
+.order-detail-lines-head,.order-detail-line{display:grid;grid-template-columns:minmax(220px,1fr) 80px 135px 135px;gap:12px;align-items:center;padding:11px 14px}
+.order-detail-lines-head{background:#f7f0ed;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:#725a50}
+.order-detail-line{border-top:1px solid #f0e7e3;font-size:13px}
+.order-detail-line>span:not(:first-child){text-align:right}
+.order-detail-line small{display:block;color:#9a847b;margin-top:3px}
+.order-detail-totals{margin:18px 0 4px;margin-left:auto;width:min(420px,100%);display:grid;gap:8px}
+.order-detail-totals>div{display:flex;justify-content:space-between;gap:18px;padding:9px 0;border-bottom:1px solid #eee3de}
+.order-detail-totals .grand{font-size:18px;color:#5c3f34;border-bottom:0}
+.order-detail-totals p{grid-column:1/-1;background:#faf7f5;border-radius:12px;padding:12px;margin:4px 0 0;line-height:1.45}
+body.order-detail-open{overflow:hidden}
+.muted-text{color:#9a847b;font-size:12px}
+@media(max-width:820px){
+  .order-detail-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .order-detail-lines{overflow:auto}
+  .order-detail-lines-head,.order-detail-line{min-width:690px}
+}
+@media(max-width:520px){.order-detail-summary{grid-template-columns:1fr}.order-detail-editor{padding:16px;border-radius:18px}}

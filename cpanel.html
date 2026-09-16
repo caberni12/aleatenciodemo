@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9154-bulk-delete-robust"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r9160-rut-orders-pdf"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260916-r9154-bulk-delete-robust"><link rel="stylesheet" href="cpanel.css?v=20260916-r9155-delete-ack">
+  <link rel="stylesheet" href="styles.css?v=20260916-r9160-rut-orders-pdf"><link rel="stylesheet" href="cpanel.css?v=20260916-r9160-rut-orders-pdf">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -146,7 +146,29 @@
       </div>
     </section>
 
-    <section class="admin-view" id="view-orders"><div class="admin-card"><span class="eyebrow">Ventas</span><h2>Pedidos</h2><div class="table-wrap" id="ordersTable"></div></div></section>
+    <section class="admin-view" id="view-orders">
+      <div class="admin-card">
+        <div class="card-head"><div><span class="eyebrow">Ventas</span><h2>Pedidos</h2></div></div>
+        <div class="table-wrap" id="ordersTable"></div>
+      </div>
+      <div class="editor hidden order-detail-editor" id="orderDetailEditor" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
+        <div class="editor-modal-head">
+          <div><span class="eyebrow">Pedido registrado</span><h3 id="orderDetailTitle">Detalle del pedido</h3><small id="orderDetailNumber"></small></div>
+          <button type="button" class="editor-close-x" id="closeOrderDetailX" aria-label="Cerrar">×</button>
+        </div>
+        <div class="order-detail-summary" id="orderDetailSummary"></div>
+        <div class="order-detail-lines">
+          <div class="order-detail-lines-head"><span>Producto</span><span>Cant.</span><span>Precio unitario</span><span>Subtotal</span></div>
+          <div id="orderDetailItems"></div>
+        </div>
+        <div class="order-detail-totals" id="orderDetailTotals"></div>
+        <div class="editor-actions">
+          <a class="btn btn-light hidden" id="orderDetailPdfLink" href="#" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>
+          <button class="btn btn-primary" id="regenerateOrderPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar / actualizar PDF</button>
+          <button class="btn btn-light" id="closeOrderDetail" type="button">Cerrar</button>
+        </div>
+      </div>
+    </section>
     <section class="admin-view" id="view-requests"><div class="admin-card"><span class="eyebrow">Cotizaciones</span><h2>Solicitudes</h2>
       <div class="bulk-actions hidden" id="requestsBulkBar">
         <div class="bulk-actions-info"><i class="bi bi-check2-square"></i><strong id="requestsSelectedCount">0 seleccionadas</strong><span>Las cotizaciones vinculadas se conservan y quedan sin solicitud asociada.</span></div>
@@ -184,18 +206,19 @@
               <div class="request-combobox" id="requestCombobox">
                 <div class="request-combobox-control">
                   <i class="bi bi-search" aria-hidden="true"></i>
-                  <input id="qRequestSearch" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="qRequestResults" placeholder="Buscar por N.º solicitud, cliente, teléfono o correo...">
+                  <input id="qRequestSearch" type="text" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="qRequestResults" placeholder="Buscar por N.º solicitud, cliente, RUT, teléfono o correo...">
                   <button type="button" id="clearQuoteRequest" class="request-combobox-clear" title="Quitar solicitud asociada" aria-label="Quitar solicitud asociada"><i class="bi bi-x-lg"></i></button>
                   <button type="button" id="toggleQuoteRequest" class="request-combobox-toggle" title="Ver solicitudes" aria-label="Ver solicitudes"><i class="bi bi-chevron-down"></i></button>
                 </div>
                 <div id="qRequestResults" class="request-combobox-results hidden" role="listbox"></div>
               </div>
-              <small id="qRequestHelp" class="request-combobox-help">Busca por número, cliente, teléfono o correo. Puedes dejar la cotización sin solicitud asociada.</small>
+              <small id="qRequestHelp" class="request-combobox-help">Busca por número, cliente, RUT, teléfono o correo. Puedes dejar la cotización sin solicitud asociada.</small>
             </div>
           </div>
 
           <div class="form-grid quote-client-grid">
             <label class="field-group"><span>Cliente</span><input id="qClient" placeholder="Nombre del cliente"></label>
+            <label class="field-group"><span>RUT</span><input id="qRut" placeholder="12.345.678-5" inputmode="text"></label>
             <label class="field-group"><span>Teléfono / WhatsApp</span><input id="qPhone" placeholder="+56..."></label>
             <label class="field-group"><span>Correo</span><input id="qEmail" type="email" placeholder="correo@cliente.cl"></label>
             <label class="field-group"><span>Validez (días)</span><input id="qValidity" type="number" min="1" max="365" value="15"></label>
@@ -239,7 +262,7 @@
 
     <section class="admin-view" id="view-clients">
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Base comercial</span><h2>Clientes</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportClientsXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button><button class="btn btn-light" id="exportClientsPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF</button></div></div>
-        <div class="admin-toolbar client-toolbar"><input id="clientSearch" placeholder="Buscar por cliente, teléfono o correo..."><button class="btn btn-light" id="clearClientSearch" type="button">Ver todos</button></div>
+        <div class="admin-toolbar client-toolbar"><input id="clientSearch" placeholder="Buscar por cliente, RUT, teléfono o correo..."><button class="btn btn-light" id="clearClientSearch" type="button">Ver todos</button></div>
         <div class="product-results-meta" id="clientResultsMeta">Base de clientes</div>
         <div class="table-wrap" id="clientsTable"></div>
       </div>
@@ -335,6 +358,7 @@
         <input type="hidden" id="sLogoId">
         <div class="form-grid">
           <label class="field-group"><span>Nombre del negocio</span><input id="sBusiness" placeholder="Ale Atencio"></label>
+          <label class="field-group"><span>RUT del negocio</span><input id="sBusinessRut" placeholder="12.345.678-5" inputmode="text"></label>
           <label class="field-group"><span>WhatsApp</span><input id="sWhatsapp" placeholder="+56..."></label>
           <label class="field-group"><span>Correo</span><input id="sEmail" type="email" placeholder="correo@ejemplo.cl"></label>
           <label class="field-group"><span>Dirección / retiro</span><input id="sAddress" placeholder="Dirección"></label>
@@ -355,5 +379,5 @@
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260916-r9154-bulk-delete-robust"></script><script src="api.js?v=20260916-r9155-delete-ack"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9155-delete-ack"></script>
+<script src="config.js?v=20260916-r9160-rut-orders-pdf"></script><script src="api.js?v=20260916-r9160-rut-orders-pdf"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r9160-rut-orders-pdf"></script>
 </body></html>
