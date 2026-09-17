@@ -2333,3 +2333,16 @@ html{
 .tracking-section{
   scroll-margin-top:calc(var(--public-header-height) + 8px) !important;
 }
+
+/* =========================================================
+   R9.18.29 · COMPROBANTE TRANSFERENCIA EN SEGUIMIENTO
+   ========================================================= */
+.tracking-status-grid>div>small{display:block;margin-top:6px;font-size:.72rem;font-weight:800;letter-spacing:.05em;color:#8b7067}
+.tracking-transfer-box{display:flex;gap:16px;align-items:flex-start;margin:18px 0 8px;padding:18px 20px;border-radius:18px;border:1px solid #eaded8;background:linear-gradient(135deg,#fffdf9 0%,#fff8f2 100%);box-shadow:0 10px 28px rgba(91,61,52,.06)}
+.tracking-transfer-icon{flex:0 0 44px;width:44px;height:44px;border-radius:14px;display:grid;place-items:center;background:#f4e7dc;color:#7c5549;font-size:1.2rem}
+.tracking-transfer-box h4{margin:3px 0 6px;font-size:1rem;color:#3f302c}.tracking-transfer-box p{margin:0;color:#78665f;line-height:1.5;font-size:.9rem}.tracking-transfer-content{min-width:0;flex:1}
+.tracking-transfer-box.pending{background:#fffaf0;border-color:#ead6a2}.tracking-transfer-box.pending .tracking-transfer-icon{background:#f8e8b9;color:#87631d}
+.tracking-transfer-box.verified{background:#f5fbf7;border-color:#cfe5d6}.tracking-transfer-box.verified .tracking-transfer-icon{background:#dcefe2;color:#3f7650}
+.tracking-transfer-box.locked{background:#f7f4f2;border-color:#dfd7d3}.tracking-transfer-box.locked .tracking-transfer-icon{background:#e9e3df;color:#796b65}
+.tracking-proof-controls{margin-top:14px}.tracking-proof-picker{cursor:pointer}.tracking-proof-preview{display:flex;align-items:center;gap:14px;margin-top:12px;padding:12px;border-radius:14px;background:#fff;border:1px solid #eaded8}.tracking-proof-preview.hidden{display:none}.tracking-proof-preview img{width:86px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #eee1da;background:#faf7f5}.tracking-proof-preview>div{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:5px}.tracking-proof-preview strong{font-size:.9rem;color:#4c3933}.tracking-proof-preview small{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8a746c}.tracking-proof-preview .btn{margin-top:4px}
+@media(max-width:640px){.tracking-transfer-box{padding:15px;gap:12px}.tracking-transfer-icon{flex-basis:40px;width:40px;height:40px}.tracking-proof-preview{align-items:flex-start}.tracking-proof-preview img{width:72px;height:64px}.tracking-proof-preview .btn{width:100%;justify-content:center}}

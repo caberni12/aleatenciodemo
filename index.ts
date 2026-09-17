@@ -1,13 +1,22 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 
-const VERSION = "ALE-SUPABASE-R9.17.0-TRANSBANK-INTEGRACIONES";
+const VERSION = "ALE-SUPABASE-R9.18.29-COMPROBANTE-TRANSFERENCIA-TRACKING";
 const BUCKET = "ale-atencio-public";
 const SESSION_HOURS = 24;
 const SESSION_TOUCH_MINUTES = 5;
 const MAX_LOGIN_FAILS = 5;
 const LOGIN_BLOCK_MINUTES = 10;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+
+const TBK_INTEGRATION_COMMERCE_CODE = "597055555532";
+const TBK_INTEGRATION_API_KEY = "579B532A7440BB0C9079DED94D31EA1615BACEB56610332264630D42D0A36B1C";
+const TBK_INTEGRATION_HOST = "https://webpay3gint.transbank.cl";
+const TBK_PRODUCTION_HOST = "https://webpay3g.transbank.cl";
+const TBK_TRANSACTIONS_PATH = "/rswebpaytransaction/api/webpay/v1.2/transactions";
+const TRANSBANK_FUNCTION_NAME = "dynamic-processor";
+const TRANSBANK_FALLBACK_CHECKOUT_URL = "https://caberni12.github.io/aleatenciodemo/";
+const TRANSBANK_FALLBACK_RETURN_URL = "https://caberni12.github.io/aleatenciodemo/";
 
 function serverKey(): string {
   const legacy = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -41,9 +50,38 @@ function bool(v: unknown, fallback = false): boolean {
   if (["NO","FALSE","0"].includes(s)) return false;
   return fallback;
 }
+function normalizeAmountText(v: unknown): string {
+  return clean(v,300).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+}
+const CLP_WORD_NUMBERS:Record<string,number>={cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,ciento:100,doscientos:200,trescientos:300,cuatrocientos:400,quinientos:500,seiscientos:600,setecientos:700,ochocientos:800,novecientos:900};
+function parseLocalizedNumeric(v:unknown):number{
+  if(typeof v==="number")return Number.isFinite(v)?v:NaN;
+  let raw=clean(v,300).replace(/\s+/g,"").replace(/[^0-9,.-]/g,"");if(!raw)return NaN;
+  const neg=raw.startsWith("-");if(neg)raw=raw.slice(1);let normalized=raw;
+  if(/^\d{1,3}([.,]\d{3})+$/.test(raw))normalized=raw.replace(/[.,]/g,"");
+  else if(raw.includes(",")&&raw.includes("."))normalized=raw.lastIndexOf(",")>raw.lastIndexOf(".")?raw.replace(/\./g,"").replace(",","."):raw.replace(/,/g,"");
+  else if(raw.includes(",")){const parts=raw.split(",");normalized=parts.length===2&&parts[1].length===3?parts.join(""):raw.replace(",", ".");}
+  else if((raw.match(/\./g)||[]).length>1||/\.\d{3}$/.test(raw))normalized=raw.replace(/\./g,"");
+  const n=Number(normalized);return Number.isFinite(n)?(neg?-n:n):NaN;
+}
+function parseSpanishAmountWords(v:unknown):number{
+  const text=normalizeAmountText(v).replace(/\b(?:pesos?|chilenos?|clp|monto|precio|valor|total|de)\b/g," ").replace(/[^a-z0-9.,\s-]/g," ").replace(/\s+/g," ").trim();if(!text)return NaN;
+  let total=0,current=0,recognized=false;
+  for(const rawToken of text.split(" ")){const token=rawToken.replace(/^-|-$/g,"");if(!token||token==="y")continue;
+    if(/^\d/.test(token)){const n=parseLocalizedNumeric(token);if(Number.isFinite(n)){current+=n;recognized=true;continue;}}
+    if(token==="mil"||token==="miles"){total+=current>=1000?current:(current||1)*1000;current=0;recognized=true;continue;}
+    if(token==="millon"||token==="millones"){total+=(current||1)*1000000;current=0;recognized=true;continue;}
+    if(token==="luca"||token==="lucas"){total+=current>=1000?current:(current||1)*1000;current=0;recognized=true;continue;}
+    if(Object.prototype.hasOwnProperty.call(CLP_WORD_NUMBERS,token)){current+=CLP_WORD_NUMBERS[token];recognized=true;}
+  }
+  return recognized?total+current:NaN;
+}
 function money(v: unknown): number {
-  const n = Number(v ?? 0);
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 0;
+  const text=normalizeAmountText(v);let n:number=NaN;
+  if(/\b(mil|miles|millon|millones|luca|lucas)\b/.test(text))n=parseSpanishAmountWords(v);
+  if(!Number.isFinite(Number(n)))n=parseLocalizedNumeric(v);
+  if(!Number.isFinite(Number(n)))n=parseSpanishAmountWords(v);
+  const value=Number(n);return Number.isFinite(value)&&value>=0?Math.round(value*100)/100:0;
 }
 function yesNo(v: unknown): string { return bool(v) ? "SI" : "NO"; }
 function nowIso(): string { return new Date().toISOString(); }
@@ -113,6 +151,105 @@ async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("");
 }
+
+function safeHttps(v: unknown): string {
+  const raw=clean(v,2000);
+  if(!raw)return "";
+  try{const u=new URL(raw);return u.protocol==="https:"?u.toString():"";}catch(_){return "";}
+}
+function transbankEnvironment(): "INTEGRATION"|"PRODUCTION" {
+  const raw=clean(Deno.env.get("TRANSBANK_ENVIRONMENT")||"INTEGRATION",40).toUpperCase();
+  return ["PRODUCTION","PRODUCCION","PROD"].includes(raw)?"PRODUCTION":"INTEGRATION";
+}
+function transbankCredentialsFor(environment:"INTEGRATION"|"PRODUCTION"){
+  if(environment==="INTEGRATION") return {environment,host:TBK_INTEGRATION_HOST,commerceCode:TBK_INTEGRATION_COMMERCE_CODE,apiKey:TBK_INTEGRATION_API_KEY,credentialsReady:true};
+  const commerceCode=clean(Deno.env.get("TRANSBANK_COMMERCE_CODE"),80);
+  const apiKey=clean(Deno.env.get("TRANSBANK_API_KEY_SECRET"),300);
+  return {environment,host:TBK_PRODUCTION_HOST,commerceCode,apiKey,credentialsReady:!!commerceCode&&!!apiKey};
+}
+function transbankServerCredentials(){return transbankCredentialsFor(transbankEnvironment());}
+function isTransbankPublicHost(host:string):boolean{
+  host=String(host||"").toLowerCase();
+  return host==="webpay.cl"||host.endsWith(".webpay.cl")||host==="transbank.cl"||host.endsWith(".transbank.cl");
+}
+function transbankPublicUrl(v:unknown):string{
+  const url=safeHttps(v);
+  if(!url)return "";
+  try{
+    const host=new URL(url).hostname.toLowerCase();
+    // La URL final del cliente debe ser una web del comercio, nunca Supabase ni una página de pago Transbank.
+    if(host==="supabase.co"||host.endsWith(".supabase.co")||isTransbankPublicHost(host))return "";
+    return url;
+  }catch(_){return "";}
+}
+function transbankManualPaymentUrl(v:unknown):string{
+  const url=safeHttps(v);
+  if(!url)return "";
+  try{return isTransbankPublicHost(new URL(url).hostname.toLowerCase())?url:"";}catch(_){return "";}
+}
+function isInternalServerHost(host:string):boolean{
+  host=String(host||"").toLowerCase();
+  return host==="supabase.co"||host.endsWith(".supabase.co")||host==="script.google.com"||host.endsWith(".script.google.com")||host==="script.googleusercontent.com"||host.endsWith(".script.googleusercontent.com")||host==="localhost"||host==="127.0.0.1";
+}
+function publicWebUrl(v:unknown):string{
+  const url=safeHttps(v);
+  if(!url)return "";
+  try{
+    const u=new URL(url),host=u.hostname.toLowerCase();
+    if(isInternalServerHost(host)||isTransbankPublicHost(host)||/\/(?:functions|rest|storage)\/v1\//i.test(u.pathname))return "";
+    u.search="";u.hash="";
+    if(!u.pathname.endsWith("/")){const last=u.pathname.split("/").pop()||"";u.pathname=/\.[a-z0-9]{1,8}$/i.test(last)?u.pathname.replace(/[^/]+$/,""):u.pathname+"/";}
+    return u.toString();
+  }catch(_){return "";}
+}
+function publicWebBaseUrl(cfg:Dict):string{
+  return publicWebUrl(cfg.web_public_url)||publicWebUrl(cfg.transbank_checkout_url)||TRANSBANK_FALLBACK_CHECKOUT_URL;
+}
+function transbankCheckoutUrl(cfg:Dict):string{
+  return transbankPublicUrl(cfg.transbank_checkout_url)||TRANSBANK_FALLBACK_CHECKOUT_URL;
+}
+function transbankFinalReturnUrl(cfg:Dict):string{
+  return transbankPublicUrl(cfg.transbank_return_url)||transbankCheckoutUrl(cfg)||TRANSBANK_FALLBACK_RETURN_URL;
+}
+function transbankRuntimeInfo(cfg:Dict){
+  const server=transbankServerCredentials();
+  const checkoutUrl=transbankCheckoutUrl(cfg);
+  const returnUrl=transbankFinalReturnUrl(cfg);
+  const enabled=yesNo(cfg.transbank_enabled)==="SI";
+  return {...server,checkoutUrl,returnUrl,enabled,checkoutUrlReady:!!checkoutUrl,urlReady:!!returnUrl,ready:enabled&&!!checkoutUrl&&!!returnUrl&&server.credentialsReady};
+}
+function transbankHeaders(environment:"INTEGRATION"|"PRODUCTION"){
+  const c=transbankCredentialsFor(environment);
+  if(!c.credentialsReady)throw new Error("TRANSBANK_CREDENCIALES_SERVIDOR_PENDIENTES");
+  return {"Content-Type":"application/json","Tbk-Api-Key-Id":c.commerceCode,"Tbk-Api-Key-Secret":c.apiKey};
+}
+function transbankApiUrl(environment:"INTEGRATION"|"PRODUCTION",token=""){const c=transbankCredentialsFor(environment);return `${c.host}${TBK_TRANSACTIONS_PATH}${token?`/${encodeURIComponent(token)}`:""}`;}
+function transbankBuyOrder():string{return (`AA${Date.now().toString(36)}${crypto.randomUUID().replaceAll("-","").slice(0,8)}`).toUpperCase().slice(0,26);}
+function transbankSessionId(orderId:string):string{return `ALE-${clean(orderId,36)}-${crypto.randomUUID().replaceAll("-","").slice(0,12)}`.slice(0,61);}
+function transbankEdgeReturnUrl(_req?:Request,paymentId="",orderId=""):string{
+  const base=safeHttps(SUPABASE_URL);
+  if(!base)throw new Error("SUPABASE_URL_NO_DISPONIBLE");
+  const u=new URL(base);
+  u.pathname=`/functions/v1/${TRANSBANK_FUNCTION_NAME}`;
+  u.search="";u.hash="";u.searchParams.set("tbk_return","1");
+  if(paymentId)u.searchParams.set("tbk_pid",clean(paymentId,100));
+  if(orderId)u.searchParams.set("tbk_oid",clean(orderId,100));
+  return u.toString().slice(0,512);
+}
+async function transbankFetch(environment:"INTEGRATION"|"PRODUCTION",url:string, init:RequestInit):Promise<Dict>{
+  const response=await fetch(url,{...init,headers:{...transbankHeaders(environment),...(init.headers||{})}});
+  const text=await response.text();let payload:Dict={};try{payload=text?JSON.parse(text):{};}catch(_){payload={raw:text.slice(0,1000)};}
+  if(!response.ok)throw new Error(`TRANSBANK_HTTP_${response.status}:${clean(payload.error_message||payload.message||payload.raw||"ERROR",400)}`);
+  return payload;
+}
+async function transbankRemoteCreate(req:Request,environment:"INTEGRATION"|"PRODUCTION",buyOrder:string,sessionId:string,amount:number,paymentId="",orderId=""){
+  return await transbankFetch(environment,transbankApiUrl(environment),{method:"POST",body:JSON.stringify({buy_order:buyOrder,session_id:sessionId,amount,return_url:transbankEdgeReturnUrl(req,paymentId,orderId)})});
+}
+async function transbankRemoteCommit(token:string,environment:"INTEGRATION"|"PRODUCTION"){return await transbankFetch(environment,transbankApiUrl(environment,token),{method:"PUT"});}
+async function transbankRemoteStatus(token:string,environment:"INTEGRATION"|"PRODUCTION"){return await transbankFetch(environment,transbankApiUrl(environment,token),{method:"GET"});}
+function paymentStatusFromCommit(resp:Dict):"PAGADO"|"RECHAZADO"{return String(resp.status||"").toUpperCase()==="AUTHORIZED"&&Number(resp.response_code)===0?"PAGADO":"RECHAZADO";}
+function buildFinalReturnUrl(base:string,status:string,orderNumber:string){const u=new URL(base);u.searchParams.set("tbk",status);if(orderNumber)u.searchParams.set("order",orderNumber);return u.toString();}
+function redirect303(url:string){return new Response(null,{status:303,headers:{Location:url,"Cache-Control":"no-store"}});}
 
 function safeUser(u: Dict | null): Dict | null {
   if (!u) return null;
@@ -235,7 +372,7 @@ async function login(req: Request, d: Dict) {
   return {
     ok:true, token, user:safeUser(user), permissions:ctx.permissions,
     expires_in:SESSION_HOURS*3600, version:VERSION, api_contract:2,
-    capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_link_payment","ecommerce_integrations"]
+    capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","ecommerce_integrations","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"]
   };
 }
 
@@ -293,6 +430,8 @@ async function configMap(): Promise<Dict> {
   for (const r of data || []) out[String(r.clave)] = String(r.valor ?? "");
   out.logo_drive_file_id = out.logo_drive_file_id || out.logo_storage_path || "";
   if(!out.logo_url && out.logo_storage_path) out.logo_url = storagePublicUrl(out.logo_storage_path);
+  // ALE ATENCIO opera únicamente en pesos chilenos. No exponer USD por configuración heredada.
+  out.moneda = "CLP";
   return out;
 }
 function apiWarning(scope:string, err:any): string {
@@ -379,7 +518,7 @@ async function buildOrderPdf(order:Dict, items:Dict[], config:Dict): Promise<Uin
   y-=64;page.drawLine({start:{x:margin,y},end:{x:right,y},thickness:1,color:rgb(0.82,0.73,0.68)});y-=27;
   drawText("RESPALDO DE PEDIDO",margin,y,18,bold);
   const orderNumber=pdfSafeText(order.numero_pedido||order.id||"");drawText(orderNumber,right-bold.widthOfTextAtSize(orderNumber,11),y+2,11,bold);y-=19;
-  const dateText=`Fecha: ${new Date(order.fecha||Date.now()).toLocaleString("es-CL")}`;drawText(dateText,margin,y,9,regular);drawText(`Estado: ${order.estado||"PENDIENTE"}`,right-regular.widthOfTextAtSize(pdfSafeText(`Estado: ${order.estado||"PENDIENTE"}`),9),y,9,regular);y-=27;
+  const dateText=`Fecha: ${new Date(order.fecha||Date.now()).toLocaleString("es-CL")}`;drawText(dateText,margin,y,9,regular);const stateText=`Pedido: ${publicOrderStatusLabel(order.estado||"PENDIENTE")}`;drawText(stateText,right-regular.widthOfTextAtSize(pdfSafeText(stateText),9),y,9,regular);y-=14;const paymentText=`Pago: ${clean(order.estado_pago||"PENDIENTE",80)}${order.medio_pago?` · ${clean(order.medio_pago,40)}`:""}`;drawText(paymentText,margin,y,9,regular);y-=20;
 
   drawText("Cliente",margin,y,11,bold);y-=16;
   const customerLines=[order.nombre,order.rut?`RUT: ${formatRut(order.rut)}`:"",order.telefono?`WhatsApp: ${order.telefono}`:"",order.email?`Correo: ${order.email}`:"",order.metodo_entrega?`Entrega: ${order.metodo_entrega}`:"",order.direccion?`Dirección: ${order.direccion}`:"",order.comuna?`Comuna: ${order.comuna}`:""].filter(Boolean);
@@ -435,12 +574,272 @@ async function persistOrderPdf(order:Dict, items:Dict[], config:Dict, actorUserI
   if(meta.error)console.warn("PEDIDO_PDF_METADATA",meta.error.message);
   return{pdfUrl,storagePath:path,bytes:bytes.length};
 }
+
+async function appendOrderHistory(pedidoId:string,evento:string,estadoPedido:string,estadoPago:string,descripcion:string,actor:string|null=null){
+  if(!pedidoId)return;
+  const row={pedido_id:pedidoId,evento:clean(evento,80),estado_pedido:clean(estadoPedido,80)||null,estado_pago:clean(estadoPago,80)||null,descripcion:clean(descripcion,500),actor_usuario_id:actor||null,creado_en:nowIso()};
+  const out=await db.from("pedido_estado_historial").insert(row);
+  if(out.error)console.warn("PEDIDO_HISTORIAL",out.error.message);
+}
+function publicOrderStatusLabel(value:unknown):string{
+  const v=clean(value,80).toUpperCase();
+  const map:Dict={PENDIENTE:"PEDIDO RECIBIDO",CONFIRMADO:"PEDIDO ACEPTADO","EN PREPARACION":"EN PREPARACIÓN",LISTO:"LISTO PARA ENTREGA",ENTREGADO:"ENTREGADO",CANCELADO:"CANCELADO"};
+  return map[v]||v||"PEDIDO RECIBIDO";
+}
+function trackingBaseUrl(cfg:Dict):string{
+  return publicWebBaseUrl(cfg);
+}
+async function signedPublicToken(scope:string,id:string):Promise<string>{
+  const secret=Deno.env.get("ALE_TRACKING_SIGNING_SECRET")||serverKey();
+  const key=await crypto.subtle.importKey("raw",new TextEncoder().encode(secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);
+  const payload=`ALE_ATENCIO_PUBLIC_V2:${clean(scope,40).toUpperCase()}:${clean(id,180)}`;
+  const sig=new Uint8Array(await crypto.subtle.sign("HMAC",key,new TextEncoder().encode(payload)));
+  let binary="";for(const b of sig)binary+=String.fromCharCode(b);
+  return btoa(binary).replaceAll("+","-").replaceAll("/","_").replace(/=+$/g,"");
+}
+async function validPublicToken(scope:string,id:string,token:string):Promise<boolean>{
+  if(!token)return false;
+  const expected=await signedPublicToken(scope,id);
+  if(expected.length!==token.length)return false;
+  let diff=0;for(let i=0;i<expected.length;i++)diff|=expected.charCodeAt(i)^token.charCodeAt(i);
+  return diff===0;
+}
+async function trackingTokenForOrder(orderId:string):Promise<string>{
+  return await signedPublicToken("ORDER",orderId);
+}
+async function requestTokenForId(requestId:string):Promise<string>{return await signedPublicToken("REQUEST",requestId);}
+async function quoteTokenForId(quoteId:string):Promise<string>{return await signedPublicToken("QUOTE",quoteId);}
+async function adminOrderTrackingLink(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"orders","read");const id=clean(d.id||d.order_id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");
+  const q=await db.from("pedidos").select("id,numero_pedido,tracking_token_hash").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  const token=await trackingTokenForOrder(id),hash=await sha256Hex(token);
+  if(String(q.data.tracking_token_hash||"")!==hash){const u=await db.from("pedidos").update({tracking_token_hash:hash,updated_at:nowIso()}).eq("id",id);if(u.error)throw u.error;}
+  const cfg=await configMap(),number=q.data.numero_pedido||id;
+  return{ok:true,tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`,numero_pedido:number};
+}
+async function adminQuoteShareLink(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"quotes","read");const id=clean(d.id||d.quote_id,100);if(!id)throw new Error("COTIZACION_REQUERIDA");
+  const q=await db.from("cotizaciones").select("id,numero_cotizacion").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");
+  const token=await quoteTokenForId(id),cfg=await configMap(),number=q.data.numero_cotizacion||id;
+  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#cotizacion/${encodeURIComponent(number)}?qid=${encodeURIComponent(id)}&qt=${encodeURIComponent(token)}`,numero_cotizacion:number};
+}
+async function adminRequestShareLink(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"requests","read");const id=clean(d.id||d.request_id,100);if(!id)throw new Error("SOLICITUD_REQUERIDA");
+  const q=await db.from("solicitudes").select("id,numero_solicitud").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("SOLICITUD_NO_ENCONTRADA");
+  const token=await requestTokenForId(id),cfg=await configMap(),number=q.data.numero_solicitud||id;
+  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#solicitud/${encodeURIComponent(number)}?rid=${encodeURIComponent(id)}&rt=${encodeURIComponent(token)}`,numero_solicitud:number};
+}
+async function publicQuoteView(d:Dict){
+  const id=clean(d.id||d.quote_id||d.qid,100),token=clean(d.token||d.quote_token||d.qt,300);
+  if(!id||!(await validPublicToken("QUOTE",id,token)))throw new Error("COTIZACION_ENLACE_INVALIDO");
+  const q=await db.from("cotizaciones").select("*").eq("id",id).maybeSingle();
+  if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");
+  const x:any=q.data;return{ok:true,quote:{id:x.id,numero_cotizacion:x.numero_cotizacion||x.id,numero_solicitud:x.numero_solicitud||"",cliente_nombre:x.cliente_nombre||"Cliente",moneda:x.moneda||"CLP",validez_dias:Number(x.validez_dias||0),items:Array.isArray(x.items)?x.items:[],subtotal:money(x.subtotal),iva_porcentaje:Number(x.iva_porcentaje||0),iva:money(x.iva),total:money(x.total),estado:x.estado||"",observaciones:x.observaciones||"",fecha:x.fecha||x.created_at||x.updated_at||""}};
+}
+async function publicRequestView(d:Dict){
+  const id=clean(d.id||d.request_id||d.rid,100),token=clean(d.token||d.request_token||d.rt,300);
+  if(!id||!(await validPublicToken("REQUEST",id,token)))throw new Error("SOLICITUD_ENLACE_INVALIDO");
+  const q=await db.from("solicitudes").select("*").eq("id",id).maybeSingle();
+  if(q.error)throw q.error;if(!q.data)throw new Error("SOLICITUD_NO_ENCONTRADA");
+  const x:any=q.data;return{ok:true,request:{id:x.id,numero_solicitud:x.numero_solicitud||x.id,nombre:x.nombre||"Cliente",fecha_evento:x.fecha_evento||"",tipo:x.tipo||"",cantidad:x.cantidad||"",detalle:x.detalle||"",medio_pago_preferido:x.medio_pago_preferido||"",estado:x.estado||"NUEVA",fecha:x.fecha||x.created_at||x.updated_at||""}};
+}
+function canonicalPaymentMethod(value:unknown):string{
+  const s=clean(value,80).trim().toUpperCase().replace(/[ÁÀÄ]/g,"A").replace(/[ÉÈË]/g,"E").replace(/[ÍÌÏ]/g,"I").replace(/[ÓÒÖ]/g,"O").replace(/[ÚÙÜ]/g,"U");
+  if(!s)return "";
+  if(s.includes("TRANSFER"))return "TRANSFERENCIA";
+  if(s.includes("TRANSBANK")||s.includes("TARJETA")||s.includes("WEBPAY")||s.includes("CARD"))return "TRANSBANK";
+  if(s.includes("EFECTIVO")||s.includes("CASH"))return "EFECTIVO";
+  return s;
+}
+async function resolveOrderPaymentMethod(row:any):Promise<string>{
+  let method=canonicalPaymentMethod(row?.medio_pago);
+  if(method)return method;
+  // Un comprobante existente prueba que este pedido corresponde a transferencia.
+  if(row?.comprobante_pago_url||row?.comprobante_pago_path)return "TRANSFERENCIA";
+  let requestId=clean(row?.solicitud_id,100);
+  if(!requestId&&row?.cotizacion_id){
+    const cq=await db.from("cotizaciones").select("solicitud_id").eq("id",String(row.cotizacion_id)).maybeSingle();
+    if(!cq.error&&cq.data)requestId=clean((cq.data as any).solicitud_id,100);
+  }
+  if(requestId){
+    const rq=await db.from("solicitudes").select("medio_pago_preferido").eq("id",requestId).maybeSingle();
+    if(!rq.error&&rq.data)method=canonicalPaymentMethod((rq.data as any).medio_pago_preferido);
+  }
+  return method;
+}
+
+async function publicTrackOrder(d:Dict){
+  const query=clean(d.query||d.numero_pedido||d.rut,120);
+  if(!query)throw new Error("CONSULTA_PEDIDO_REQUERIDA");
+  const token=clean(d.tracking_token,300),verifyPhone=normalizePhone(d.verify_phone||d.telefono_verificacion||"");
+  let rows:any[]=[];
+  const normalized=normalizeRut(query);
+  if(isValidRut(normalized)){
+    const q=await db.from("pedidos").select("*").eq("rut_normalizado",normalized).order("fecha",{ascending:false}).limit(20);
+    if(q.error)throw q.error;rows=q.data||[];
+  }else{
+    let q=await db.from("pedidos").select("*").eq("numero_pedido",query).limit(1);
+    if(q.error)throw q.error;rows=q.data||[];
+    if(!rows.length){const q2=await db.from("pedidos").select("*").eq("id",query).limit(1);if(q2.error)throw q2.error;rows=q2.data||[];}
+  }
+  const cfg=await configMap();
+  const result=[];
+  let needsVerification=false;
+  for(const row of rows){
+    let verified=false;
+    if(token&&row.tracking_token_hash){try{verified=(await sha256Hex(token))===String(row.tracking_token_hash)}catch(_){} }
+    if(!verified&&verifyPhone)verified=normalizePhone(row.telefono)===verifyPhone;
+    if(!verified){needsVerification=true;continue;}
+    const secureToken=await trackingTokenForOrder(String(row.id)),secureHash=await sha256Hex(secureToken);
+    if(String(row.tracking_token_hash||"")!==secureHash)deferTask(db.from("pedidos").update({tracking_token_hash:secureHash,updated_at:nowIso()}).eq("id",row.id).then(({error}:any)=>{if(error)console.warn("TRACKING_HASH_REFRESH",error.message)}));
+    const hq=await db.from("pedido_estado_historial").select("evento,estado_pedido,estado_pago,descripcion,creado_en").eq("pedido_id",row.id).order("creado_en",{ascending:true}).limit(80);
+    const history=(hq.error?[]:(hq.data||[])).map((h:any)=>({evento:h.evento,estado_pedido:h.estado_pedido,estado_pago:h.estado_pago,descripcion:h.descripcion,fecha:h.creado_en}));
+    const paymentMethod=await resolveOrderPaymentMethod(row);
+    result.push({id:row.id,numero_pedido:row.numero_pedido||row.id,fecha:row.fecha,nombre:clean(row.nombre,2)?`${clean(row.nombre,1)}***`:"Cliente",metodo_entrega:row.metodo_entrega,total:row.total,estado:row.estado,estado_label:publicOrderStatusLabel(row.estado),estado_pago:row.estado_pago||"PENDIENTE",medio_pago:paymentMethod,fecha_pago:row.fecha_pago||"",updated_at:row.updated_at,history,verified:true,pdf_url:row.pdf_url||"",comprobante_pago_estado:row.comprobante_pago_estado||"",comprobante_pago_fecha:row.comprobante_pago_fecha||"",comprobante_pago_cargado:!!(row.comprobante_pago_url||row.comprobante_pago_path),tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(row.numero_pedido||row.id)}?t=${encodeURIComponent(secureToken)}`});
+  }
+  return{ok:true,count:result.length,needs_verification:needsVerification&&!result.length,orders:result};
+}
+async function publicGenerateOrderPdf(req:Request,d:Dict){
+  const orderId=clean(d.order_id||d.id,100),trackingToken=clean(d.tracking_token,300);
+  if(!orderId||!trackingToken)throw new Error("PEDIDO_TOKEN_SEGUIMIENTO_REQUERIDO");
+  const oq=await db.from("pedidos").select("*").eq("id",orderId).maybeSingle();if(oq.error)throw oq.error;if(!oq.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  if(!oq.data.tracking_token_hash||(await sha256Hex(trackingToken))!==String(oq.data.tracking_token_hash))throw new Error("TOKEN_SEGUIMIENTO_INVALIDO");
+  const items=await loadOrderItems(oq.data as Dict),cfg=await configMap();
+  const out=await persistOrderPdf(oq.data as Dict,items,cfg,null);
+  return{ok:true,pdf_url:out.pdfUrl,numero_pedido:oq.data.numero_pedido||oq.data.id};
+}
+
+async function fetchPaidOrdersBetween(fromIso:string,toIso:string){
+  // R9.18.11: no seleccionar una lista rígida de columnas. Producción puede venir
+  // de una migración histórica y una columna opcional ausente no debe tumbar Reportes.
+  const all:any[]=[],seen=new Set<string>(),pageSize=1000,maxRows=100000;
+  const pushUnique=(rows:any[])=>{for(const row of rows||[]){const id=String(row.id||"");if(!id||seen.has(id))continue;seen.add(id);all.push(row)}};
+  let paymentDateQueryOk=true;
+
+  // Principal: fecha real de pago. Si fecha_pago no existe en una instalación antigua,
+  // se activa el fallback por fecha de creación, manteniendo SIEMPRE estado_pago=PAGADO.
+  for(let from=0;from<maxRows;from+=pageSize){
+    const q=await db.from("pedidos").select("*").eq("estado_pago","PAGADO").gte("fecha_pago",fromIso).lte("fecha_pago",toIso).order("fecha_pago",{ascending:false}).range(from,from+pageSize-1);
+    if(q.error){paymentDateQueryOk=false;console.warn("REPORTES_FECHA_PAGO_FALLBACK",q.error.message||q.error);break;}
+    const rows=q.data||[];pushUnique(rows);if(rows.length<pageSize)break;
+  }
+
+  if(paymentDateQueryOk){
+    // Compatibilidad histórica: PAGADO sin fecha_pago usa fecha de creación.
+    for(let from=0;from<maxRows;from+=pageSize){
+      const q=await db.from("pedidos").select("*").eq("estado_pago","PAGADO").is("fecha_pago",null).gte("fecha",fromIso).lte("fecha",toIso).order("fecha",{ascending:false}).range(from,from+pageSize-1);
+      if(q.error){paymentDateQueryOk=false;console.warn("REPORTES_FECHA_PAGO_NULL_FALLBACK",q.error.message||q.error);break;}
+      const rows=q.data||[];pushUnique(rows);if(rows.length<pageSize)break;
+    }
+  }
+
+  if(!paymentDateQueryOk){
+    all.length=0;seen.clear();
+    for(let from=0;from<maxRows;from+=pageSize){
+      const q=await db.from("pedidos").select("*").eq("estado_pago","PAGADO").gte("fecha",fromIso).lte("fecha",toIso).order("fecha",{ascending:false}).range(from,from+pageSize-1);
+      if(q.error){
+        const detail=clean((q.error as any)?.message||String(q.error),500);
+        throw new Error(`REPORTES_ESQUEMA_PAGO_INCOMPLETO:${detail}`);
+      }
+      const rows=q.data||[];pushUnique(rows);if(rows.length<pageSize)break;
+    }
+  }
+
+  all.sort((a:any,b:any)=>new Date(b.fecha_pago||b.fecha||0).getTime()-new Date(a.fecha_pago||a.fecha||0).getTime());
+  return all;
+}
+async function fetchItemsForOrders(orderIds:string[]){
+  // R9.18.11: pedido_items mejora el rendimiento, pero NO es requisito para Reportes.
+  // Si la tabla/columnas no existen o una tanda falla, se usa pedidos.detalle como fallback.
+  const out:any[]=[];
+  for(let i=0;i<orderIds.length;i+=200){
+    const batch=orderIds.slice(i,i+200);if(!batch.length)continue;
+    const q=await db.from("pedido_items").select("pedido_id,producto_id,producto_nombre,cantidad,precio_unitario,subtotal").in("pedido_id",batch);
+    if(q.error){console.warn("REPORTES_PEDIDO_ITEMS_FALLBACK",q.error.message||q.error);continue;}
+    out.push(...(q.data||[]));
+  }
+  return out;
+}
+function reportItemsWithHistoricalFallback(orders:any[],items:any[]){
+  const out=[...(items||[])],withItems=new Set(out.map((x:any)=>String(x.pedido_id)));
+  for(const order of orders||[]){
+    const pedidoId=String(order.id||"");if(!pedidoId||withItems.has(pedidoId))continue;
+    const raw=Array.isArray(order.detalle)?order.detalle:[];
+    raw.forEach((x:any,i:number)=>{const cantidad=Math.max(1,Math.floor(Number(x?.cantidad??x?.qty??1)||1));const precio=money(x?.precio_unitario??x?.precio);out.push({pedido_id:pedidoId,producto_id:clean(x?.producto_id||x?.id,100)||`HIST-${i+1}`,producto_nombre:clean(x?.producto_nombre||x?.nombre,250)||"Producto",cantidad,precio_unitario:precio,subtotal:money(x?.subtotal??(cantidad*precio))})});
+  }
+  return out;
+}
+function pctChange(current:number,previous:number){if(previous===0)return current>0?100:0;return Math.round(((current-previous)/previous)*1000)/10}
+const BUSINESS_TIME_ZONE="America/Santiago";
+function zonedDateParts(date:Date,timeZone=BUSINESS_TIME_ZONE){
+  const parts=new Intl.DateTimeFormat("en-CA",{timeZone,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(date);
+  const out:Dict={};for(const p of parts)if(p.type!=="literal")out[p.type]=Number(p.value);return out;
+}
+function zoneOffsetMinutes(date:Date,timeZone=BUSINESS_TIME_ZONE){
+  const p=zonedDateParts(date,timeZone);const asUtc=Date.UTC(p.year,p.month-1,p.day,p.hour,p.minute,p.second);return Math.round((asUtc-date.getTime())/60000);
+}
+function businessLocalIso(year:number,month1:number,day:number,hour=0,minute=0,second=0,ms=0){
+  const localUtc=Date.UTC(year,month1-1,day,hour,minute,second,ms);let guess=localUtc;
+  for(let i=0;i<3;i++){const offset=zoneOffsetMinutes(new Date(guess));guess=localUtc-offset*60000}
+  return new Date(guess).toISOString();
+}
+function businessDateRangeValue(raw:string,end=false){
+  const m=String(raw||"").match(/^(\d{4})-(\d{2})-(\d{2})$/);if(!m)return"";
+  return businessLocalIso(Number(m[1]),Number(m[2]),Number(m[3]),end?23:0,end?59:0,end?59:0,end?999:0);
+}
+async function salesReport(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"reports","read");
+  const now=new Date(),bp=zonedDateParts(now);const y=Number(bp.year),m=Number(bp.month),day=Number(bp.day);
+  const defaultFrom=businessLocalIso(y,1,1);const defaultTo=now.toISOString();
+  const fromRaw=clean(d.from,30),toRaw=clean(d.to,30);
+  const fromIso=businessDateRangeValue(fromRaw,false)||defaultFrom;
+  const toIso=businessDateRangeValue(toRaw,true)||defaultTo;
+  if(new Date(fromIso).getTime()>new Date(toIso).getTime())throw new Error("REPORTE_RANGO_FECHAS_INVALIDO");
+  const orderStatus=clean(d.order_status,80).toUpperCase();
+
+  const dayStart=businessLocalIso(y,m,day),monthStart=businessLocalIso(y,m,1),yearStart=businessLocalIso(y,1,1);
+  const prevYearStart=businessLocalIso(y-1,1,1),prevYearEnd=businessLocalIso(y-1,m,day,23,59,59,999);
+  const prevMonthYearStart=businessLocalIso(y-1,m,1),prevMonthYearEnd=businessLocalIso(y-1,m,day,23,59,59,999);
+  const demandNowStart=new Date(now.getTime()-30*86400000).toISOString(),demandPrevStart=new Date(now.getTime()-60*86400000).toISOString();
+  const minStart=new Date(Math.min(new Date(fromIso).getTime(),new Date(prevYearStart).getTime(),new Date(demandPrevStart).getTime())).toISOString();
+  const maxEnd=new Date(Math.max(new Date(toIso).getTime(),now.getTime())).toISOString();
+
+  // R9.18.10: una sola lectura de ventas + una sola lectura de detalle.
+  // Evita 7-9 consultas repetidas y los timeouts observados en Reportes.
+  const universe=await fetchPaidOrdersBetween(minStart,maxEnd);
+  const allItemsRaw=await fetchItemsForOrders(universe.map((o:any)=>String(o.id)));
+  const allItems=reportItemsWithHistoricalFallback(universe,allItemsRaw);
+  const ts=(o:any)=>new Date(o.fecha_pago||o.fecha||0).getTime();
+  const between=(o:any,a:string,b:string)=>{const t=ts(o);return t>=new Date(a).getTime()&&t<=new Date(b).getTime()};
+  const orders=universe.filter((o:any)=>between(o,fromIso,toIso)&&(!orderStatus||String(o.estado||"").toUpperCase()===orderStatus));
+  const reportOrderIds=new Set(orders.map((o:any)=>String(o.id)));
+  const items=allItems.filter((it:any)=>reportOrderIds.has(String(it.pedido_id)));
+
+  const total=money(orders.reduce((a:number,o:any)=>a+Number(o.total||0),0));
+  const customerMap=new Map<string,any>();for(const o of orders){const key=String(o.cliente_id||normalizeRut(o.rut)||o.nombre||o.id);const cur=customerMap.get(key)||{key,nombre:o.nombre||"Cliente",rut:o.rut||"",compras:0,total:0};cur.compras++;cur.total+=Number(o.total||0);customerMap.set(key,cur)}
+  const productMap=new Map<string,any>();for(const it of items){const key=String(it.producto_id||it.producto_nombre);const cur=productMap.get(key)||{producto_id:it.producto_id||"",producto_nombre:it.producto_nombre||"Producto",cantidad:0,ventas:0,pedidos:new Set<string>()};cur.cantidad+=Number(it.cantidad||0);cur.ventas+=Number(it.subtotal||0);cur.pedidos.add(String(it.pedido_id));productMap.set(key,cur)}
+  const products=[...productMap.values()].map((x:any)=>({producto_id:x.producto_id,producto_nombre:x.producto_nombre,cantidad:x.cantidad,ventas:money(x.ventas),pedidos:x.pedidos.size})).sort((a,b)=>b.cantidad-a.cantidad||b.ventas-a.ventas);
+  const customers=[...customerMap.values()].map((x:any)=>({...x,total:money(x.total)})).sort((a,b)=>b.total-a.total);
+  const sumRange=(a:string,b:string)=>money(universe.filter((o:any)=>between(o,a,b)).reduce((acc:number,o:any)=>acc+Number(o.total||0),0));
+  const today=sumRange(dayStart,now.toISOString()),month=sumRange(monthStart,now.toISOString()),yearTotal=sumRange(yearStart,now.toISOString()),prevYear=sumRange(prevYearStart,prevYearEnd),prevMonthYear=sumRange(prevMonthYearStart,prevMonthYearEnd);
+
+  const demandOrderIds=new Set(universe.filter((o:any)=>between(o,demandPrevStart,now.toISOString())).map((o:any)=>String(o.id)));
+  const dateByOrder=new Map(universe.map((o:any)=>[String(o.id),ts(o)]));const demand=new Map<string,any>();
+  for(const it of allItems){if(!demandOrderIds.has(String(it.pedido_id)))continue;const key=String(it.producto_id||it.producto_nombre);const cur=demand.get(key)||{producto_id:it.producto_id||"",producto_nombre:it.producto_nombre||"Producto",actual:0,anterior:0};const t=dateByOrder.get(String(it.pedido_id))||0;if(t>=new Date(demandNowStart).getTime())cur.actual+=Number(it.cantidad||0);else cur.anterior+=Number(it.cantidad||0);demand.set(key,cur)}
+  const highDemand=[...demand.values()].map((x:any)=>({...x,crecimiento_pct:pctChange(x.actual,x.anterior)})).sort((a,b)=>b.actual-a.actual||b.crecimiento_pct-a.crecimiento_pct).slice(0,50);
+  return{ok:true,generated_at:nowIso(),time_zone:BUSINESS_TIME_ZONE,diagnostics:{backend_version:VERSION,paid_orders_scanned:universe.length,relational_item_rows:allItemsRaw.length,effective_item_rows:allItems.length},filters:{from:fromRaw||`${y}-01-01`,to:toRaw||`${y}-${String(m).padStart(2,"0")}-${String(day).padStart(2,"0")}`,order_status:orderStatus},kpis:{sales_total:total,orders_count:orders.length,unique_clients:customerMap.size,repeat_clients:customers.filter(x=>x.compras>1).length,average_ticket:orders.length?money(total/orders.length):0,sales_today:today,sales_month:month,sales_year:yearTotal,sales_previous_year:prevYear,year_change_pct:pctChange(yearTotal,prevYear),sales_same_month_previous_year:prevMonthYear,month_change_pct:pctChange(month,prevMonthYear)},top_product:products[0]||null,top_customer:customers[0]||null,products,customers,high_demand:highDemand,orders};
+}
+
+async function refreshOrderPdfSnapshot(orderId:string){
+  try{const q=await db.from("pedidos").select("*").eq("id",orderId).maybeSingle();if(q.error||!q.data)return;const items=await loadOrderItems(q.data as Dict),cfg=await configMap();await persistOrderPdf(q.data as Dict,items,cfg,null);}catch(err){console.warn("REFRESH_PEDIDO_PDF",err instanceof Error?err.message:String(err))}
+}
 async function orderDetail(ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"orders","read");
   const id=clean(d.id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");
   const q=await db.from("pedidos").select("*").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");
   const items=await loadOrderItems(q.data as Dict);
-  return{ok:true,order:q.data,items};
+  const h=await db.from("pedido_estado_historial").select("evento,estado_pedido,estado_pago,descripcion,creado_en").eq("pedido_id",id).order("creado_en",{ascending:true}).limit(100);
+  return{ok:true,order:q.data,items,history:h.error?[]:(h.data||[])};
 }
 async function generateOrderPdf(req:Request,ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"orders","write");
@@ -449,7 +848,7 @@ async function generateOrderPdf(req:Request,ctx:SessionCtx,d:Dict){
   const out=await persistOrderPdf(detail.order,detail.items,cfg,String(ctx.user.id||"")||null);
   const refreshed=await db.from("pedidos").select("*").eq("id",detail.order.id).single();if(refreshed.error)throw refreshed.error;
   await audit(req,ctx,"GENERAR_PDF","PEDIDO",detail.order.id,{pdf_url:out.pdfUrl,bytes:out.bytes});
-  return{ok:true,order:refreshed.data,items:detail.items,pdfUrl:out.pdfUrl,storagePath:out.storagePath};
+  return{ok:true,order:refreshed.data,items:detail.items,history:detail.history||[],pdfUrl:out.pdfUrl,storagePath:out.storagePath};
 }
 
 async function adminModule(ctx: SessionCtx, d: Dict) {
@@ -542,26 +941,49 @@ async function notificationFeed(ctx: SessionCtx, d: Dict) {
   requirePermission(ctx,"dashboard","read");
   const now = new Date();
   let since = new Date(clean(d.since,80));
-  if (Number.isNaN(since.getTime()) || since > now || now.getTime() - since.getTime() > 24*60*60*1000) {
+  if (Number.isNaN(since.getTime()) || since > now || now.getTime() - since.getTime() > 7*24*60*60*1000) {
     since = new Date(now.getTime() - 60*1000);
   }
   const sinceIso = since.toISOString();
-  const [orders, requests] = await Promise.all([
+  const [orders, requests, readState] = await Promise.all([
     ctx.permissions.orders?.read
-      ? db.from("pedidos").select("id,numero_pedido,fecha,nombre,rut,telefono,email,metodo_entrega,direccion,total,estado,pdf_url").gt("fecha",sinceIso).order("fecha",{ascending:true}).limit(50)
+      ? db.from("pedidos").select("id,numero_pedido,fecha,nombre,rut,telefono,email,metodo_entrega,direccion,total,estado,estado_pago,medio_pago,fecha_pago,pdf_url,updated_at,comprobante_pago_estado,comprobante_pago_revisado_en").or(`fecha.gt.${sinceIso},updated_at.gt.${sinceIso}`).order("updated_at",{ascending:true}).limit(500)
       : Promise.resolve({data:[],error:null} as any),
     ctx.permissions.requests?.read
       ? db.from("solicitudes").select("id,numero_solicitud,fecha,nombre,rut,telefono,email,fecha_evento,tipo,cantidad,detalle,estado").gt("fecha",sinceIso).order("fecha",{ascending:true}).limit(50)
       : Promise.resolve({data:[],error:null} as any),
+    db.from("notificacion_lecturas").select("notification_key,leido_en").eq("usuario_id",String(ctx.user.id||"")).order("leido_en",{ascending:false}).limit(2000),
   ]);
   if ((orders as any).error) throw (orders as any).error;
   if ((requests as any).error) throw (requests as any).error;
+  // Compatibilidad de despliegue: si la migración SQL aún no fue aplicada, el feed sigue funcionando sin romper el cPanel.
+  const readKeys=(readState as any).error?[]:((readState as any).data||[]).map((x:any)=>String(x.notification_key||"")).filter(Boolean);
   return {
     ok:true,
     serverTime:now.toISOString(),
     orders:(orders as any).data||[],
     requests:(requests as any).data||[],
+    readKeys,
   };
+}
+
+async function notificationRead(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"dashboard","read");
+  const key=clean(d.key,400);if(!key)throw new Error("NOTIFICACION_REQUERIDA");
+  const row={usuario_id:String(ctx.user.id||""),notification_key:key,leido_en:nowIso()};
+  const q=await db.from("notificacion_lecturas").upsert(row,{onConflict:"usuario_id,notification_key"});if(q.error)throw q.error;
+  return{ok:true,key,read:true};
+}
+
+async function notificationReadAll(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"dashboard","read");
+  const raw=Array.isArray(d.keys)?d.keys:[];
+  const keys=[...new Set(raw.map((x:any)=>clean(x,400)).filter(Boolean))].slice(0,200);
+  if(!keys.length)return{ok:true,count:0};
+  const when=nowIso(),uid=String(ctx.user.id||"");
+  const rows=keys.map(key=>({usuario_id:uid,notification_key:key,leido_en:when}));
+  const q=await db.from("notificacion_lecturas").upsert(rows,{onConflict:"usuario_id,notification_key"});if(q.error)throw q.error;
+  return{ok:true,count:keys.length,readKeys:keys};
 }
 
 async function saveProduct(req: Request, ctx: SessionCtx, d: Dict) {
@@ -597,8 +1019,8 @@ async function saveBanner(req: Request, ctx: SessionCtx, d: Dict) {
 }
 async function saveConfig(req: Request, ctx: SessionCtx, d: Dict) {
   requirePermission(ctx,"settings","write");
-  const allowed=["empresa","empresa_rut","whatsapp","instagram","facebook","tiktok","email","direccion","valor_despacho","logo_url","logo_storage_path","logo_drive_file_id","moneda","iva_porcentaje","cotizacion_validez_dias","transbank_enabled","transbank_payment_url","transbank_button_label","integration_shopify_enabled","integration_shopify_url","integration_woocommerce_enabled","integration_woocommerce_url","integration_mercadolibre_enabled","integration_mercadolibre_url","integration_meta_enabled","integration_meta_url","integration_google_merchant_enabled","integration_google_merchant_url","integration_tiktok_shop_enabled","integration_tiktok_shop_url","integration_whatsapp_catalog_enabled","integration_whatsapp_catalog_url","integration_jumpseller_enabled","integration_jumpseller_url"];
-  const rows:any[]=[];for(const k of allowed){if(d[k]===undefined)continue;let v=(k==="valor_despacho"||k==="iva_porcentaje"||k==="cotizacion_validez_dias")?String(money(d[k])):clean(d[k],3000);if(k==="empresa_rut"&&v)v=requireValidRut(v,"RUT_EMPRESA_INVALIDO").rut;rows.push({clave:k,valor:v,updated_by:ctx.user.id});if(k==="logo_drive_file_id")rows.push({clave:"logo_storage_path",valor:v,updated_by:ctx.user.id});}
+  const allowed=["empresa","empresa_rut","whatsapp","instagram","facebook","tiktok","email","direccion","valor_despacho","logo_url","logo_storage_path","logo_drive_file_id","moneda","iva_porcentaje","cotizacion_validez_dias","web_public_url","transbank_enabled","transbank_payment_url","transbank_checkout_url","transbank_return_url","transbank_button_label","integration_shopify_enabled","integration_shopify_url","integration_woocommerce_enabled","integration_woocommerce_url","integration_mercadolibre_enabled","integration_mercadolibre_url","integration_meta_enabled","integration_meta_url","integration_google_merchant_enabled","integration_google_merchant_url","integration_tiktok_shop_enabled","integration_tiktok_shop_url","integration_whatsapp_catalog_enabled","integration_whatsapp_catalog_url","integration_jumpseller_enabled","integration_jumpseller_url"];
+  const rows:any[]=[];for(const k of allowed){if(d[k]===undefined)continue;let v=(k==="valor_despacho"||k==="iva_porcentaje"||k==="cotizacion_validez_dias")?String(money(d[k])):clean(d[k],3000);if(k==="empresa_rut"&&v)v=requireValidRut(v,"RUT_EMPRESA_INVALIDO").rut;if(k==="web_public_url"&&v){v=publicWebUrl(v);if(!v)throw new Error("WEB_PUBLIC_URL_INVALIDA");}if((k==="transbank_checkout_url"||k==="transbank_return_url")&&v){const original=v;v=transbankPublicUrl(v);if(!v)throw new Error(k==="transbank_checkout_url"?"TRANSBANK_URL_CHECKOUT_HTTPS_PUBLICA_REQUERIDA":"TRANSBANK_URL_RETORNO_HTTPS_PUBLICA_REQUERIDA");if(!original.startsWith("https://"))throw new Error("TRANSBANK_URL_HTTPS_REQUERIDA");}if(k==="transbank_payment_url"&&v){v=transbankManualPaymentUrl(v);if(!v)throw new Error("TRANSBANK_LINK_MANUAL_OFICIAL_REQUERIDO");}rows.push({clave:k,valor:v,updated_by:ctx.user.id});if(k==="logo_drive_file_id")rows.push({clave:"logo_storage_path",valor:v,updated_by:ctx.user.id});}
   if(rows.length){const{error}=await db.from("config").upsert(rows,{onConflict:"clave"});if(error)throw error;}
   await audit(req,ctx,"GUARDAR","CONFIG","CONFIG",{});return{ok:true,config:await configMap()};
 }
@@ -761,9 +1183,20 @@ async function deleteEntity(req: Request, ctx: SessionCtx, d: Dict) {
   await audit(req,ctx,"ELIMINAR",target[0].toUpperCase(),id,{soft:true});
   return{ok:true,deleted:!!data};
 }
+const FINAL_ORDER_STATES=new Set(["ENTREGADO","CANCELADO"]);
+function orderStatusFinal(value:unknown){return FINAL_ORDER_STATES.has(clean(value,80).toUpperCase())}
+async function requireMutableOrder(id:string){const q=await db.from("pedidos").select("id,numero_pedido,cliente_id,estado,estado_pago").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");if(orderStatusFinal((q.data as any).estado))throw new Error("PEDIDO_ESTADO_FINAL");return q.data as any}
 async function updateStatus(req: Request, ctx: SessionCtx, d: Dict) {
-  const kind=clean(d.kind,40).toLowerCase(),status=clean(d.status,80).toUpperCase();const allowed:Dict={order:["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO","CANCELADO"],request:["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"]};const map:Dict={order:["pedidos","orders"],request:["solicitudes","requests"]};
-  if(!map[kind]||!allowed[kind].includes(status))throw new Error("ESTADO_NO_VALIDO");requirePermission(ctx,map[kind][1],"write");const id=clean(d.id,100);const selectFields=kind==="order"?"id,cliente_id":"id";const{data,error}=await db.from(map[kind][0]).update({estado:status}).eq("id",id).select(selectFields).maybeSingle();if(error)throw error;if(kind==="order"&&data?.cliente_id)deferTask(refreshCustomerStats(String(data.cliente_id)));await audit(req,ctx,"ESTADO",map[kind][0].toUpperCase(),id,{estado:status});return{ok:true,updated:!!data};
+  const kind=clean(d.kind,40).toLowerCase(),status=clean(d.status,80).toUpperCase();const allowed:Dict={order:["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO"],request:["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"]};const map:Dict={order:["pedidos","orders"],request:["solicitudes","requests"]};
+  if(!map[kind]||!allowed[kind].includes(status))throw new Error(status==="CANCELADO"&&kind==="order"?"ANULACION_REQUIERE_MOTIVO":"ESTADO_NO_VALIDO");requirePermission(ctx,map[kind][1],"write");const id=clean(d.id,100);if(!id)throw new Error("ID_REQUERIDO");
+  if(kind==="order")await requireMutableOrder(id);
+  const selectFields=kind==="order"?"id,cliente_id,estado,estado_pago":"id";const{data,error}=await db.from(map[kind][0]).update({estado:status,updated_at:nowIso()}).eq("id",id).select(selectFields).maybeSingle();if(error)throw error;if(kind==="order"&&data){if(data.cliente_id)deferTask(refreshCustomerStats(String(data.cliente_id)));deferTask(appendOrderHistory(id,"ESTADO_PEDIDO",status,String(data.estado_pago||"PENDIENTE"),`Estado del pedido actualizado a ${publicOrderStatusLabel(status)}${status==="ENTREGADO"?" · Estado final e irreversible":""}`,String(ctx.user.id||"")||null));}await audit(req,ctx,"ESTADO",map[kind][0].toUpperCase(),id,{estado:status,final:kind==="order"&&status==="ENTREGADO"});return{ok:true,updated:!!data,final:kind==="order"&&status==="ENTREGADO"};
+}
+async function cancelOrder(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"orders","write");const id=clean(d.id||d.order_id,100),motivo=clean(d.motivo||d.reason,500);if(!id)throw new Error("PEDIDO_REQUERIDO");if(motivo.length<5)throw new Error("MOTIVO_ANULACION_REQUERIDO");const current=await requireMutableOrder(id);const when=nowIso();
+  const upd=await db.from("pedidos").update({estado:"CANCELADO",anulado_motivo:motivo,anulado_por:String(ctx.user.id||"")||null,anulado_en:when,updated_at:when}).eq("id",id).select("id,numero_pedido,cliente_id,estado,estado_pago,anulado_motivo,anulado_por,anulado_en").maybeSingle();if(upd.error)throw upd.error;if(!upd.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  await db.from("pedido_enlaces_pago").update({revocado_en:when}).eq("pedido_id",id).is("revocado_en",null);
+  if((upd.data as any).cliente_id)deferTask(refreshCustomerStats(String((upd.data as any).cliente_id)));deferTask(appendOrderHistory(id,"PEDIDO_ANULADO","CANCELADO",String((upd.data as any).estado_pago||current.estado_pago||"PENDIENTE"),`Pedido anulado. Motivo: ${motivo}`,String(ctx.user.id||"")||null));deferTask(audit(req,ctx,"ANULAR","PEDIDO",id,{motivo,estado_anterior:current.estado,estado_pago:current.estado_pago,final:true}));return{ok:true,id,estado:"CANCELADO",motivo,anulado_en:when,final:true};
 }
 
 
@@ -935,10 +1368,151 @@ async function publicBootstrap() {
     products:(p.data||[]).map(x=>legacyProduct(x as Dict)),
     categories:(c.data||[]).map(x=>legacyCategory(x as Dict)),
     banners:(b.data||[]).map(x=>legacyBanner(x as Dict)),
-    config:cfg,
+    config:{...cfg,transbank_runtime_ready:yesNo(transbankRuntimeInfo(cfg).ready),transbank_environment:transbankRuntimeInfo(cfg).environment},
     version:VERSION,
   };
 }
+
+
+async function issueCheckoutToken(orderId:string):Promise<string>{
+  const checkoutToken=randomToken(32),checkoutTokenHash=await sha256Hex(checkoutToken);
+  const u=await db.from("pedidos").update({checkout_token_hash:checkoutTokenHash,updated_at:nowIso()}).eq("id",orderId);if(u.error)throw u.error;
+  return checkoutToken;
+}
+
+async function validatePaymentLinkRow(row:any,token:string,checkExpiry=true){
+  if(!row)throw new Error("ENLACE_PAGO_INVALIDO");
+  if(row.revocado_en)throw new Error("ENLACE_PAGO_REVOCADO");
+  const hash=await sha256Hex(token);if(hash!==String(row.token_hash||""))throw new Error("ENLACE_PAGO_INVALIDO");
+  const expiresAt=Date.parse(String(row.expira_en||""));
+  if(checkExpiry&&(!Number.isFinite(expiresAt)||expiresAt<=Date.now()))throw new Error("ENLACE_PAGO_VENCIDO");
+  return row;
+}
+async function validateAssignedPaymentLink(orderId:string,linkId:string,token:string,checkExpiry=true){
+  if(!orderId||!linkId||!token)throw new Error("ENLACE_PAGO_DATOS_REQUERIDOS");
+  const q=await db.from("pedido_enlaces_pago").select("id,pedido_id,token_hash,expira_en,revocado_en,usado_en").eq("id",linkId).eq("pedido_id",orderId).maybeSingle();
+  if(q.error)throw q.error;
+  return await validatePaymentLinkRow(q.data,token,checkExpiry);
+}
+async function resolveAssignedPaymentToken(token:string,checkExpiry=true){
+  if(!token)throw new Error("ENLACE_PAGO_TOKEN_REQUERIDO");
+  const hash=await sha256Hex(token);
+  const q=await db.from("pedido_enlaces_pago").select("id,pedido_id,token_hash,expira_en,revocado_en,usado_en").eq("token_hash",hash).limit(1).maybeSingle();
+  if(q.error)throw q.error;
+  return await validatePaymentLinkRow(q.data,token,checkExpiry);
+}
+async function hydrateCheckoutCustomer(order:any){
+  let client:any=null,quote:any=null,request:any=null;
+  if(order?.cliente_id){
+    const cq=await db.from("clientes").select("*").eq("id",String(order.cliente_id)).maybeSingle();
+    if(!cq.error&&cq.data)client=cq.data;
+  }
+  if(!client&&order?.rut_normalizado){
+    const cq=await db.from("clientes").select("*").eq("rut_normalizado",String(order.rut_normalizado)).order("ultima_interaccion",{ascending:false}).limit(1).maybeSingle();
+    if(!cq.error&&cq.data)client=cq.data;
+  }
+  if(!client&&order?.telefono){
+    const phone=normalizePhone(order.telefono);
+    if(phone){const cq=await db.from("clientes").select("*").eq("telefono_normalizado",phone).limit(1).maybeSingle();if(!cq.error&&cq.data)client=cq.data;}
+  }
+  if(order?.cotizacion_id){
+    const qq=await db.from("cotizaciones").select("*").eq("id",String(order.cotizacion_id)).maybeSingle();
+    if(!qq.error&&qq.data)quote=qq.data;
+  }
+  const requestId=order?.solicitud_id||quote?.solicitud_id||null;
+  if(requestId){
+    const rq=await db.from("solicitudes").select("*").eq("id",String(requestId)).maybeSingle();
+    if(!rq.error&&rq.data)request=rq.data;
+  }
+  const merged={
+    nombre:clean(order?.nombre||client?.nombre||quote?.cliente_nombre||request?.nombre,180),
+    rut:clean(order?.rut||client?.rut||quote?.rut||request?.rut,40),
+    telefono:clean(order?.telefono||client?.telefono||quote?.telefono||request?.telefono,80),
+    email:clean(order?.email||client?.email||quote?.email||request?.email,250),
+    direccion:clean(order?.direccion||client?.direccion||quote?.direccion||request?.direccion,500),
+    comuna:clean(order?.comuna||client?.comuna||quote?.comuna||request?.comuna,180),
+  };
+  const patch:any={};
+  for(const k of ["nombre","rut","telefono","email","direccion","comuna"]){if(!clean(order?.[k],500)&&clean((merged as any)[k],500))patch[k]=(merged as any)[k];}
+  if(!order?.cliente_id&&client?.id)patch.cliente_id=client.id;
+  if(Object.keys(patch).length){patch.updated_at=nowIso();const up=await db.from("pedidos").update(patch).eq("id",String(order.id));if(up.error)console.warn("CHECKOUT_CLIENTE_PERSIST",up.error.message);}
+  return merged;
+}
+async function adminCreateOrder(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"orders","write");
+  const quoteId=clean(d.cotizacion_id,100)||null;let quote:any=null;
+  if(quoteId){
+    const used=await db.from("pedidos").select("id,numero_pedido").eq("cotizacion_id",quoteId).limit(1).maybeSingle();if(used.error)throw used.error;if(used.data)throw new Error("COTIZACION_YA_CONVERTIDA_EN_PEDIDO");
+    const q=await db.from("cotizaciones").select("*").eq("id",quoteId).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");
+    quote=q.data;
+  }
+  const nombre=clean(d.nombre||quote?.cliente_nombre,180),telefono=clean(d.telefono||quote?.telefono,80),email=clean(d.email||quote?.email,250);
+  if(!nombre)throw new Error("NOMBRE_REQUERIDO");if(!telefono)throw new Error("TELEFONO_REQUERIDO");
+  const rutData=requireValidRut(d.rut||quote?.rut,"RUT_PEDIDO_INVALIDO");
+  const medio=clean(d.medio_pago,30).toUpperCase();if(!["EFECTIVO","TRANSFERENCIA","TRANSBANK"].includes(medio))throw new Error("MEDIO_PAGO_INVALIDO");
+  const srcItems=Array.isArray(d.detalle)&&d.detalle.length?d.detalle:(Array.isArray(quote?.items)?quote.items:[]);if(!srcItems.length)throw new Error("DETALLE_PEDIDO_INVALIDO");
+  const detail:any[]=[];let subtotal=0;
+  for(const it of srcItems.slice(0,200)){const nombreItem=clean(it.producto_nombre||it.nombre||it.descripcion,250);const cantidad=Math.max(1,Math.min(999,Math.floor(Number(it.cantidad||1)||1)));const precio=money(it.precio_unitario??it.precio);if(!nombreItem||precio<0)continue;const lineSubtotal=money(cantidad*precio);detail.push({producto_id:clean(it.producto_id||it.id,100)||null,id:clean(it.producto_id||it.id,100)||null,producto_nombre:nombreItem,nombre:nombreItem,cantidad,precio_unitario:precio,precio,subtotal:lineSubtotal});subtotal+=lineSubtotal;}
+  if(!detail.length)throw new Error("DETALLE_PEDIDO_INVALIDO");subtotal=money(subtotal);const despacho=money(d.despacho);const total=money(d.total||subtotal+despacho);
+  const id=randomId("PED"),customer=await upsertCustomer(req,{...d,nombre,telefono,email,rut:rutData.rut},"PEDIDO",id);
+  const pedido:any={id,cliente_id:customer?.id||quote?.cliente_id||null,nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono,email,direccion:clean(d.direccion,500),comuna:clean(d.comuna,180),metodo_entrega:clean(d.metodo_entrega,120)||"COORDINAR",subtotal,despacho,total,observaciones:clean(d.observaciones||quote?.observaciones,3000),origen:"CPANEL",medio_pago:medio,estado_pago:medio==="EFECTIVO"?"PENDIENTE":"INICIADO",cotizacion_id:quoteId,solicitud_id:quote?.solicitud_id||null,created_ip:clientIp(req),user_agent:clean(req.headers.get("user-agent"),1000)};
+  const rpc=await db.rpc("ale_crear_pedido_completo",{p_pedido:pedido,p_items:detail});if(rpc.error)throw rpc.error;
+  // R9.18.16: persistencia explícita de datos del cliente y coordinación. Algunos RPC históricos
+  // no conocían las columnas nuevas y podían conservar el detalle pero omitir datos del cliente.
+  const persist=await db.from("pedidos").update({cliente_id:pedido.cliente_id,nombre:pedido.nombre,rut:pedido.rut,rut_normalizado:pedido.rut_normalizado,telefono:pedido.telefono,email:pedido.email||"",direccion:pedido.direccion||"",comuna:pedido.comuna||"",metodo_entrega:pedido.metodo_entrega,subtotal:pedido.subtotal,despacho:pedido.despacho,total:pedido.total,observaciones:pedido.observaciones||null,medio_pago:medio,estado_pago:pedido.estado_pago,cotizacion_id:quoteId,solicitud_id:pedido.solicitud_id,origen:"CPANEL",updated_at:nowIso()}).eq("id",id);if(persist.error)throw persist.error;
+  const oq=await db.from("pedidos").select("*").eq("id",id).single();if(oq.error)throw oq.error;const order:any=oq.data;
+  const trackingToken=await trackingTokenForOrder(id),trackingHash=await sha256Hex(trackingToken);const trackingUpd=await db.from("pedidos").update({tracking_token_hash:trackingHash,updated_at:nowIso()}).eq("id",id);if(trackingUpd.error)throw trackingUpd.error;
+  const cfg=await configMap(),base=trackingBaseUrl(cfg),number=order.numero_pedido||id;
+  if(quoteId)await db.from("cotizaciones").update({estado:"ACEPTADA",updated_at:nowIso()}).eq("id",quoteId).in("estado",["BORRADOR","ENVIADA","ACEPTADA"]);
+  deferTask(appendOrderHistory(id,"PEDIDO_CREADO_CPANEL",String(order.estado||"PENDIENTE"),pedido.estado_pago,quoteId?"Pedido creado desde cotización en cPanel":"Pedido creado manualmente desde cPanel",String(ctx.user.id||"")||null));
+  deferTask(audit(req,ctx,"CREAR_CPANEL","PEDIDO",id,{numero_pedido:number,medio_pago:medio,cotizacion_id:quoteId,total}));
+  return{ok:true,order:{...order,medio_pago:medio,estado_pago:pedido.estado_pago,cotizacion_id:quoteId},payment_link_required:medio==="TRANSBANK",tracking_url:`${base}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(trackingToken)}`};
+}
+async function publicOrderCheckout(d:Dict){
+  const paymentToken=clean(d.payment_token||d.pt,300);
+  let orderId=clean(d.order_id||d.oid,100),token=clean(d.checkout_token||d.ct,300),linkId=clean(d.payment_link_id||d.pl,100);
+  if(paymentToken){
+    const resolved:any=await resolveAssignedPaymentToken(paymentToken,true);
+    orderId=String(resolved.pedido_id||"");linkId=String(resolved.id||"");token=paymentToken;
+  }
+  if(!orderId||!token)throw new Error("PEDIDO_TOKEN_CHECKOUT_REQUERIDO");
+  const q=await db.from("pedidos").select("*").eq("id",orderId).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");const o:any=q.data;
+  if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");
+  if(String(o.estado_pago||"").toUpperCase()==="PAGADO")throw new Error("PEDIDO_YA_PAGADO");
+  if(linkId)await validateAssignedPaymentLink(orderId,linkId,token,true);
+  else if(!o.checkout_token_hash||(await sha256Hex(token))!==String(o.checkout_token_hash))throw new Error("TOKEN_CHECKOUT_INVALIDO");
+  const customer=await hydrateCheckoutCustomer(o);
+  const items=await loadOrderItems(o);
+  return{ok:true,order_id:o.id,payment_link_id:linkId||null,checkout_token:token,order:{id:o.id,numero_pedido:o.numero_pedido||o.id,nombre:customer.nombre,rut:customer.rut,telefono:customer.telefono,email:customer.email,direccion:customer.direccion,comuna:customer.comuna,metodo_entrega:o.metodo_entrega,observaciones:o.observaciones,total:o.total,subtotal:o.subtotal,despacho:o.despacho,estado:o.estado,estado_pago:o.estado_pago,medio_pago:o.medio_pago},items};
+}
+function b64Bytes(v:unknown):Uint8Array{let s=String(v??"");const bin=atob(s);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+async function uploadTransferProof(req:Request,d:Dict){
+  const orderId=clean(d.order_id||d.id,100),trackingToken=clean(d.tracking_token,300),dataUrl=String(d.data_url||d.dataUrl||"");if(!orderId||!trackingToken)throw new Error("PEDIDO_TOKEN_SEGUIMIENTO_REQUERIDO");
+  const oq=await db.from("pedidos").select("*").eq("id",orderId).maybeSingle();if(oq.error)throw oq.error;if(!oq.data)throw new Error("PEDIDO_NO_ENCONTRADO");const o:any=oq.data;
+  if(!o.tracking_token_hash||(await sha256Hex(trackingToken))!==String(o.tracking_token_hash))throw new Error("TOKEN_SEGUIMIENTO_INVALIDO");if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");if((await resolveOrderPaymentMethod(o))!=="TRANSFERENCIA")throw new Error("PEDIDO_NO_ES_TRANSFERENCIA");
+  const m=dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i);if(!m)throw new Error("COMPROBANTE_IMAGEN_INVALIDA");const bytes=b64Bytes(m[2]);if(bytes.length>8_000_000)throw new Error("COMPROBANTE_DEMASIADO_GRANDE");const ext=m[1].toLowerCase().includes("png")?"png":m[1].toLowerCase().includes("webp")?"webp":"jpg";const path=`pedidos/comprobantes/${sanitizeFileName(o.numero_pedido||orderId)}-${Date.now()}.${ext}`;
+  const up=await db.storage.from(BUCKET).upload(path,bytes,{contentType:m[1],upsert:false});if(up.error)throw up.error;const url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const upd=await db.from("pedidos").update({comprobante_pago_url:url,comprobante_pago_path:path,comprobante_pago_estado:"PENDIENTE_REVISION",comprobante_pago_fecha:nowIso(),estado_pago:"INICIADO",updated_at:nowIso()}).eq("id",orderId);if(upd.error)throw upd.error;
+  deferTask(appendOrderHistory(orderId,"COMPROBANTE_TRANSFERENCIA","",String(o.estado_pago||"INICIADO"),"Cliente adjuntó comprobante de transferencia para revisión",null));deferTask(audit(req,null,"COMPROBANTE_TRANSFERENCIA","PEDIDO",orderId,{path}));return{ok:true,url,status:"PENDIENTE_REVISION"};
+}
+
+async function adminOrderPaymentLink(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"orders","write");
+  const id=clean(d.id||d.order_id,100),expiresRaw=clean(d.expires_at,100);if(!id)throw new Error("PEDIDO_REQUERIDO");if(!expiresRaw)throw new Error("VIGENCIA_ENLACE_REQUERIDA");
+  const expires=new Date(expiresRaw);if(!Number.isFinite(expires.getTime())||expires.getTime()<=Date.now()+60_000)throw new Error("VIGENCIA_ENLACE_INVALIDA");
+  const q=await db.from("pedidos").select("id,numero_pedido,medio_pago,estado_pago,estado").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  if(orderStatusFinal((q.data as any).estado))throw new Error("PEDIDO_ESTADO_FINAL");if(String(q.data.medio_pago||"").toUpperCase()!=="TRANSBANK")throw new Error("PEDIDO_NO_ES_TRANSBANK");if(String(q.data.estado_pago||"").toUpperCase()==="PAGADO")throw new Error("PEDIDO_YA_PAGADO");
+  const rawToken=randomToken(32),tokenHash=await sha256Hex(rawToken),linkId=randomId("PAYL");
+  // Un pedido mantiene un único enlace de cobro activo. Al asignar uno nuevo, los anteriores quedan revocados.
+  const revoke=await db.from("pedido_enlaces_pago").update({revocado_en:nowIso()}).eq("pedido_id",id).is("revocado_en",null);if(revoke.error)throw revoke.error;
+  const ins=await db.from("pedido_enlaces_pago").insert({id:linkId,pedido_id:id,token_hash:tokenHash,expira_en:expires.toISOString(),creado_por:String(ctx.user.id||"")||null});if(ins.error)throw ins.error;
+  const cfg=await configMap(),number=q.data.numero_pedido||id,paymentUrl=`${trackingBaseUrl(cfg)}#pago/${encodeURIComponent(number)}/${encodeURIComponent(rawToken)}`;
+  deferTask(appendOrderHistory(id,"ENLACE_PAGO_ASIGNADO","",String(q.data.estado_pago||"INICIADO"),`Enlace de pago asignado con vigencia hasta ${expires.toISOString()}`,String(ctx.user.id||"")||null));
+  return{ok:true,payment_url:paymentUrl,payment_link_id:linkId,checkout_token:rawToken,numero_pedido:number,expires_at:expires.toISOString()};
+}
+
+
+async function adminVerifyTransfer(req:Request,ctx:SessionCtx,d:Dict){requirePermission(ctx,"orders","write");const id=clean(d.id||d.order_id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");const q=await db.from("pedidos").select("*").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");const o:any=q.data;if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");if((await resolveOrderPaymentMethod(o))!=="TRANSFERENCIA")throw new Error("PEDIDO_NO_ES_TRANSFERENCIA");if(!o.comprobante_pago_url)throw new Error("COMPROBANTE_NO_DISPONIBLE");const u=await db.from("pedidos").update({estado_pago:"PAGADO",estado:"CONFIRMADO",fecha_pago:nowIso(),comprobante_pago_estado:"APROBADO",comprobante_pago_revisado_por:ctx.user.id,comprobante_pago_revisado_en:nowIso(),updated_at:nowIso()}).eq("id",id);if(u.error)throw u.error;deferTask(appendOrderHistory(id,"PAGO_TRANSFERENCIA_APROBADO","CONFIRMADO","PAGADO","Comprobante verificado y pago aprobado",String(ctx.user.id)));deferTask(refreshOrderPdfSnapshot(id));await audit(req,ctx,"APROBAR_TRANSFERENCIA","PEDIDO",id,{});return{ok:true,estado:"CONFIRMADO",estado_pago:"PAGADO"};}
 
 async function createPublicOrder(req: Request, d: Dict) {
   const nombre=clean(d.nombre,180), telefono=clean(d.telefono,80);
@@ -980,6 +1554,12 @@ async function createPublicOrder(req: Request, d: Dict) {
   const result:any=rpc.data||{};
   const orderQ=await db.from("pedidos").select("*").eq("id",id).single();if(orderQ.error)throw orderQ.error;
   const order:any=orderQ.data;
+  if(result.duplicated){const sameRut=normalizeRut(order.rut||order.rut_normalizado)===rutData.normalized;const samePhone=normalizePhone(order.telefono)===normalizePhone(telefono);if(!sameRut||!samePhone)throw new Error("PEDIDO_ID_EN_CONFLICTO");}
+  const checkoutToken=randomToken(32);
+  const checkoutTokenHash=await sha256Hex(checkoutToken);
+  const trackingToken=await trackingTokenForOrder(id);
+  const trackingTokenHash=await sha256Hex(trackingToken);
+  const tokenUpd=await db.from("pedidos").update({checkout_token_hash:checkoutTokenHash,tracking_token_hash:trackingTokenHash,updated_at:nowIso()}).eq("id",id);if(tokenUpd.error)throw tokenUpd.error;
   let pdfUrl=clean(order.pdf_url,2000), pdfPending=false, pdfError="";
   if(!pdfUrl){
     try{
@@ -992,8 +1572,202 @@ async function createPublicOrder(req: Request, d: Dict) {
     }
   }
   if(customer?.id)deferTask(refreshCustomerStats(String(customer.id)));
+  deferTask(appendOrderHistory(id,"PEDIDO_CREADO",String(order.estado||"PENDIENTE"),String(order.estado_pago||"PENDIENTE"),"Pedido recibido desde la Web",null));
   deferTask(audit(req,null,"CREAR","PEDIDO",id,{nombre,rut:rutData.rut,publico:true,numero_pedido:order.numero_pedido||result.numero_pedido||"",cliente_id:customer?.id||null,items:detail.length,pdf:!!pdfUrl}));
-  return {ok:true,id,numero_pedido:order.numero_pedido||result.numero_pedido||"",duplicated:!!result.duplicated,persisted:true,cliente_id:customer?.id||null,pdf_url:pdfUrl,pdf_pending:pdfPending,pdf_error:pdfError||undefined,total};
+  const cfg=await configMap();const number=order.numero_pedido||result.numero_pedido||id;
+  return {ok:true,id,numero_pedido:number,duplicated:!!result.duplicated,persisted:true,cliente_id:customer?.id||null,pdf_url:pdfUrl,pdf_pending:pdfPending,pdf_error:pdfError||undefined,total,checkout_token:checkoutToken,tracking_token:trackingToken,tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(trackingToken)}`};
+}
+
+async function transbankCreatePayment(req:Request,d:Dict){
+  const orderId=clean(d.order_id||d.id,100),checkoutToken=clean(d.checkout_token,300),paymentLinkId=clean(d.payment_link_id||d.pl,100);
+  if(!orderId||!checkoutToken)throw new Error("TRANSBANK_PEDIDO_TOKEN_REQUERIDO");
+  const oq=await db.from("pedidos").select("id,numero_pedido,total,checkout_token_hash,estado_pago,medio_pago,estado").eq("id",orderId).maybeSingle();
+  if(oq.error)throw oq.error;if(!oq.data)throw new Error("PEDIDO_NO_ENCONTRADO");const order:any=oq.data;
+  if(paymentLinkId)await validateAssignedPaymentLink(orderId,paymentLinkId,checkoutToken,true);
+  else{const tokenHash=await sha256Hex(checkoutToken);if(!order.checkout_token_hash||tokenHash!==String(order.checkout_token_hash))throw new Error("TRANSBANK_TOKEN_PEDIDO_INVALIDO");}
+  const cfg=await configMap();const runtime=transbankRuntimeInfo(cfg);if(!runtime.ready)throw new Error(runtime.credentialsReady?"TRANSBANK_URL_RETORNO_PENDIENTE":"TRANSBANK_CREDENCIALES_SERVIDOR_PENDIENTES");
+  if(orderStatusFinal(order.estado))throw new Error("PEDIDO_ESTADO_FINAL");if(String(order.estado_pago||"").toUpperCase()==="PAGADO")throw new Error("PEDIDO_YA_PAGADO");
+  if(String(order.estado_pago||"").toUpperCase()==="VERIFICACION_PENDIENTE")throw new Error("TRANSBANK_PAGO_EN_VERIFICACION");
+  const amount=Math.round(money(order.total||0));if(!Number.isFinite(amount)||amount<=0)throw new Error("TRANSBANK_MONTO_INVALIDO");
+  // R9.18.1: un reintento nunca reutiliza un token_ws que ya pudo haber sido presentado a Webpay.
+  // Antes de crear un nuevo intento verificamos el estado remoto del intento anterior para evitar doble cobro.
+  const recent=await db.from("pagos_transbank").select("*").eq("pedido_id",orderId).eq("estado","INICIALIZADO").order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(!recent.error&&recent.data?.token_ws){
+    const previous:any=recent.data;
+    const previousEnv:String=String(previous.ambiente||runtime.environment).toUpperCase();
+    const prevEnv=previousEnv==="PRODUCTION"?"PRODUCTION":"INTEGRATION";
+    try{
+      const prev=await transbankRemoteStatus(String(previous.token_ws),prevEnv);
+      const validOrder=String(prev.buy_order||"")===String(previous.buy_order||"");
+      const validSession=String(prev.session_id||"")===String(previous.session_id||"");
+      const validAmount=money(prev.amount)===money(previous.monto);
+      const alreadyPaid=paymentStatusFromCommit(prev)==="PAGADO"&&validOrder&&validSession&&validAmount;
+      if(alreadyPaid){
+        await db.from("pagos_transbank").update({estado:"PAGADO",response_code:prev.response_code??null,authorization_code:clean(prev.authorization_code,120)||null,payment_type_code:clean(prev.payment_type_code,40)||null,installments_number:Number(prev.installments_number||0)||0,card_last4:clean(prev.card_detail?.card_number,20)||null,accounting_date:clean(prev.accounting_date,20)||null,transaction_date:prev.transaction_date||null,respuesta_json:prev,error_detalle:null,updated_at:nowIso(),committed_at:nowIso()}).eq("id",previous.id);
+        await db.from("pedidos").update({estado_pago:"PAGADO",medio_pago:"TRANSBANK",fecha_pago:prev.transaction_date||nowIso(),updated_at:nowIso()}).eq("id",orderId);
+        deferTask(appendOrderHistory(orderId,"PAGO_CONFIRMADO","","PAGADO","Pago confirmado por Transbank",null));
+        deferTask(refreshOrderPdfSnapshot(orderId));
+        deferTask(audit(req,null,"TRANSBANK_REINTENTO_BLOQUEADO_PAGO_EXISTENTE","PAGO",String(previous.id),{pedido_id:orderId,buy_order:previous.buy_order,response_code:prev.response_code,status:prev.status}));
+        throw new Error("PEDIDO_YA_PAGADO");
+      }
+      await db.from("pagos_transbank").update({estado:"REINTENTO_REEMPLAZADO",response_code:prev.response_code??null,respuesta_json:prev,error_detalle:`REINTENTO_NUEVO_DESDE_${clean(prev.status,80)||"ESTADO_DESCONOCIDO"}`,updated_at:nowIso()}).eq("id",previous.id);
+      deferTask(audit(req,null,"TRANSBANK_REINTENTO_NUEVO","PAGO",String(previous.id),{pedido_id:orderId,buy_order_anterior:previous.buy_order,status_anterior:prev.status||"",response_code:prev.response_code??null}));
+    }catch(statusErr){
+      if(statusErr instanceof Error&&statusErr.message==="PEDIDO_YA_PAGADO")throw statusErr;
+      // Si no podemos comprobar el intento anterior, bloqueamos un nuevo cobro hasta verificarlo.
+      await db.from("pagos_transbank").update({estado:"COMMIT_PENDIENTE",error_detalle:`STATUS_PREVIO_REINTENTO:${clean(statusErr instanceof Error?statusErr.message:String(statusErr),800)}`,updated_at:nowIso()}).eq("id",previous.id);
+      await db.from("pedidos").update({estado_pago:"VERIFICACION_PENDIENTE",medio_pago:"TRANSBANK",updated_at:nowIso()}).eq("id",orderId);
+      deferTask(audit(req,null,"TRANSBANK_REINTENTO_VERIFICACION","PAGO",String(previous.id),{pedido_id:orderId,buy_order:previous.buy_order,error:clean(statusErr instanceof Error?statusErr.message:String(statusErr),500)}));
+      throw new Error("TRANSBANK_PAGO_EN_VERIFICACION");
+    }
+  }
+  const paymentId=randomId("TBK"),buyOrder=transbankBuyOrder(),sessionId=transbankSessionId(orderId);
+  const ins=await db.from("pagos_transbank").insert({id:paymentId,pedido_id:orderId,buy_order:buyOrder,session_id:sessionId,monto:amount,estado:"CREANDO",ambiente:runtime.environment,return_url_final:runtime.returnUrl});if(ins.error)throw ins.error;
+  try{
+    const created=await transbankRemoteCreate(req,runtime.environment,buyOrder,sessionId,amount,paymentId,orderId);const token=clean(created.token,100),url=safeHttps(created.url);if(!token||!url)throw new Error("TRANSBANK_RESPUESTA_CREATE_INVALIDA");
+    const upd=await db.from("pagos_transbank").update({token_ws:token,webpay_url:url,estado:"INICIALIZADO",updated_at:nowIso()}).eq("id",paymentId);if(upd.error)throw upd.error;
+    await db.from("pedidos").update({estado_pago:"INICIADO",medio_pago:"TRANSBANK",updated_at:nowIso()}).eq("id",orderId);
+    if(paymentLinkId)deferTask((async()=>{try{await db.from("pedido_enlaces_pago").update({usado_en:nowIso()}).eq("id",paymentLinkId);}catch(_){}})());
+    deferTask(audit(req,null,"TRANSBANK_CREATE","PAGO",paymentId,{pedido_id:orderId,buy_order:buyOrder,monto:amount,moneda:"CLP",ambiente:runtime.environment}));
+    return{ok:true,token,url,buy_order:buyOrder,environment:runtime.environment,amount,currency:"CLP"};
+  }catch(err){await db.from("pagos_transbank").update({estado:"ERROR_CREATE",error_detalle:clean(err instanceof Error?err.message:String(err),1000),updated_at:nowIso()}).eq("id",paymentId);throw err;}
+}
+async function transbankPublicStatus(d:Dict){
+  const orderId=clean(d.order_id||d.id,100),checkoutToken=clean(d.checkout_token,300),paymentLinkId=clean(d.payment_link_id||d.pl,100);if(!orderId||!checkoutToken)throw new Error("TRANSBANK_PEDIDO_TOKEN_REQUERIDO");
+  const oq=await db.from("pedidos").select("id,numero_pedido,estado_pago,medio_pago,checkout_token_hash,fecha_pago").eq("id",orderId).maybeSingle();if(oq.error)throw oq.error;if(!oq.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  if(paymentLinkId)await validateAssignedPaymentLink(orderId,paymentLinkId,checkoutToken,false);else{const hash=await sha256Hex(checkoutToken);if(hash!==String((oq.data as any).checkout_token_hash||""))throw new Error("TRANSBANK_TOKEN_PEDIDO_INVALIDO");}
+  return{ok:true,id:oq.data.id,numero_pedido:(oq.data as any).numero_pedido||"",estado_pago:(oq.data as any).estado_pago||"PENDIENTE",medio_pago:(oq.data as any).medio_pago||"",fecha_pago:(oq.data as any).fecha_pago||""};
+}
+async function transbankHealth(ctx:SessionCtx){
+  requirePermission(ctx,"settings","read");const cfg=await configMap();const r=transbankRuntimeInfo(cfg);return{ok:true,environment:r.environment,ready:r.ready,url_ready:r.urlReady,checkout_url_ready:r.checkoutUrlReady,credentials_ready:r.credentialsReady,checkout_url:r.checkoutUrl||"",return_url:r.returnUrl||"",manual_payment_url:transbankManualPaymentUrl(cfg.transbank_payment_url),manual_payment_configured:!!transbankManualPaymentUrl(cfg.transbank_payment_url),callback_url:transbankEdgeReturnUrl(),commerce_code_configured:!!r.commerceCode};
+}
+async function transbankReturnParams(req:Request):Promise<URLSearchParams>{
+  const u=new URL(req.url);
+  const params=new URLSearchParams(u.search);
+  if(req.method!=="GET"&&req.method!=="HEAD"){
+    try{
+      const form=await req.clone().formData();
+      for(const [k,v] of form.entries())if(typeof v==="string")params.set(k,v);
+    }catch(_){
+      try{
+        const text=await req.clone().text();
+        const bodyParams=new URLSearchParams(text);
+        for(const [k,v] of bodyParams.entries())params.set(k,v);
+      }catch(__){}
+    }
+  }
+  return params;
+}
+
+async function transbankResolvePaymentByReturn(token:string,paymentId:string){
+  if(token){
+    const byToken=await db.from("pagos_transbank").select("*,pedidos(numero_pedido,total)").eq("token_ws",token).limit(1).maybeSingle();
+    if(byToken.error)throw byToken.error;
+    if(byToken.data)return byToken.data as any;
+  }
+  if(paymentId){
+    const byId=await db.from("pagos_transbank").select("*,pedidos(numero_pedido,total)").eq("id",paymentId).limit(1).maybeSingle();
+    if(byId.error)throw byId.error;
+    if(byId.data){
+      const stored=clean((byId.data as any).token_ws,256);
+      if(token&&stored&&token!==stored){
+        await db.from("pagos_transbank").update({error_detalle:"TOKEN_RETORNO_NO_COINCIDE",updated_at:nowIso()}).eq("id",paymentId);
+        return null;
+      }
+      return byId.data as any;
+    }
+  }
+  return null;
+}
+
+async function transbankFinalizePayment(req:Request,payment:any,token:string):Promise<{status:string,resp?:Dict,paid:boolean}>{
+  if(!payment)throw new Error("TRANSBANK_PAGO_NO_ENCONTRADO");
+  if(payment.estado==="PAGADO")return{status:"PAGADO",paid:true};
+  const environment:String=String(payment.ambiente||"INTEGRATION").toUpperCase();
+  const env=environment==="PRODUCTION"?"PRODUCTION":"INTEGRATION";
+  let resp:Dict;
+  try{resp=await transbankRemoteCommit(token,env);}catch(commitErr){
+    try{resp=await transbankRemoteStatus(token,env);}catch(_){throw commitErr;}
+  }
+  const validOrder=String(resp.buy_order||"")===String(payment.buy_order||"");
+  const validSession=String(resp.session_id||"")===String(payment.session_id||"");
+  const validAmount=money(resp.amount)===money(payment.monto);
+  const tbStatus=String(resp.status||"").toUpperCase();
+  const authorized=tbStatus==="AUTHORIZED"&&Number(resp.response_code)===0;
+  const paid=authorized&&validOrder&&validSession&&validAmount;
+  let finalStatus="VERIFICACION_PENDIENTE";
+  if(paid)finalStatus="PAGADO";
+  else if(["FAILED","REVERSED","NULLIFIED","PARTIALLY_NULLIFIED"].includes(tbStatus)||Number(resp.response_code)<0)finalStatus="RECHAZADO";
+  else if(tbStatus==="INITIALIZED")finalStatus="INICIADO";
+  const update:any={estado:finalStatus,response_code:resp.response_code??null,authorization_code:clean(resp.authorization_code,120)||null,payment_type_code:clean(resp.payment_type_code,40)||null,installments_number:Number(resp.installments_number||0)||0,card_last4:clean(resp.card_detail?.card_number,20)||null,accounting_date:clean(resp.accounting_date,20)||null,transaction_date:resp.transaction_date||null,respuesta_json:resp,error_detalle:paid?null:(!validOrder?"BUY_ORDER_NO_COINCIDE":!validSession?"SESSION_ID_NO_COINCIDE":!validAmount?"MONTO_NO_COINCIDE":`RESPUESTA_${clean(tbStatus,80)}`),updated_at:nowIso()};
+  if(finalStatus==="PAGADO"||finalStatus==="RECHAZADO")update.committed_at=nowIso();
+  await db.from("pagos_transbank").update(update).eq("id",payment.id);
+  const orderState=finalStatus==="PAGADO"?"PAGADO":finalStatus==="RECHAZADO"?"RECHAZADO":finalStatus==="INICIADO"?"INICIADO":"VERIFICACION_PENDIENTE";
+  await db.from("pedidos").update({estado_pago:orderState,medio_pago:"TRANSBANK",fecha_pago:paid?(resp.transaction_date||nowIso()):null,updated_at:nowIso()}).eq("id",payment.pedido_id);
+  if(paid){deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_CONFIRMADO","",orderState,"Pago confirmado por Transbank",null));deferTask(refreshOrderPdfSnapshot(String(payment.pedido_id)));}
+  else if(finalStatus==="RECHAZADO")deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_RECHAZADO","",orderState,"Pago rechazado por Transbank",null));
+  deferTask(audit(req,null,paid?"TRANSBANK_PAGADO":finalStatus==="RECHAZADO"?"TRANSBANK_RECHAZADO":"TRANSBANK_VERIFICACION","PAGO",String(payment.id),{pedido_id:payment.pedido_id,buy_order:payment.buy_order,response_code:resp.response_code,status:resp.status,validOrder,validSession,validAmount}));
+  return{status:finalStatus,resp,paid};
+}
+
+async function transbankRecoverPayment(req:Request,d:Dict){
+  const orderId=clean(d.order_id||d.id,100),checkoutToken=clean(d.checkout_token,300),paymentLinkId=clean(d.payment_link_id||d.pl,100);
+  if(!orderId||!checkoutToken)throw new Error("TRANSBANK_PEDIDO_TOKEN_REQUERIDO");
+  const oq=await db.from("pedidos").select("id,numero_pedido,estado_pago,checkout_token_hash,fecha_pago").eq("id",orderId).maybeSingle();
+  if(oq.error)throw oq.error;if(!oq.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  if(paymentLinkId)await validateAssignedPaymentLink(orderId,paymentLinkId,checkoutToken,false);else{const hash=await sha256Hex(checkoutToken);if(hash!==String((oq.data as any).checkout_token_hash||""))throw new Error("TRANSBANK_TOKEN_PEDIDO_INVALIDO");}
+  if(String((oq.data as any).estado_pago||"").toUpperCase()==="PAGADO")return{ok:true,estado_pago:"PAGADO",numero_pedido:(oq.data as any).numero_pedido||"",recovered:false};
+  const pq=await db.from("pagos_transbank").select("*,pedidos(numero_pedido,total)").eq("pedido_id",orderId).order("created_at",{ascending:false}).limit(1).maybeSingle();
+  if(pq.error)throw pq.error;if(!pq.data)throw new Error("TRANSBANK_INTENTO_NO_ENCONTRADO");
+  const payment:any=pq.data;const token=clean(payment.token_ws,256);if(!token)throw new Error("TRANSBANK_TOKEN_NO_DISPONIBLE");
+  try{
+    const out=await transbankFinalizePayment(req,payment,token);
+    return{ok:true,estado_pago:out.status,numero_pedido:(oq.data as any).numero_pedido||"",recovered:true};
+  }catch(err){
+    await db.from("pagos_transbank").update({estado:"COMMIT_PENDIENTE",error_detalle:`RECUPERACION:${clean(err instanceof Error?err.message:String(err),800)}`,updated_at:nowIso()}).eq("id",payment.id);
+    await db.from("pedidos").update({estado_pago:"VERIFICACION_PENDIENTE",medio_pago:"TRANSBANK",updated_at:nowIso()}).eq("id",orderId);
+    return{ok:true,estado_pago:"VERIFICACION_PENDIENTE",numero_pedido:(oq.data as any).numero_pedido||"",recovered:false};
+  }
+}
+
+async function transbankReturn(req:Request):Promise<Response>{
+  const cfg=await configMap();const runtime=transbankRuntimeInfo(cfg);const fallback=runtime.returnUrl;
+  const params=await transbankReturnParams(req);
+  const token=clean(params.get("token_ws"),256);const abortToken=clean(params.get("TBK_TOKEN"),256);const session=clean(params.get("TBK_ID_SESION"),120);const buyOrderForm=clean(params.get("TBK_ORDEN_COMPRA"),120);const paymentId=clean(params.get("tbk_pid"),100);
+  if(!token){
+    let q:any=null;
+    if(paymentId){const r=await db.from("pagos_transbank").select("*,pedidos(numero_pedido)").eq("id",paymentId).limit(1).maybeSingle();if(r.error)throw r.error;q=r.data;}
+    if(!q&&session){const r=await db.from("pagos_transbank").select("*,pedidos(numero_pedido)").eq("session_id",session).order("created_at",{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;q=r.data;}
+    if(!q&&buyOrderForm){const r=await db.from("pagos_transbank").select("*,pedidos(numero_pedido)").eq("buy_order",buyOrderForm).order("created_at",{ascending:false}).limit(1).maybeSingle();if(r.error)throw r.error;q=r.data;}
+    if(q){
+      const reason=abortToken?"TBK_TOKEN_RETORNO_CANCELADO":req.method==="GET"?"RETORNO_GET_SIN_TOKEN_WS":"RETORNO_SIN_TOKEN_WS";
+      const state=abortToken||session||buyOrderForm?"CANCELADO":"VERIFICACION_PENDIENTE";
+      await db.from("pagos_transbank").update({estado:state,error_detalle:reason,updated_at:nowIso()}).eq("id",q.id);
+      const orderPayState=state==="CANCELADO"?"CANCELADO":"VERIFICACION_PENDIENTE";
+      await db.from("pedidos").update({estado_pago:orderPayState,medio_pago:"TRANSBANK",updated_at:nowIso()}).eq("id",q.pedido_id);
+      deferTask(appendOrderHistory(String(q.pedido_id),state==="CANCELADO"?"PAGO_CANCELADO":"PAGO_VERIFICACION_PENDIENTE","",orderPayState,state==="CANCELADO"?"Pago cancelado antes de la confirmación":"Pago pendiente de verificación automática",null));
+      const target=safeHttps(q.return_url_final)||runtime.returnUrl;
+      return target?redirect303(buildFinalReturnUrl(target,state==="CANCELADO"?"cancelled":"pending",q.pedidos?.numero_pedido||"")):json(req,{ok:true,status:state,order:q.pedidos?.numero_pedido||""});
+    }
+    return fallback?redirect303(buildFinalReturnUrl(fallback,"invalid","")):json(req,{ok:false,error:"TRANSBANK_RETORNO_SIN_IDENTIFICADOR"},400);
+  }
+  const payment:any=await transbankResolvePaymentByReturn(token,paymentId);
+  if(!payment)return fallback?redirect303(buildFinalReturnUrl(fallback,"invalid","")):json(req,{ok:false,error:"TRANSBANK_TOKEN_DESCONOCIDO"},400);
+  const orderNumber=payment.pedidos?.numero_pedido||"",target=safeHttps(payment.return_url_final)||runtime.returnUrl;
+  if(payment.estado==="PAGADO")return target?redirect303(buildFinalReturnUrl(target,"success",orderNumber)):json(req,{ok:true,status:"PAGADO",order:orderNumber});
+  if(payment.estado==="RECHAZADO"||payment.estado==="CANCELADO")return target?redirect303(buildFinalReturnUrl(target,payment.estado==="CANCELADO"?"cancelled":"failed",orderNumber)):json(req,{ok:true,status:payment.estado,order:orderNumber});
+  try{
+    await db.from("pagos_transbank").update({estado:"COMMIT_EN_PROCESO",updated_at:nowIso()}).eq("id",payment.id);
+    const out=await transbankFinalizePayment(req,payment,token);
+    const webStatus=out.status==="PAGADO"?"success":out.status==="RECHAZADO"?"failed":"pending";
+    return target?redirect303(buildFinalReturnUrl(target,webStatus,orderNumber)):json(req,{ok:true,status:out.status,order:orderNumber});
+  }catch(err){
+    await db.from("pagos_transbank").update({estado:"COMMIT_PENDIENTE",error_detalle:clean(err instanceof Error?err.message:String(err),1000),updated_at:nowIso()}).eq("id",payment.id);
+    await db.from("pedidos").update({estado_pago:"VERIFICACION_PENDIENTE",medio_pago:"TRANSBANK",updated_at:nowIso()}).eq("id",payment.pedido_id);
+    deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_VERIFICACION_PENDIENTE","","VERIFICACION_PENDIENTE","Transbank requiere verificación adicional del pago",null));
+    deferTask(audit(req,null,"TRANSBANK_COMMIT_PENDIENTE","PAGO",String(payment.id),{pedido_id:payment.pedido_id,error:clean(err instanceof Error?err.message:String(err),500)}));
+    return target?redirect303(buildFinalReturnUrl(target,"pending",orderNumber)):json(req,{ok:true,status:"VERIFICACION_PENDIENTE",order:orderNumber});
+  }
 }
 
 async function createPublicRequest(req: Request, d: Dict) {
@@ -1005,7 +1779,7 @@ async function createPublicRequest(req: Request, d: Dict) {
   const customer=await upsertCustomer(req,{...d,rut:rutData.rut},"SOLICITUD",id);
   const row={cliente_id:customer?.id||null,
     id,nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono,email:clean(d.email,250),fecha_evento:clean(d.fecha_evento,20)||null,tipo:clean(d.tipo,180),
-    cantidad:clean(d.cantidad,120),detalle:clean(d.detalle,5000),estado:"NUEVA",origen:"WEB",created_ip:clientIp(req),
+    cantidad:clean(d.cantidad,120),detalle:clean(d.detalle,5000),medio_pago_preferido:clean(d.medio_pago_preferido,30).toUpperCase()||null,estado:"NUEVA",origen:"WEB",created_ip:clientIp(req),
     user_agent:clean(req.headers.get("user-agent"),1000),
   };
   const created=await db.from("solicitudes").insert(row).select("id,numero_solicitud").maybeSingle();
@@ -1017,8 +1791,10 @@ async function createPublicRequest(req: Request, d: Dict) {
     persisted=existing.data;
   }
   if(customer?.id)deferTask(refreshCustomerStats(String(customer.id)));
-  deferTask(audit(req,null,"CREAR","SOLICITUD",id,{nombre,rut:rutData.rut,publico:true,numero_solicitud:persisted?.numero_solicitud||"",cliente_id:customer?.id||null}));
-  return {ok:true,id,numero_solicitud:persisted?.numero_solicitud||"",duplicated:created.error?.code==="23505",persisted:true,cliente_id:customer?.id||null};
+  const requestToken=await requestTokenForId(id),cfg=await configMap(),number=persisted?.numero_solicitud||id;
+  const trackingUrl=`${publicWebBaseUrl(cfg)}#solicitud/${encodeURIComponent(number)}?rid=${encodeURIComponent(id)}&rt=${encodeURIComponent(requestToken)}`;
+  deferTask(audit(req,null,"CREAR","SOLICITUD",id,{nombre,rut:rutData.rut,publico:true,numero_solicitud:number,cliente_id:customer?.id||null}));
+  return {ok:true,id,numero_solicitud:number,duplicated:created.error?.code==="23505",persisted:true,cliente_id:customer?.id||null,tracking_token:requestToken,tracking_url:trackingUrl};
 }
 
 async function checkPublicProduct(id:string) {
@@ -1046,6 +1822,8 @@ async function checkPublicRecord(type:string,id:string) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors(req) });
   try {
+    const requestUrl=new URL(req.url);
+    if(requestUrl.searchParams.get("tbk_return")==="1") return await transbankReturn(req);
     const body: Dict = req.method === "GET" ? Object.fromEntries(new URL(req.url).searchParams.entries()) : await req.json().catch(()=>({}));
     const action=clean(body.action,80).toLowerCase();
     const data:Dict=body.data&&typeof body.data==="object"?body.data:body;
@@ -1053,11 +1831,20 @@ Deno.serve(async (req: Request) => {
     // Acciones públicas: no requieren sesión.
     if(action==="ping") return json(req,{
       ok:true,service:"ALE_ATENCIO_API",version:VERSION,api_contract:2,
-      capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl"],
+      capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"],
       jwt:false,supabaseAuth:false,auth:"TABLA_USUARIOS",session:"TABLA_SESIONES",singleTs:true,server_time:nowIso()
     });
     if(action==="bootstrap") return json(req,{ok:true,...await publicBootstrap()});
+    if(action==="trackorder") return json(req,await publicTrackOrder(data));
+    if(action==="publicquote") return json(req,await publicQuoteView(data));
+    if(action==="publicrequest") return json(req,await publicRequestView(data));
+    if(action==="publicorderpdf") return json(req,await publicGenerateOrderPdf(req,data));
     if(action==="createorder") return json(req,await createPublicOrder(req,data));
+    if(action==="publicordercheckout") return json(req,await publicOrderCheckout(data));
+    if(action==="uploadtransferproof") return json(req,await uploadTransferProof(req,data));
+    if(action==="transbankcreate") return json(req,await transbankCreatePayment(req,data));
+    if(action==="transbankstatus") return json(req,await transbankPublicStatus(data));
+    if(action==="transbankrecover") return json(req,await transbankRecoverPayment(req,data));
     if(action==="createrequest") return json(req,await createPublicRequest(req,data));
     if(action==="checkrecord") return json(req,await checkPublicRecord(clean(data.type,40),clean(data.id,100)));
     if(action==="checkproduct") return json(req,await checkPublicProduct(clean(data.id,100)));
@@ -1067,20 +1854,31 @@ Deno.serve(async (req: Request) => {
     const ctx=await requireSession(req,body);
     if(action==="session"||action==="adminsession") return json(req,{
       ok:true,user:safeUser(ctx.user),permissions:ctx.permissions,expires_at:ctx.session.expira_en,
-      version:VERSION,api_contract:2,capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl"]
+      version:VERSION,api_contract:2,capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","salesreport","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"]
     });
     if(action==="logout"||action==="adminlogout") return json(req,await logout(req,ctx));
     if(action==="adminbootstrap") return json(req,{ok:true,...await adminBootstrap(ctx,data)});
     if(action==="adminmodule") return json(req,{ok:true,...await adminModule(ctx,data)});
     if(action==="orderdetail") return json(req,await orderDetail(ctx,data));
+    if(action==="admincreateorder") return json(req,await adminCreateOrder(req,ctx,data));
+    if(action==="adminverifytransfer") return json(req,await adminVerifyTransfer(req,ctx,data));
+    if(action==="adminorderpaymentlink") return json(req,await adminOrderPaymentLink(ctx,data));
+    if(action==="cancelorder") return json(req,await cancelOrder(req,ctx,data));
     if(action==="generateorderpdf") return json(req,await generateOrderPdf(req,ctx,data));
+    if(action==="ordertrackinglink") return json(req,await adminOrderTrackingLink(ctx,data));
+    if(action==="quotesharelink") return json(req,await adminQuoteShareLink(ctx,data));
+    if(action==="requestsharelink") return json(req,await adminRequestShareLink(ctx,data));
     if(action==="notificationfeed") return json(req,await notificationFeed(ctx,data));
+    if(action==="notificationread") return json(req,await notificationRead(req,ctx,data));
+    if(action==="notificationreadall") return json(req,await notificationReadAll(req,ctx,data));
+    if(action==="salesreport") return json(req,await salesReport(ctx,data));
     if(action==="saveproduct") return json(req,await saveProduct(req,ctx,data));
     if(action==="bulkimportproducts") return json(req,await bulkImportProducts(req,ctx,data));
     if(action==="saveprice") return json(req,await savePrice(req,ctx,data));
     if(action==="savecategory") return json(req,await saveCategory(req,ctx,data));
     if(action==="savebanner") return json(req,await saveBanner(req,ctx,data));
     if(action==="saveconfig") return json(req,await saveConfig(req,ctx,data));
+    if(action==="transbankhealth") return json(req,await transbankHealth(ctx));
     if(action==="savequote") return json(req,await saveQuote(req,ctx,data));
     if(action==="uploadquotepdf") return json(req,await uploadQuotePdf(req,ctx,data));
     if(action==="updatequotestatus") return json(req,await updateQuoteStatus(req,ctx,data));
