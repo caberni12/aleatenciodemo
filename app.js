@@ -532,18 +532,31 @@ function focusRequestForm(){
   requestAnimationFrame(()=>target.scrollIntoView({block:"start",behavior:"smooth"}));
 }
 
-// R9.18.27 · Navegación pública: cada vista se abre con su cabecera visible.
-// La barra de anuncios puede desplazarse fuera de pantalla, pero el header principal
-// queda pegado arriba y el inicio real de la vista nunca queda oculto debajo de él.
-function publicViewScrollTop(hash=""){
+// R9.18.28 · Primer enfoque útil por vista.
+// El header permanece fijo, pero al navegar no mostramos el hero intermedio: aterrizamos
+// directamente en el bloque que el cliente necesita usar, tal como en la referencia visual.
+function publicViewFocusTarget(hash=""){
   const route=String(hash||location.hash||"").replace(/^#/,"");
-  if(route==="inicio"||!route)return 0;
-  const announcement=$(".announcement-bar");
-  return Math.max(0,Math.round(announcement?.getBoundingClientRect().height||announcement?.offsetHeight||0));
+  if(!route||route==="inicio")return null;
+  if(route==="solicitud")return $("#solicitud-formulario");
+  if(route.startsWith("seguimiento"))return $(".tracking-section");
+  if(route.startsWith("solicitud/")||route.startsWith("cotizacion/"))return $("#app > .section");
+  if(route.startsWith("productos/")||route==="ofertas"||route==="nosotros"||route==="politicas")return $("#app > .section");
+  return null;
 }
-function showPublicViewTop(hash="",behavior="auto"){
-  const top=publicViewScrollTop(hash);
-  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top,left:0,behavior})));
+function showPublicViewFocus(hash="",behavior="auto"){
+  const route=String(hash||location.hash||"").replace(/^#/,"");
+  const target=publicViewFocusTarget(route);
+  const run=()=>{
+    if(!target){window.scrollTo({top:0,left:0,behavior});return}
+    const header=$(".site-header");
+    const headerH=Math.round(header?.getBoundingClientRect().height||header?.offsetHeight||82);
+    // Un pequeño aire evita que el borde de la tarjeta quede pegado al header.
+    const gap=route.startsWith("seguimiento")?36:6;
+    const y=Math.max(0,Math.round(window.scrollY+target.getBoundingClientRect().top-headerH-gap));
+    window.scrollTo({top:y,left:0,behavior});
+  };
+  requestAnimationFrame(()=>requestAnimationFrame(run));
 }
 function render(){
   const hash=location.hash.replace("#","")||"inicio";
@@ -557,7 +570,7 @@ function render(){
   else if(hash.startsWith("seguimiento")) $("#app").innerHTML=trackingView();
   else if(hash==="politicas") $("#app").innerHTML=policiesView();
   else $("#app").innerHTML=homeView();
-  showPublicViewTop(hash,"auto");
+  showPublicViewFocus(hash,"auto");
   closeMobile(); wireCarousel(); wireCatalog(); wireRequest(); wireTracking(); wireSharedQuote(); wireSharedRequest();
 }
 
@@ -893,7 +906,7 @@ document.addEventListener("click",e=>{
   const isPublicView=route==="inicio"||route==="ofertas"||route==="nosotros"||route==="solicitud"||route==="seguimiento"||route==="politicas"||route.startsWith("productos/");
   if(!isPublicView)return;
   e.preventDefault();
-  showPublicViewTop(route,"smooth");
+  showPublicViewFocus(route,"auto");
   closeMobile();
 });
 function toast(msg,type="info"){

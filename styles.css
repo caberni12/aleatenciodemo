@@ -2321,3 +2321,15 @@ html{
     max-height:calc(100vh - 88px) !important;
   }
 }
+
+
+/* =========================================================
+   R9.18.28 · PRIMER ENFOQUE ÚTIL DE CADA VISTA
+   El desplazamiento lo calcula app.js con la altura real del header.
+   Este margen queda como respaldo para navegación nativa/accesibilidad.
+   ========================================================= */
+#app > .section,
+#solicitud-formulario,
+.tracking-section{
+  scroll-margin-top:calc(var(--public-header-height) + 8px) !important;
+}
