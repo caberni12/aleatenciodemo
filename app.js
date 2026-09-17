@@ -712,6 +712,12 @@ window.addToCart=async id=>{
   saveCart();toast("Producto agregado")
 }
 function saveCart(){localStorage.setItem("aleAtencioCart",JSON.stringify(cart));updateCartUI()}
+function clearCartAfterCompletedPurchase(){
+  cart=[];
+  try{localStorage.removeItem("aleAtencioCart")}catch(_){}
+  updateCartUI();
+  closeCart();
+}
 window.changeQty=(id,d)=>{const p=state.products.find(x=>String(x.id)===String(id));if(!p||!isProductActive(p)){cart=cart.filter(x=>String(x.id)!==String(id));saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>x.id!==id);saveCart()}
 window.removeItem=id=>{cart=cart.filter(x=>x.id!==id);saveCart()}
 
@@ -752,7 +758,12 @@ async function handleTransbankReturnUi(){
       else if(["VERIFICACION_PENDIENTE","COMMIT_PENDIENTE","COMMIT_EN_PROCESO","INICIADO"].includes(local))status="pending";
     }catch(err){console.warn("TRANSBANK_RECOVER_RETURN",err);if(status==="invalid")status="pending";}
   }
-  if(status==="success")setPendingTransbank(null);
+  if(status==="success"){
+    clearCartAfterCompletedPurchase();
+    assistedCheckout=null;
+    setCheckoutPaymentIntent("");
+    setPendingTransbank(null);
+  }
   syncPaymentUI();
   const messages={success:`Pago confirmado${order?` · ${order}`:""}. Gracias por tu compra.`,failed:`El pago no fue autorizado${order?` para ${order}`:""}. Puedes volver a intentarlo.`,cancelled:`Pago cancelado${order?` · ${order}`:""}. El pedido quedó registrado y puedes reintentar el pago.`,pending:`Estamos confirmando el pago de ${order||"tu pedido"}. No vuelvas a pagar mientras se verifica.`,invalid:"No fue posible relacionar automáticamente el retorno de Transbank. El pago queda en verificación para evitar un cobro duplicado."};
   toast(messages[status]||"Retorno de Transbank recibido.",status==="success"?"success":status==="pending"?"info":"error");
@@ -811,7 +822,11 @@ async function submitOrder(){
   const orderId=result?.numero_pedido||result?.id||data.id;
   const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre} - ${money(x.precio*x.cantidad)}`).join("\n");
   if(saved){
-    cart=[];saveCart();closeCart();
+    const payWithTransbank=checkoutPaymentIntent==="TRANSBANK"&&transbankAvailable();
+    // Un pedido Transbank aún no es una compra finalizada: conservamos el carrito
+    // hasta que el retorno del servidor confirme estado PAGADO. Para pedidos sin
+    // Transbank, el registro exitoso completa el flujo y el carrito sí se limpia.
+    if(!payWithTransbank)clearCartAfterCompletedPurchase();
     const panel=$("#orderSuccessPanel"),pdfLink=$("#orderSuccessPdf"),pdfPending=$("#orderSuccessPdfPending"),numberEl=$("#orderSuccessNumber"),trackingLink=$("#orderSuccessTracking"),pdfGenerate=$("#orderSuccessPdfGenerate");
     if(numberEl)numberEl.textContent=orderId;
     rememberTracking(result?.id||data.id,orderId,result?.tracking_token||"",result?.tracking_url||"",result?.pdf_url||"");
@@ -822,7 +837,6 @@ async function submitOrder(){
     panel?.classList.remove("hidden");
     btn?.classList.add("hidden");
     toast(`Pedido registrado · ${orderId}`,"success");
-    const payWithTransbank=checkoutPaymentIntent==="TRANSBANK"&&transbankAvailable();
     if(payWithTransbank){
       const pending={order_id:result?.id||data.id,numero_pedido:orderId,checkout_token:result?.checkout_token||"",total:t.total};
       setPendingTransbank(pending);syncPaymentUI();setCheckoutPaymentIntent("");endButtonLoader(btn);

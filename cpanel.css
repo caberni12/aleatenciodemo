@@ -1921,3 +1921,94 @@ body.payment-link-open{overflow:hidden!important}
 .payment-expiry-help{display:flex!important;align-items:center;gap:7px;margin:10px 1px 0!important;color:#8c7770!important;font-size:11px!important}
 .payment-link-warning strong{color:#6b3f35}
 @media(max-width:640px){.payment-link-order-summary,.payment-expiry-grid{grid-template-columns:1fr}.payment-expiry-control input{min-height:52px;font-size:16px!important}}
+
+
+/* R9.18.23 · Modal Transbank claro / premium + backdrop fuera del panel */
+body.payment-link-open{overflow:hidden!important}
+body.payment-link-open::before{
+  content:"";position:fixed;inset:0;z-index:1500;
+  background:rgba(49,33,27,.34);
+  backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px);
+}
+#orderPaymentLinkEditor:not(.hidden){
+  position:fixed!important;z-index:1510!important;
+  left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;
+  width:min(680px,calc(100vw - 28px))!important;max-height:92dvh!important;
+  overflow:auto!important;overscroll-behavior:contain;
+  margin:0!important;padding:26px!important;
+  background:linear-gradient(145deg,#fffdf9 0%,#fff8f2 54%,#fffdfb 100%)!important;
+  border:1px solid #ead8c9!important;border-radius:28px!important;
+  box-shadow:0 34px 95px rgba(61,37,28,.28)!important;
+  isolation:isolate;
+}
+#orderPaymentLinkEditor:not(.hidden)::before{display:none!important;content:none!important}
+#orderPaymentLinkEditor .editor-modal-head{
+  position:sticky;top:-26px;z-index:5;
+  margin:-26px -26px 16px!important;padding:24px 26px 16px!important;
+  background:linear-gradient(180deg,rgba(255,253,249,.99) 72%,rgba(255,248,242,.95));
+  border-bottom:1px solid rgba(191,151,107,.14);
+}
+#orderPaymentLinkEditor .editor-modal-head .eyebrow{color:#b48a39!important}
+#orderPaymentLinkEditor .editor-modal-head h3{color:#4f392f!important;font-size:27px!important;margin-bottom:0!important}
+#orderPaymentLinkEditor .editor-close-x{
+  width:42px!important;height:42px!important;border-radius:50%!important;
+  background:#fff!important;border:1px solid #ead8c9!important;color:#5a4036!important;
+  box-shadow:0 8px 22px rgba(91,64,54,.10)!important;
+}
+#orderPaymentLinkEditor .editor-close-x:hover{background:#fff4ea!important;transform:translateY(-1px)}
+#orderPaymentLinkEditor .module-help{color:#806c62!important;line-height:1.55!important;margin:0 0 16px!important}
+#orderPaymentLinkEditor .payment-link-order-summary{gap:14px!important;margin:12px 0 20px!important}
+#orderPaymentLinkEditor .payment-link-order-summary>div{
+  padding:16px 17px!important;border:1px solid #eadacb!important;border-radius:18px!important;
+  background:#fff!important;box-shadow:0 8px 24px rgba(91,64,54,.055)!important;
+}
+#orderPaymentLinkEditor .payment-link-order-summary>div:last-child{
+  background:linear-gradient(145deg,#fffaf0,#fff3e5)!important;
+  border-color:#e8cfaa!important;
+}
+#orderPaymentLinkEditor .payment-link-order-summary span,
+#orderPaymentLinkEditor .payment-link-order-summary small{color:#8b7469!important}
+#orderPaymentLinkEditor .payment-link-order-summary strong{color:#50382f!important;font-size:19px!important}
+#orderPaymentLinkEditor .payment-expiry-field>span{color:#62483e!important}
+#orderPaymentLinkEditor .payment-expiry-field>span i{color:#b48a39!important}
+#orderPaymentLinkEditor .payment-expiry-control{
+  border:1px solid #e4d3c6!important;border-radius:17px!important;background:#fff!important;
+  box-shadow:0 8px 22px rgba(91,64,54,.045)!important;
+}
+#orderPaymentLinkEditor .payment-expiry-control:focus-within{
+  border-color:#c59a4b!important;box-shadow:0 0 0 4px rgba(197,154,75,.12)!important;
+}
+#orderPaymentLinkEditor .payment-expiry-control input{color:#49352e!important;background:#fff!important}
+#orderPaymentLinkEditor .payment-expiry-help{color:#8c766c!important}
+#orderPaymentLinkEditor .payment-link-warning{
+  margin:18px 0!important;padding:15px 16px!important;border-radius:17px!important;
+  border:1px solid #ead8c9!important;background:linear-gradient(135deg,#fff8ef,#fffdf9)!important;
+  color:#695249!important;box-shadow:none!important;
+}
+#orderPaymentLinkEditor .payment-link-warning i{color:#b48a39!important}
+#orderPaymentLinkEditor .payment-link-warning strong{color:#7d5436!important}
+#orderPaymentLinkEditor .editor-actions{
+  position:sticky;bottom:-26px;z-index:5;
+  margin:20px -26px -26px!important;padding:17px 26px 20px!important;
+  background:linear-gradient(180deg,rgba(255,250,245,.88),#fffdf9 32%)!important;
+  border-top:1px solid rgba(191,151,107,.14);
+  display:flex!important;gap:10px!important;flex-wrap:wrap!important;
+}
+#orderPaymentLinkEditor #generatePaymentLinkWhatsapp{
+  background:linear-gradient(135deg,#5b4036,#755247)!important;color:#fff!important;
+  box-shadow:0 9px 20px rgba(91,64,54,.18)!important;
+}
+#orderPaymentLinkEditor #generatePaymentLinkCopy{
+  background:#fff!important;color:#875c63!important;border:1px solid #e4cfd3!important;
+}
+#orderPaymentLinkEditor #cancelOrderPaymentLink{
+  background:#fffaf6!important;color:#745f55!important;border:1px solid #eadbd2!important;
+}
+#orderPaymentLinkEditor .editor-actions .btn:hover{transform:translateY(-1px)}
+@media(max-width:640px){
+  #orderPaymentLinkEditor:not(.hidden){width:calc(100vw - 14px)!important;max-height:95dvh!important;padding:18px!important;border-radius:22px!important}
+  #orderPaymentLinkEditor .editor-modal-head{top:-18px;margin:-18px -18px 14px!important;padding:18px 18px 14px!important}
+  #orderPaymentLinkEditor .editor-actions{bottom:-18px;margin:18px -18px -18px!important;padding:15px 18px 18px!important}
+  #orderPaymentLinkEditor .payment-link-order-summary,#orderPaymentLinkEditor .payment-expiry-grid{grid-template-columns:1fr!important}
+  #orderPaymentLinkEditor .editor-actions .btn{width:100%!important;justify-content:center!important}
+}
