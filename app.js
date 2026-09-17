@@ -11,7 +11,7 @@ const isProductActive = p => {
   const v=String(p.activo??"SI").trim().toUpperCase();
   return !["NO","FALSE","0","INACTIVO"].includes(v);
 };
-const MEDIA_VERSION = "20260917-r91817-public-whatsapp-url";
+const MEDIA_VERSION = "20260917-r91818-pago-link-robusto-cliente";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -407,9 +407,25 @@ function syncSocialButtons(){
 
 
 let assistedCheckout=null;
-function paymentRouteData(){const raw=location.hash.replace(/^#pago\/?/,"")||"",qPos=raw.indexOf("?");return{numero:decodeURIComponent(qPos>=0?raw.slice(0,qPos):raw),params:new URLSearchParams(qPos>=0?raw.slice(qPos+1):"")}}
-async function loadAssistedCheckout(){const r=paymentRouteData(),oid=r.params.get("oid")||"",ct=r.params.get("ct")||"",pl=r.params.get("pl")||"";if(!oid||!ct)return null;const out=await AleAPI.postPublic("publicordercheckout",{order_id:oid,checkout_token:ct,payment_link_id:pl});assistedCheckout={...out,order_id:oid,checkout_token:ct,payment_link_id:pl||out.payment_link_id||""};cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${oid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout}
-async function openAssistedPayment(){try{const out=await loadAssistedCheckout();if(!out)return;const o=out.order||{};openCart();updateCartUI();openModal("#checkoutModal");const name=$("#coName"),rut=$("#coRut"),phone=$("#coPhone"),email=$("#coEmail"),address=$("#coAddress"),method=$("#coMethod"),notes=$("#coNotes");if(name)name.value=o.nombre||"";if(rut)rut.value=o.rut?formatRutChile(o.rut):"";if(phone)phone.value=o.telefono||"";if(email)email.value=o.email||"";if(address)address.value=[o.direccion,o.comuna].filter(Boolean).join(" · ");const delivery=String(o.metodo_entrega||"").toUpperCase();if(method)method.value=delivery.includes("DESPACH")?"Despacho":"Retiro";if(notes)notes.value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago"}catch(err){console.warn("ASSISTED_PAYMENT",err);const code=String(err?.message||err||"").toUpperCase();const msg=code.includes("ENLACE_PAGO_VENCIDO")?"Este enlace de pago venció. Solicita un nuevo enlace para el mismo pedido.":code.includes("PEDIDO_YA_PAGADO")?"Este pedido ya figura como pagado.":code.includes("ENLACE_PAGO_INVALIDO")||code.includes("ENLACE_PAGO_REVOCADO")||code.includes("TOKEN_CHECKOUT_INVALIDO")?"El enlace de pago no es válido o ya no está disponible.":"No fue posible cargar el pedido para pago. Intenta abrir nuevamente el enlace.";toast(msg,"error")}}
+function paymentRouteData(){
+  const raw=location.hash.replace(/^#pago\/?/,"")||"",qPos=raw.indexOf("?"),path=qPos>=0?raw.slice(0,qPos):raw,params=new URLSearchParams(qPos>=0?raw.slice(qPos+1):"");
+  const parts=path.split("/").filter(Boolean).map(x=>{try{return decodeURIComponent(x)}catch(_){return x}});
+  return{numero:parts[0]||"",paymentToken:parts[1]||params.get("pt")||"",params};
+}
+async function loadAssistedCheckout(){
+  const r=paymentRouteData(),oid=r.params.get("oid")||"",ct=r.params.get("ct")||"",pl=r.params.get("pl")||"",pt=r.paymentToken||"";
+  if(!pt&&(!oid||!ct))throw new Error("ENLACE_PAGO_INCOMPLETO");
+  const payload=pt?{payment_token:pt}:{order_id:oid,checkout_token:ct,payment_link_id:pl};
+  let out=null,lastErr=null;
+  for(let attempt=0;attempt<2;attempt++){
+    try{out=await AleAPI.postPublic("publicordercheckout",payload);break}catch(err){lastErr=err;const code=String(err?.message||err||"").toUpperCase();if(attempt===0&&["API_TIMEOUT","API_CONEXION_FALLIDA","HTTP_502","HTTP_503","HTTP_504"].some(x=>code.includes(x))){await new Promise(r=>setTimeout(r,450));continue}throw err}
+  }
+  if(!out)throw lastErr||new Error("PEDIDO_CHECKOUT_SIN_RESPUESTA");
+  const resolvedOid=out.order_id||out.order?.id||oid,resolvedToken=out.checkout_token||pt||ct,resolvedLink=out.payment_link_id||pl||"";
+  assistedCheckout={...out,order_id:resolvedOid,checkout_token:resolvedToken,payment_link_id:resolvedLink};
+  cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${resolvedOid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout;
+}
+async function openAssistedPayment(){try{const out=await loadAssistedCheckout();const o=out.order||{};openCart();updateCartUI();openModal("#checkoutModal");const name=$("#coName"),rut=$("#coRut"),phone=$("#coPhone"),email=$("#coEmail"),address=$("#coAddress"),method=$("#coMethod"),notes=$("#coNotes");if(name)name.value=o.nombre||"";if(rut)rut.value=o.rut?formatRutChile(o.rut):"";if(phone)phone.value=o.telefono||"";if(email)email.value=o.email||"";if(address)address.value=[o.direccion,o.comuna].filter(Boolean).join(" · ");const delivery=String(o.metodo_entrega||"").toUpperCase();if(method)method.value=delivery.includes("DESPACH")?"Despacho":"Retiro";if(notes)notes.value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago";if(!o.rut||!o.telefono)toast("El pedido se cargó, pero faltan datos de contacto. Revisa el pedido en cPanel.","info")}catch(err){console.warn("ASSISTED_PAYMENT",err);const code=String(err?.message||err||"").toUpperCase();const msg=code.includes("ENLACE_PAGO_VENCIDO")?"Este enlace de pago venció. Solicita un nuevo enlace para el mismo pedido.":code.includes("PEDIDO_YA_PAGADO")?"Este pedido ya figura como pagado.":code.includes("ENLACE_PAGO_REVOCADO")?"Este enlace fue reemplazado por uno más reciente. Solicita el último enlace de pago.":code.includes("ENLACE_PAGO_INVALIDO")||code.includes("TOKEN_CHECKOUT_INVALIDO")||code.includes("ENLACE_PAGO_INCOMPLETO")?"El enlace de pago está incompleto o no es válido.":code.includes("PEDIDO_NO_ENCONTRADO")?"No se encontró el pedido asociado a este enlace.":"No fue posible cargar el pedido para pago. Intenta nuevamente.";toast(msg,"error")}}
 
 const TRACKING_STORE_KEY="aleAtencioTrackingCredentialsV1";
 function trackingStore(){try{const v=JSON.parse(localStorage.getItem(TRACKING_STORE_KEY)||"{}");return v&&typeof v==="object"?v:{}}catch(_){return{}}}
