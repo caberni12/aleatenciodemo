@@ -394,8 +394,8 @@ function syncSocialButtons(){
 
 let assistedCheckout=null;
 function paymentRouteData(){const raw=location.hash.replace(/^#pago\/?/,"")||"",qPos=raw.indexOf("?");return{numero:decodeURIComponent(qPos>=0?raw.slice(0,qPos):raw),params:new URLSearchParams(qPos>=0?raw.slice(qPos+1):"")}}
-async function loadAssistedCheckout(){const r=paymentRouteData(),oid=r.params.get("oid")||"",ct=r.params.get("ct")||"";if(!oid||!ct)return null;const out=await AleAPI.postPublic("publicordercheckout",{order_id:oid,checkout_token:ct});assistedCheckout={...out,order_id:oid,checkout_token:ct};cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${oid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout}
-async function openAssistedPayment(){try{const out=await loadAssistedCheckout();if(!out)return;const o=out.order||{};openCart();renderCart();openModal("checkoutModal");$("#coName").value=o.nombre||"";$("#coRut").value=o.rut?formatRutChile(o.rut):"";$("#coPhone").value=o.telefono||"";$("#coEmail").value=o.email||"";$("#coAddress").value=[o.direccion,o.comuna].filter(Boolean).join(" · ");$("#coMethod").value=o.metodo_entrega||"Retiro";$("#coNotes").value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago"}catch(err){console.warn(err);toast("El enlace de pago no es válido o expiró.","error")}}
+async function loadAssistedCheckout(){const r=paymentRouteData(),oid=r.params.get("oid")||"",ct=r.params.get("ct")||"",pl=r.params.get("pl")||"";if(!oid||!ct)return null;const out=await AleAPI.postPublic("publicordercheckout",{order_id:oid,checkout_token:ct,payment_link_id:pl});assistedCheckout={...out,order_id:oid,checkout_token:ct,payment_link_id:pl||out.payment_link_id||""};cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${oid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout}
+async function openAssistedPayment(){try{const out=await loadAssistedCheckout();if(!out)return;const o=out.order||{};openCart();renderCart();openModal("#checkoutModal");$("#coName").value=o.nombre||"";$("#coRut").value=o.rut?formatRutChile(o.rut):"";$("#coPhone").value=o.telefono||"";$("#coEmail").value=o.email||"";$("#coAddress").value=[o.direccion,o.comuna].filter(Boolean).join(" · ");const delivery=String(o.metodo_entrega||"").toUpperCase();$("#coMethod").value=delivery.includes("DESPACH")?"Despacho":"Retiro";$("#coNotes").value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago"}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("ENLACE_PAGO_VENCIDO")?"Este enlace de pago venció. Solicita un nuevo enlace para el mismo pedido.":code.includes("PEDIDO_YA_PAGADO")?"Este pedido ya figura como pagado.":"El enlace de pago no es válido o ya no está disponible.","error")}}
 
 const TRACKING_STORE_KEY="aleAtencioTrackingCredentialsV1";
 function trackingStore(){try{const v=JSON.parse(localStorage.getItem(TRACKING_STORE_KEY)||"{}");return v&&typeof v==="object"?v:{}}catch(_){return{}}}
@@ -668,7 +668,7 @@ function submitTransbankForm(url,token){
 }
 async function startTransbankForOrder(pending){
   if(!pending?.order_id||!pending?.checkout_token)throw new Error("TRANSBANK_PEDIDO_SIN_TOKEN");
-  const out=await AleAPI.postPublic("transbankcreate",{order_id:pending.order_id,checkout_token:pending.checkout_token});
+  const out=await AleAPI.postPublic("transbankcreate",{order_id:pending.order_id,checkout_token:pending.checkout_token,payment_link_id:pending.payment_link_id||""});
   if(!out?.url||!out?.token)throw new Error("TRANSBANK_NO_INICIALIZADO");
   toast(`Abriendo pago seguro Transbank para ${pending.numero_pedido||"tu pedido"}…`,"success");
   setTimeout(()=>submitTransbankForm(out.url,out.token),250);
@@ -678,7 +678,7 @@ async function handleTransbankReturnUi(){
   const pending=getPendingTransbank();
   if(pending?.order_id&&pending?.checkout_token){
     try{
-      const recovered=await AleAPI.postPublic("transbankrecover",{order_id:pending.order_id,checkout_token:pending.checkout_token});
+      const recovered=await AleAPI.postPublic("transbankrecover",{order_id:pending.order_id,checkout_token:pending.checkout_token,payment_link_id:pending.payment_link_id||""});
       const local=String(recovered?.estado_pago||"").toUpperCase();order=recovered?.numero_pedido||order||pending.numero_pedido||"";
       if(local==="PAGADO")status="success";
       else if(local==="RECHAZADO")status="failed";
@@ -728,7 +728,7 @@ async function submitOrder(){
   const addressRaw=$("#coAddress").value.trim();
   const data={id:clientRecordId("PED"),nombre,rut,telefono,email:$("#coEmail").value.trim(),metodo_entrega:metodo,direccion:addressRaw,comuna:"",observaciones:$("#coNotes").value.trim(),detalle:detail,subtotal:t.subtotal,despacho:t.delivery,total:t.total};
   let result=null,saved=false;
-  if(assistedCheckout){const pending={order_id:assistedCheckout.order_id,numero_pedido:assistedCheckout.order?.numero_pedido||assistedCheckout.order_id,checkout_token:assistedCheckout.checkout_token,total:Number(assistedCheckout.order?.total||t.total)};setPendingTransbank(pending);endButtonLoader(btn);try{await startTransbankForOrder(pending)}catch(payErr){console.warn(payErr);toast("No fue posible iniciar Transbank. Intenta nuevamente.","error")}return;}
+  if(assistedCheckout){const pending={order_id:assistedCheckout.order_id,numero_pedido:assistedCheckout.order?.numero_pedido||assistedCheckout.order_id,checkout_token:assistedCheckout.checkout_token,payment_link_id:assistedCheckout.payment_link_id||"",total:Number(assistedCheckout.order?.total||t.total)};setPendingTransbank(pending);endButtonLoader(btn);try{await startTransbankForOrder(pending)}catch(payErr){console.warn(payErr);toast("No fue posible iniciar Transbank. Intenta nuevamente.","error")}return;}
   try{
     if(!AleAPI.configured())throw new Error("API_NO_CONFIGURADA");
     result=await sendAndConfirm("createOrder","order",data);saved=true;

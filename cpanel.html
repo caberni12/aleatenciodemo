@@ -185,9 +185,22 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <a class="btn btn-light hidden" id="orderDetailPdfLink" href="#" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>
           <button class="btn btn-primary" id="regenerateOrderPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar / actualizar PDF</button>
           <button class="btn btn-light" id="copyOrderTracking" type="button"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button>
-          <button class="btn btn-light hidden" id="sendOrderPaymentWhatsApp" type="button"><i class="bi bi-whatsapp"></i> Enviar enlace de pago</button>
+          <button class="btn btn-light hidden" id="sendOrderPaymentWhatsApp" type="button"><i class="bi bi-credit-card-2-front"></i> Asignar enlace de pago</button>
           <button class="btn btn-light" id="sendOrderTrackingWhatsApp" type="button"><i class="bi bi-whatsapp"></i> Enviar seguimiento</button>
           <button class="btn btn-light" id="closeOrderDetail" type="button">Cerrar</button>
+        </div>
+      </div>
+      <div class="editor hidden payment-link-editor" id="orderPaymentLinkEditor" role="dialog" aria-modal="true" aria-labelledby="orderPaymentLinkTitle">
+        <div class="editor-modal-head"><div><span class="eyebrow">Transbank</span><h3 id="orderPaymentLinkTitle">Asignar enlace de pago</h3></div><button type="button" class="editor-close-x" id="closeOrderPaymentLinkX" aria-label="Cerrar">×</button></div>
+        <p class="module-help">Define exactamente hasta qué fecha y hora podrá utilizarse este enlace. No se asigna una vigencia automática.</p>
+        <div class="form-grid payment-link-form">
+          <label class="field-group span-2"><span>Válido hasta</span><input id="orderPaymentExpiresAt" type="datetime-local" required><small>La fecha y hora son obligatorias y se definen al asignar el botón de pago.</small></label>
+        </div>
+        <div class="payment-link-warning"><i class="bi bi-shield-check"></i><span>El enlace siempre apunta al mismo pedido. Generar otro enlace no duplica el pedido ni invalida automáticamente los enlaces anteriores que aún estén vigentes.</span></div>
+        <div class="editor-actions">
+          <button class="btn btn-primary" id="generatePaymentLinkWhatsapp" type="button"><i class="bi bi-whatsapp"></i> Generar y enviar</button>
+          <button class="btn btn-light" id="generatePaymentLinkCopy" type="button"><i class="bi bi-link-45deg"></i> Generar y copiar</button>
+          <button class="btn btn-light" id="cancelOrderPaymentLink" type="button">Cancelar</button>
         </div>
       </div>
     </section>
