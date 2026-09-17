@@ -357,7 +357,7 @@ function requestView(){
         <input id="rqPhone" placeholder="WhatsApp" required><input id="rqEmail" type="email" placeholder="Correo">
         <input id="rqDate" type="date">
         <select id="rqType" required><option value="">Tipo de solicitud</option><option>Torta personalizada</option><option>Galletas</option><option>Postres para evento</option><option>Box regalo</option><option>Cotización general</option></select>
-        <input id="rqQty" placeholder="Cantidad / personas"><textarea id="rqMessage" class="span-2" placeholder="Cuéntanos sabores, colores, temática, tamaño y otros detalles"></textarea>
+        <input id="rqQty" placeholder="Cantidad / personas"><textarea id="rqMessage" class="span-2" placeholder="Cuéntanos sabores, colores, temática, tamaño y otros detalles"></textarea><div class="request-pay-choice span-2"><span>Medio de pago preferido</span><div class="request-pay-circles"><button type="button" class="request-pay-circle active" data-request-pay="TRANSFERENCIA"><i class="bi bi-bank"></i><small>Transferencia</small></button><button type="button" class="request-pay-circle" data-request-pay="TRANSBANK"><i class="bi bi-credit-card-2-front"></i><small>Tarjeta</small></button></div><input type="hidden" id="rqPayment" value="TRANSFERENCIA"></div>
       </div><button class="btn btn-primary" type="submit">Enviar solicitud</button>
     </form>
   </div></section>${footer()}`;
@@ -390,6 +390,12 @@ function syncSocialButtons(){
   Object.entries(map).forEach(([platform,id])=>{const el=document.getElementById(id);if(!el)return;const url=socialLink(platform);el.classList.toggle("is-unconfigured",!url);el.href=url||"#";el.onclick=e=>{e.preventDefault();openSocial(platform)}});
 }
 
+
+
+let assistedCheckout=null;
+function paymentRouteData(){const raw=location.hash.replace(/^#pago\/?/,"")||"",qPos=raw.indexOf("?");return{numero:decodeURIComponent(qPos>=0?raw.slice(0,qPos):raw),params:new URLSearchParams(qPos>=0?raw.slice(qPos+1):"")}}
+async function loadAssistedCheckout(){const r=paymentRouteData(),oid=r.params.get("oid")||"",ct=r.params.get("ct")||"";if(!oid||!ct)return null;const out=await AleAPI.postPublic("publicordercheckout",{order_id:oid,checkout_token:ct});assistedCheckout={...out,order_id:oid,checkout_token:ct};cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${oid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout}
+async function openAssistedPayment(){try{const out=await loadAssistedCheckout();if(!out)return;const o=out.order||{};openCart();renderCart();openModal("checkoutModal");$("#coName").value=o.nombre||"";$("#coRut").value=o.rut?formatRutChile(o.rut):"";$("#coPhone").value=o.telefono||"";$("#coEmail").value=o.email||"";$("#coAddress").value=[o.direccion,o.comuna].filter(Boolean).join(" · ");$("#coMethod").value=o.metodo_entrega||"Retiro";$("#coNotes").value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago"}catch(err){console.warn(err);toast("El enlace de pago no es válido o expiró.","error")}}
 
 const TRACKING_STORE_KEY="aleAtencioTrackingCredentialsV1";
 function trackingStore(){try{const v=JSON.parse(localStorage.getItem(TRACKING_STORE_KEY)||"{}");return v&&typeof v==="object"?v:{}}catch(_){return{}}}
@@ -439,7 +445,7 @@ function trackingView(){
 function renderTrackingResults(orders){
   const host=$("#trackingResults");if(!host)return;if(!orders?.length){host.innerHTML='<div class="empty-card">No encontramos pedidos con esos datos.</div>';return}
   orders.forEach(o=>{try{const raw=String(o.tracking_url||"").split("#")[1]||"",q=raw.indexOf("?");const params=new URLSearchParams(q>=0?raw.slice(q+1):"");const t=params.get("t")||"";if(t)rememberTracking(o.id,o.numero_pedido,t,o.tracking_url,o.pdf_url||"")}catch(_){}});
-  host.innerHTML=orders.map(o=>{const cred=trackingCredential(o.numero_pedido)||trackingCredential(o.id);const pdf=o.pdf_url||(cred?.pdf_url||"");return `<article class="tracking-order-card"><div class="tracking-order-head"><div><span class="eyebrow">Pedido</span><h3>${esc(o.numero_pedido||o.id)}</h3><small>${esc(o.fecha?new Date(o.fecha).toLocaleString("es-CL"):"")}</small></div><div class="tracking-total"><small>Total</small><strong>${money(o.total)}</strong></div></div><div class="tracking-status-grid"><div><span>Pago</span><strong class="tracking-pill payment-${esc(String(o.estado_pago||"pendiente").toLowerCase().replace(/[^a-z0-9]+/g,"-"))}">${esc(paymentLabel(o.estado_pago))}</strong></div><div><span>Pedido</span><strong>${esc(o.estado_label||statusLabel(o.estado))}</strong></div><div><span>Entrega</span><strong>${esc(o.metodo_entrega||"Por coordinar")}</strong></div></div>${trackingTimeline(o)}<div class="tracking-actions">${pdf?`<a class="btn btn-light" href="${esc(pdf)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</a>`:""}<button class="btn btn-light" type="button" data-copy-tracking="${esc(o.tracking_url||location.origin+location.pathname+trackingHash(o.numero_pedido))}"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button></div></article>`}).join("");
+  host.innerHTML=orders.map(o=>{const cred=trackingCredential(o.numero_pedido)||trackingCredential(o.id);const pdf=o.pdf_url||(cred?.pdf_url||"");return `<article class="tracking-order-card"><div class="tracking-order-head"><div><span class="eyebrow">Pedido</span><h3>${esc(o.numero_pedido||o.id)}</h3><small>${esc(o.fecha?new Date(o.fecha).toLocaleString("es-CL"):"")}</small></div><div class="tracking-total"><small>Total</small><strong>${money(o.total)}</strong></div></div><div class="tracking-status-grid"><div><span>Pago</span><strong class="tracking-pill payment-${esc(String(o.estado_pago||"pendiente").toLowerCase().replace(/[^a-z0-9]+/g,"-"))}">${esc(paymentLabel(o.estado_pago))}</strong></div><div><span>Pedido</span><strong>${esc(o.estado_label||statusLabel(o.estado))}</strong></div><div><span>Entrega</span><strong>${esc(o.metodo_entrega||"Por coordinar")}</strong></div></div>${trackingTimeline(o)}<div class="tracking-actions">${pdf?`<a class="btn btn-light" href="${esc(pdf)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</a>`:""}${String(o.medio_pago||"").toUpperCase()==="TRANSFERENCIA"&&String(o.estado_pago||"").toUpperCase()!=="PAGADO"?`<label class="btn btn-light"><i class="bi bi-upload"></i> Adjuntar comprobante<input type="file" hidden accept="image/jpeg,image/png,image/webp" onchange="uploadTransferProofFromTracking(event,'${esc(o.id)}')"></label>`:""}<button class="btn btn-light" type="button" data-copy-tracking="${esc(o.tracking_url||location.origin+location.pathname+trackingHash(o.numero_pedido))}"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button></div></article>`}).join("");
   host.querySelectorAll("[data-copy-tracking]").forEach(b=>b.addEventListener("click",async()=>{try{await navigator.clipboard.writeText(b.dataset.copyTracking);toast("Enlace de seguimiento copiado","success")}catch(_){toast("No fue posible copiar el enlace","error")}}));
 }
 async function lookupTracking(query,phone=""){
@@ -567,6 +573,7 @@ async function sendAndConfirm(action, type, data){
 
 function wireRequest(){
   wireRutField("#rqRut");
+  $$("[data-request-pay]").forEach(btn=>btn.addEventListener("click",()=>{$$("[data-request-pay]").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if($("#rqPayment"))$("#rqPayment").value=btn.dataset.requestPay||"TRANSFERENCIA"}));
   $("#requestForm")?.addEventListener("submit",async e=>{
     e.preventDefault();
     const form=e.currentTarget;
@@ -574,7 +581,7 @@ function wireRequest(){
     beginButtonLoader(btn);
     const rut=formatRutInput($("#rqRut").value);
     if(!isValidRut(rut)){toast("Ingresa un RUT chileno válido.","error");endButtonLoader(btn);return}
-    const data={id:clientRecordId("SOL"),nombre:$("#rqName").value.trim(),rut,telefono:$("#rqPhone").value.trim(),email:$("#rqEmail").value.trim(),fecha_evento:$("#rqDate").value,tipo:$("#rqType").value,cantidad:$("#rqQty").value.trim(),detalle:$("#rqMessage").value.trim()};
+    const data={id:clientRecordId("SOL"),nombre:$("#rqName").value.trim(),rut,telefono:$("#rqPhone").value.trim(),email:$("#rqEmail").value.trim(),fecha_evento:$("#rqDate").value,tipo:$("#rqType").value,cantidad:$("#rqQty").value.trim(),detalle:$("#rqMessage").value.trim(),medio_pago_preferido:$("#rqPayment")?.value||"TRANSFERENCIA"};
     try{
       if(!AleAPI.configured()) throw new Error("API_NO_CONFIGURADA");
       const r=await sendAndConfirm("createRequest","request",data);
@@ -721,6 +728,7 @@ async function submitOrder(){
   const addressRaw=$("#coAddress").value.trim();
   const data={id:clientRecordId("PED"),nombre,rut,telefono,email:$("#coEmail").value.trim(),metodo_entrega:metodo,direccion:addressRaw,comuna:"",observaciones:$("#coNotes").value.trim(),detalle:detail,subtotal:t.subtotal,despacho:t.delivery,total:t.total};
   let result=null,saved=false;
+  if(assistedCheckout){const pending={order_id:assistedCheckout.order_id,numero_pedido:assistedCheckout.order?.numero_pedido||assistedCheckout.order_id,checkout_token:assistedCheckout.checkout_token,total:Number(assistedCheckout.order?.total||t.total)};setPendingTransbank(pending);endButtonLoader(btn);try{await startTransbankForOrder(pending)}catch(payErr){console.warn(payErr);toast("No fue posible iniciar Transbank. Intenta nuevamente.","error")}return;}
   try{
     if(!AleAPI.configured())throw new Error("API_NO_CONFIGURADA");
     result=await sendAndConfirm("createOrder","order",data);saved=true;
@@ -819,3 +827,8 @@ setTimeout(()=>{
   const splash = document.getElementById('splashScreen');
   if(splash && splash.dataset.closing !== '1') hideSplashScreen();
 }, 3600);
+
+window.addEventListener("hashchange",()=>{if(location.hash.startsWith("#pago/"))setTimeout(()=>openAssistedPayment(),60)});if(location.hash.startsWith("#pago/"))setTimeout(()=>openAssistedPayment(),250);
+
+async function uploadTransferProofFromTracking(event,orderId){const file=event?.target?.files?.[0];if(!file)return;const cred=trackingCredential(orderId);if(!cred?.tracking_token){toast("Vuelve a abrir el enlace seguro de seguimiento antes de adjuntar el comprobante.","error");return}if(file.size>8*1024*1024){toast("La imagen supera 8 MB.","error");return}const dataUrl=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});try{await AleAPI.postPublic("uploadtransferproof",{order_id:orderId,tracking_token:cred.tracking_token,data_url:dataUrl});toast("✓ Comprobante enviado. Quedó pendiente de revisión.","success");setTimeout(()=>location.reload(),700)}catch(err){console.warn(err);toast("No fue posible subir el comprobante.","error")}}
+window.uploadTransferProofFromTracking=uploadTransferProofFromTracking;

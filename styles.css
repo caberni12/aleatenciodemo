@@ -2273,3 +2273,6 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
 
 /* R9.18.9 · Detección flexible de RUT */
 .tracking-input-wrap input.rut-detected{border-color:rgba(170,128,58,.55);box-shadow:0 0 0 3px rgba(170,128,58,.08)}
+
+/* R9.18.13 · medios de pago solicitud + comprobante */
+.request-pay-choice{padding:14px 0}.request-pay-choice>span{display:block;font-weight:700;margin-bottom:10px}.request-pay-circles{display:flex;gap:14px;flex-wrap:wrap}.request-pay-circle{width:112px;height:112px;border-radius:999px;border:1px solid rgba(132,101,78,.24);background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer;box-shadow:0 8px 24px rgba(84,56,38,.08);transition:.18s ease}.request-pay-circle i{font-size:25px}.request-pay-circle small{font-weight:700}.request-pay-circle.active{transform:translateY(-2px);box-shadow:0 12px 30px rgba(84,56,38,.16);outline:3px solid rgba(185,145,87,.18)}.transfer-proof-upload{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px}.transfer-proof-upload small{max-width:420px}
