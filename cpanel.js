@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.24 · estados finales de pedido + anulación con motivo
+// ALE ATENCIO R9.18.25 · tabla Pedidos compacta + pago visual + estados finales
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -985,17 +985,20 @@ function renderOrders(){
     const final=isFinalOrder(o),st=orderState(o.estado);
     const statusHtml=final?`<select class="status-select is-final" disabled title="${esc(orderFinalMessage(st))}"><option selected>${esc(st)}</option></select>`:`<select class="status-select" onchange="changeStatus('order','${o.id}',this.value)">${normalStates.map(x=>`<option ${st===x?"selected":""}>${x}</option>`).join("")}</select>`;
     const cancelAction=final?`<span class="order-final-chip ${st==="CANCELADO"?"cancelled":""}"><i class="bi ${st==="CANCELADO"?"bi-x-octagon":"bi-check2-circle"}"></i>${st}</span>`:`<button type="button" class="cancel-order-row" onclick="openOrderCancel('${o.id}')"><i class="bi bi-x-octagon"></i> Anular</button>`;
+    const paymentState=String(o.estado_pago||"PENDIENTE").trim().toUpperCase();
+    const paymentClass=paymentState==="PAGADO"?"payment-pagado":(["RECHAZADO","CANCELADO"].includes(paymentState)?"payment-rechazado":"payment-pendiente");
+    const fullDate=formatDate(o.fecha),dateParts=String(fullDate||"").split(","),dateMain=dateParts.shift()||"",dateTime=dateParts.join(",").trim();
     return `<tr>
-    <td><strong>${esc(o.numero_pedido||o.id)}</strong></td>
-    <td>${esc(formatDate(o.fecha))}</td>
-    <td><strong>${esc(o.nombre||"")}</strong><br><small>${esc(o.rut?formatRutChile(o.rut):"")}</small></td>
-    <td>${esc(o.telefono||"")}<br><small>${esc(o.email||"")}</small></td>
-    <td>${esc(o.metodo_entrega||"")}<br><small>${esc([o.direccion,o.comuna].filter(Boolean).join(" · "))}</small></td>
-    <td><strong>${money(o.total||0)}</strong></td>
-    <td>${esc(o.estado_pago||"PENDIENTE")}<br><small>${esc(o.medio_pago||"")}</small></td>
-    <td>${statusHtml}</td>
-    <td>${o.pdf_url?`<a class="pdf-link" href="${esc(o.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:'<span class="muted-text">Pendiente</span>'}</td>
-    <td><div class="row-actions"><button type="button" onclick="openOrderDetail('${o.id}')"><i class="bi bi-eye"></i> Ver pedido</button>${cancelAction}</div></td>
+    <td class="order-number-cell"><strong>${esc(o.numero_pedido||o.id)}</strong></td>
+    <td class="order-date-cell"><span>${esc(dateMain)}</span>${dateTime?`<small>${esc(dateTime)}</small>`:""}</td>
+    <td class="order-client-cell"><strong>${esc(o.nombre||"")}</strong><small>${esc(o.rut?formatRutChile(o.rut):"")}</small></td>
+    <td class="order-contact-cell"><span>${esc(o.telefono||"")}</span><small title="${esc(o.email||"")}">${esc(o.email||"")}</small></td>
+    <td class="order-delivery-cell"><span>${esc(o.metodo_entrega||"")}</span><small>${esc([o.direccion,o.comuna].filter(Boolean).join(" · "))}</small></td>
+    <td class="money-column"><strong>${money(o.total||0)}</strong></td>
+    <td class="order-payment-cell"><span class="payment-status-badge ${paymentClass}">${esc(paymentState)}</span><small>${esc(o.medio_pago||"")}</small></td>
+    <td class="order-status-cell">${statusHtml}</td>
+    <td class="order-pdf-cell">${o.pdf_url?`<a class="pdf-link" href="${esc(o.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:'<span class="muted-text">Pendiente</span>'}</td>
+    <td class="order-actions-cell"><div class="row-actions"><button type="button" onclick="openOrderDetail('${o.id}')"><i class="bi bi-eye"></i> Ver pedido</button>${cancelAction}</div></td>
   </tr>`}).join(""));
 }
 window.changeStatus=async(kind,id,status)=>{
