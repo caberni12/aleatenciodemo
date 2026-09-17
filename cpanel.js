@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.21 · CLP + voz monetaria + modal vigencia premium
+// ALE ATENCIO R9.18.22 · CLP + voz monetaria natural + modal vigencia premium
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -35,7 +35,7 @@ function toNumber(value){
   return Number.isFinite(n)?n:0;
 }
 
-// R9.18.21 · Parser monetario chileno. Evita que "40.000" se convierta en 40.
+// R9.18.22 · Parser monetario chileno + dictado robusto. Evita que "40.000" se convierta en 40.
 const CLP_WORDS={
   cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,
   dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,
@@ -66,10 +66,19 @@ function parseClpNumeric(value){
   else if((raw.match(/\./g)||[]).length>1||/\.\d{3}$/.test(raw))normalized=raw.replace(/\./g,"");
   const n=Number(normalized);return Number.isFinite(n)?(neg?-n:n):NaN;
 }
+function parseSpokenClpGrouping(value){
+  const text=normalizeText(value).replace(/\b(?:pesos?|chilenos?|clp)\b/g," ").replace(/\s+/g," ").trim();
+  const m=text.match(/^(\d+)\s*(?:punto|\.)\s*(.+)$/);if(!m)return NaN;
+  const digitWords={cero:"0",zero:"0",uno:"1",una:"1",un:"1",dos:"2",tres:"3",cuatro:"4",cinco:"5",seis:"6",siete:"7",ocho:"8",nueve:"9"};
+  const tail=m[2].replace(/(?:punto|\.)/g," ").replace(/[,;-]/g," ").split(/\s+/).filter(Boolean);let digits="";
+  for(const token of tail){if(/^\d+$/.test(token)){digits+=token;continue}if(Object.prototype.hasOwnProperty.call(digitWords,token)){digits+=digitWords[token];continue}return NaN}
+  if(!digits||digits.length>6)return NaN;const n=Number(`${m[1]}${digits}`);return Number.isFinite(n)?n:NaN;
+}
 function parseClpAmount(value){
   if(typeof value==="number")return Number.isFinite(value)?Math.max(0,Math.round(value)):0;
   const raw=String(value??"").trim();if(!raw)return 0;
   const normalized=normalizeText(raw);
+  const spokenGrouping=parseSpokenClpGrouping(normalized);if(Number.isFinite(spokenGrouping)&&spokenGrouping>=0)return Math.round(spokenGrouping);
   const hasScale=/\b(mil|miles|millon|millones|luca|lucas)\b/.test(normalized);
   if(hasScale){
     const spoken=spokenSpanishInteger(normalized);
@@ -80,6 +89,30 @@ function parseClpAmount(value){
 }
 function formatClpEditable(value){const n=parseClpAmount(value);return n?new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(n):"0"}
 function clpLabel(value){return `CLP ${money(parseClpAmount(value))}`}
+
+// R9.18.22 · Voz CLP natural. La interfaz conserva $30.000, pero TTS recibe "treinta mil pesos".
+const CLP_UNITS=["cero","uno","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once","doce","trece","catorce","quince","dieciséis","diecisiete","dieciocho","diecinueve","veinte","veintiuno","veintidós","veintitrés","veinticuatro","veinticinco","veintiséis","veintisiete","veintiocho","veintinueve"];
+const CLP_TENS={30:"treinta",40:"cuarenta",50:"cincuenta",60:"sesenta",70:"setenta",80:"ochenta",90:"noventa"};
+const CLP_HUNDREDS={2:"doscientos",3:"trescientos",4:"cuatrocientos",5:"quinientos",6:"seiscientos",7:"setecientos",8:"ochocientos",9:"novecientos"};
+function clpApocope(text){return String(text||"").replace(/veintiuno$/,"veintiún").replace(/ y uno$/," y un").replace(/uno$/,"un")}
+function clpUnder100(n){n=Math.trunc(n);if(n<30)return CLP_UNITS[n]||"";const t=Math.trunc(n/10)*10,u=n%10;return u?`${CLP_TENS[t]} y ${CLP_UNITS[u]}`:CLP_TENS[t]}
+function clpUnder1000(n){n=Math.trunc(n);if(n<100)return clpUnder100(n);if(n===100)return"cien";const h=Math.trunc(n/100),r=n%100;const head=h===1?"ciento":CLP_HUNDREDS[h];return r?`${head} ${clpUnder100(r)}`:head}
+function clpIntegerWords(value){
+  let n=Math.max(0,Math.round(Number(value)||0));if(n===0)return"cero";
+  if(n<1000)return clpUnder1000(n);
+  if(n<1_000_000){const th=Math.trunc(n/1000),r=n%1000;const head=th===1?"mil":`${clpApocope(clpUnder1000(th))} mil`;return r?`${head} ${clpUnder1000(r)}`:head}
+  if(n<1_000_000_000){const m=Math.trunc(n/1_000_000),r=n%1_000_000;const head=m===1?"un millón":`${clpApocope(clpIntegerWords(m))} millones`;return r?`${head} ${clpIntegerWords(r)}`:head}
+  const b=Math.trunc(n/1_000_000_000),r=n%1_000_000_000;const head=b===1?"mil millones":`${clpApocope(clpIntegerWords(b))} mil millones`;return r?`${head} ${clpIntegerWords(r)}`:head;
+}
+function clpSpeechAmount(value){const n=parseClpAmount(value);return `${clpIntegerWords(n)} ${n===1?"peso":"pesos"}`}
+function speechFriendlyClpText(value){
+  let text=String(value??"");
+  const replaceAmount=(_,raw)=>clpSpeechAmount(raw);
+  text=text.replace(/\bCLP\s*\$?\s*([0-9][0-9.\s,]*)\s*(?:pesos?(?:\s+chilenos?)?)?/gi,replaceAmount);
+  text=text.replace(/\$\s*([0-9][0-9.\s,]*)\s*(?:pesos?(?:\s+chilenos?)?)?/gi,replaceAmount);
+  text=text.replace(/\b([0-9]{1,3}(?:[.]\d{3})+)\s+pesos?(?:\s+chilenos?)?\b/gi,replaceAmount);
+  return text.replace(/\s{2,}/g," ").trim();
+}
 function normalizeClpInput(input){if(!input)return;const n=parseClpAmount(input.value);input.value=n?new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(n):"0"}
 function speechRecognitionCtor(){return window.SpeechRecognition||window.webkitSpeechRecognition||null}
 function listenClpAmount(input,button){
@@ -376,7 +409,7 @@ function setNotificationPanel(open){
 }
 function speakNotification(text){
   if(!notifyVoice||!("speechSynthesis" in window))return;
-  try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="es-CL";u.rate=.96;u.pitch=1;window.speechSynthesis.speak(u)}catch(_){ }
+  try{window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(speechFriendlyClpText(text));u.lang="es-CL";u.rate=.96;u.pitch=1;window.speechSynthesis.speak(u)}catch(_){ }
 }
 function showNotificationCard(n){
   const stack=$("#notificationToastStack");if(!stack)return;
@@ -1574,5 +1607,5 @@ wireRutInput("#sBusinessRut");
   }).catch(()=>{});
 })();
 
-// R9.18.21 · Inicialización monetaria CLP/voz.
+// R9.18.22 · Inicialización monetaria CLP/voz natural.
 installStaticClpFields();
