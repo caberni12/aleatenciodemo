@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.18 · Pago Link Robusto + Cliente
+// ALE ATENCIO R9.18.20 · Checkout Cliente Fix
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));

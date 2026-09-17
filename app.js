@@ -425,7 +425,37 @@ async function loadAssistedCheckout(){
   assistedCheckout={...out,order_id:resolvedOid,checkout_token:resolvedToken,payment_link_id:resolvedLink};
   cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${resolvedOid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout;
 }
-async function openAssistedPayment(){try{const out=await loadAssistedCheckout();const o=out.order||{};openCart();updateCartUI();openModal("#checkoutModal");const name=$("#coName"),rut=$("#coRut"),phone=$("#coPhone"),email=$("#coEmail"),address=$("#coAddress"),method=$("#coMethod"),notes=$("#coNotes");if(name)name.value=o.nombre||"";if(rut)rut.value=o.rut?formatRutChile(o.rut):"";if(phone)phone.value=o.telefono||"";if(email)email.value=o.email||"";if(address)address.value=[o.direccion,o.comuna].filter(Boolean).join(" · ");const delivery=String(o.metodo_entrega||"").toUpperCase();if(method)method.value=delivery.includes("DESPACH")?"Despacho":"Retiro";if(notes)notes.value=o.observaciones||"";checkoutPaymentIntent="TRANSBANK";syncPaymentUI();const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago";if(!o.rut||!o.telefono)toast("El pedido se cargó, pero faltan datos de contacto. Revisa el pedido en cPanel.","info")}catch(err){console.warn("ASSISTED_PAYMENT",err);const code=String(err?.message||err||"").toUpperCase();const msg=code.includes("ENLACE_PAGO_VENCIDO")?"Este enlace de pago venció. Solicita un nuevo enlace para el mismo pedido.":code.includes("PEDIDO_YA_PAGADO")?"Este pedido ya figura como pagado.":code.includes("ENLACE_PAGO_REVOCADO")?"Este enlace fue reemplazado por uno más reciente. Solicita el último enlace de pago.":code.includes("ENLACE_PAGO_INVALIDO")||code.includes("TOKEN_CHECKOUT_INVALIDO")||code.includes("ENLACE_PAGO_INCOMPLETO")?"El enlace de pago está incompleto o no es válido.":code.includes("PEDIDO_NO_ENCONTRADO")?"No se encontró el pedido asociado a este enlace.":"No fue posible cargar el pedido para pago. Intenta nuevamente.";toast(msg,"error")}}
+function fillAssistedCheckoutForm(order={}){
+  const setValue=(selector,value)=>{const el=$(selector);if(el)el.value=String(value??"")};
+  setValue("#coName",order.nombre||"");
+  setValue("#coRut",order.rut?formatRutInput(order.rut):"");
+  setValue("#coPhone",order.telefono||"");
+  setValue("#coEmail",order.email||"");
+  setValue("#coAddress",[order.direccion,order.comuna].filter(Boolean).join(" · "));
+  const method=$("#coMethod"),delivery=String(order.metodo_entrega||"").toUpperCase();
+  if(method)method.value=delivery.includes("DESPACH")?"Despacho":"Retiro";
+  setValue("#coNotes",order.observaciones||"");
+}
+async function openAssistedPayment(){
+  let out;
+  try{out=await loadAssistedCheckout()}catch(err){
+    console.warn("ASSISTED_PAYMENT_LOAD",err);
+    const code=String(err?.message||err||"").toUpperCase();
+    const msg=code.includes("ENLACE_PAGO_VENCIDO")?"Este enlace de pago venció. Solicita un nuevo enlace para el mismo pedido.":code.includes("PEDIDO_YA_PAGADO")?"Este pedido ya figura como pagado.":code.includes("ENLACE_PAGO_REVOCADO")?"Este enlace fue reemplazado por uno más reciente. Solicita el último enlace de pago.":code.includes("ENLACE_PAGO_INVALIDO")||code.includes("TOKEN_CHECKOUT_INVALIDO")||code.includes("ENLACE_PAGO_INCOMPLETO")||code.includes("PEDIDO_TOKEN_CHECKOUT_REQUERIDO")?"El enlace de pago está incompleto o no es válido.":code.includes("PEDIDO_NO_ENCONTRADO")?"No se encontró el pedido asociado a este enlace.":"No fue posible cargar el pedido para pago. Intenta nuevamente.";
+    toast(msg,"error");return;
+  }
+  const o=out?.order||{};
+  try{
+    openCart();updateCartUI();openModal("#checkoutModal");
+    fillAssistedCheckoutForm(o);
+    checkoutPaymentIntent="TRANSBANK";syncPaymentUI();
+    const btn=$("#submitOrderBtn");if(btn)btn.textContent="Continuar al pago";
+    if(!o.rut||!o.telefono)toast("El pedido se cargó, pero faltan datos de contacto. Revisa el pedido en cPanel.","info");
+  }catch(err){
+    console.warn("ASSISTED_PAYMENT_UI",err);
+    toast("El pedido fue encontrado, pero no fue posible completar automáticamente el formulario. Intenta recargar la página.","error");
+  }
+}
 
 const TRACKING_STORE_KEY="aleAtencioTrackingCredentialsV1";
 function trackingStore(){try{const v=JSON.parse(localStorage.getItem(TRACKING_STORE_KEY)||"{}");return v&&typeof v==="object"?v:{}}catch(_){return{}}}
