@@ -1889,3 +1889,35 @@ body.payment-link-open{overflow:hidden!important}
 .payment-link-form small{display:block;color:var(--muted);margin-top:6px;line-height:1.4}
 .payment-link-warning{display:flex;gap:10px;align-items:flex-start;margin:16px 0;padding:13px 14px;border-radius:14px;background:#f8f2ef;color:#6d5a52;line-height:1.45}.payment-link-warning i{color:var(--berry);font-size:18px;margin-top:1px}
 @media(max-width:640px){#orderPaymentLinkEditor:not(.hidden){padding:16px!important;border-radius:18px!important}.payment-link-editor .editor-actions .btn{width:100%;justify-content:center}}
+
+/* R9.18.21 · CLP + dictado monetario + vigencia Transbank premium */
+.clp-input-shell{position:relative;display:flex;align-items:center;width:100%;min-width:0}
+.clp-input-shell .clp-money-input{width:100%;padding-left:68px!important;padding-right:48px!important;font-variant-numeric:tabular-nums;font-weight:800;letter-spacing:.01em}
+.clp-input-prefix{position:absolute;left:14px;z-index:2;color:#8f7164;font-size:11px;font-weight:900;letter-spacing:.08em;pointer-events:none}
+.clp-voice-btn{width:36px;height:36px;border:0;border-radius:12px;display:grid;place-items:center;background:#f6ece8;color:#7d4e43;cursor:pointer;transition:.18s ease;flex:0 0 auto}
+.clp-input-shell>.clp-voice-btn{position:absolute;right:7px;z-index:2}
+.clp-voice-btn:hover{background:#ead9d2;transform:translateY(-1px)}
+.clp-voice-btn.is-listening{background:#7d4e43;color:#fff;box-shadow:0 0 0 5px rgba(125,78,67,.13);animation:aleClpMicPulse 1s infinite alternate}
+@keyframes aleClpMicPulse{to{transform:scale(1.06)}}
+.quote-price-shell{display:grid;grid-template-columns:auto minmax(0,1fr) 34px;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:4px 5px 4px 10px;min-width:0}
+.quote-price-shell>span{font-size:10px;font-weight:900;color:#8f7164;white-space:nowrap;letter-spacing:.05em}
+.quote-price-shell .quote-price{border:0!important;box-shadow:none!important;padding:8px 2px!important;min-width:0!important;background:transparent!important;font-weight:800;font-variant-numeric:tabular-nums}
+.quote-price-shell .quote-price:focus{outline:none!important}
+.quote-price-shell:focus-within{border-color:#a86f61;box-shadow:0 0 0 3px rgba(168,111,97,.10)}
+.quote-price-shell .quote-voice-btn{width:32px;height:32px;border-radius:10px}
+.payment-link-order-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0 18px}
+.payment-link-order-summary>div{padding:14px 15px;border:1px solid #eaded9;border-radius:16px;background:linear-gradient(180deg,#fff,#fff9f6)}
+.payment-link-order-summary span,.payment-link-order-summary small{display:block;color:#8d7770;font-size:11px;font-weight:800;letter-spacing:.04em}
+.payment-link-order-summary strong{display:block;margin-top:5px;color:#4e382f;font-size:17px;font-variant-numeric:tabular-nums}
+.payment-link-order-summary small{margin-top:4px;font-size:10px;color:#a18e86}
+.payment-expiry-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px}
+.payment-expiry-field{display:grid;gap:8px;min-width:0}
+.payment-expiry-field>span{display:flex;align-items:center;gap:7px;color:#6d554c;font-size:12px;font-weight:900;letter-spacing:.02em}
+.payment-expiry-field>span i{color:#a06a5e}
+.payment-expiry-control{position:relative;border:1px solid #dbcac3;border-radius:16px;background:#fff;box-shadow:0 5px 14px rgba(65,42,34,.04);transition:.18s ease;overflow:hidden}
+.payment-expiry-control:focus-within{border-color:#9e675b;box-shadow:0 0 0 4px rgba(158,103,91,.11)}
+.payment-expiry-control input{width:100%;min-height:54px;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;padding:0 15px!important;color:#3f302b!important;font-size:15px!important;font-weight:750!important;font-family:inherit!important;color-scheme:light}
+.payment-expiry-control input::-webkit-calendar-picker-indicator{cursor:pointer;opacity:.72;width:20px;height:20px;padding:8px}
+.payment-expiry-help{display:flex!important;align-items:center;gap:7px;margin:10px 1px 0!important;color:#8c7770!important;font-size:11px!important}
+.payment-link-warning strong{color:#6b3f35}
+@media(max-width:640px){.payment-link-order-summary,.payment-expiry-grid{grid-template-columns:1fr}.payment-expiry-control input{min-height:52px;font-size:16px!important}}

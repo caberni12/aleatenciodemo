@@ -1,6 +1,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const money = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
+const moneyClp = n => `CLP ${money(Math.round(Number(n||0)))}`;
 const priceLabel = p => Number(p?.precio||0)>0 ? money(p.precio) : "Consultar";
 const esc = s => String(s ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CL").trim();
@@ -735,7 +736,7 @@ async function startTransbankForOrder(pending){
   if(!pending?.order_id||!pending?.checkout_token)throw new Error("TRANSBANK_PEDIDO_SIN_TOKEN");
   const out=await AleAPI.postPublic("transbankcreate",{order_id:pending.order_id,checkout_token:pending.checkout_token,payment_link_id:pending.payment_link_id||""});
   if(!out?.url||!out?.token)throw new Error("TRANSBANK_NO_INICIALIZADO");
-  toast(`Abriendo pago seguro Transbank para ${pending.numero_pedido||"tu pedido"}…`,"success");
+  toast(`Abriendo pago seguro Transbank para ${pending.numero_pedido||"tu pedido"} · ${moneyClp(pending.total||0)}…`,"success");
   setTimeout(()=>submitTransbankForm(out.url,out.token),250);
 }
 async function handleTransbankReturnUi(){

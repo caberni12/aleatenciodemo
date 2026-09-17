@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260917-r91820-checkout-cliente-fix"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260917-r91821-clp-voz-modal"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260917-r91820-checkout-cliente-fix"><link rel="stylesheet" href="cpanel.css?v=20260917-r91820-checkout-cliente-fix">
+  <link rel="stylesheet" href="styles.css?v=20260917-r91821-clp-voz-modal"><link rel="stylesheet" href="cpanel.css?v=20260917-r91821-clp-voz-modal">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -90,7 +90,7 @@
             <div class="product-editor-fields">
               <div class="form-grid">
                 <label class="field-group"><span>Nombre del producto</span><input id="pName" placeholder="Ej. Torta Chocolate"></label>
-                <label class="field-group"><span>Precio</span><input id="pPrice" type="number" min="0" placeholder="0"></label>
+                <label class="field-group"><span>Precio · pesos chilenos</span><input id="pPrice" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 40.000 o cuarenta mil"></label>
                 <label class="field-group"><span>Categoría</span><select id="pCategory"></select></label>
                 <label class="field-group"><span>Stock</span><input id="pStock" type="number" min="0" placeholder="0"></label>
                 <label class="field-group product-status-field"><span>Estado de venta</span><select id="pActive" aria-describedby="pActiveHint"><option value="SI">Activo</option><option value="NO">Inactivo</option></select><small class="field-hint" id="pActiveHint">Activo: el producto se muestra y puede comprarse en la Web.</small></label>
@@ -159,7 +159,7 @@
           <label class="field-group"><span>Nombre</span><input id="ocName"></label><label class="field-group"><span>RUT</span><input id="ocRut"></label>
           <label class="field-group"><span>WhatsApp</span><input id="ocPhone"></label><label class="field-group"><span>Correo</span><input id="ocEmail" type="email"></label>
           <label class="field-group"><span>Entrega</span><select id="ocDelivery"><option>Retiro</option><option>Despacho</option><option>Coordinar</option></select></label><label class="field-group"><span>Dirección</span><input id="ocAddress"></label>
-          <label class="field-group"><span>Medio de pago</span><select id="ocPayment"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label><label class="field-group"><span>Despacho</span><input id="ocDispatch" type="number" min="0" value="0"></label>
+          <label class="field-group"><span>Medio de pago</span><select id="ocPayment"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label><label class="field-group"><span>Despacho · CLP</span><input id="ocDispatch" type="text" inputmode="numeric" autocomplete="off" value="0" placeholder="Ej: 5.000"></label>
           <label class="field-group span-2"><span>Productos / líneas</span><textarea id="ocItems" rows="7" placeholder="Formato: Producto | cantidad | precio
 Torta chocolate | 1 | 25000"></textarea></label>
           <label class="field-group span-2"><span>Observaciones</span><textarea id="ocNotes"></textarea></label>
@@ -192,11 +192,17 @@ Torta chocolate | 1 | 25000"></textarea></label>
       </div>
       <div class="editor hidden payment-link-editor" id="orderPaymentLinkEditor" role="dialog" aria-modal="true" aria-labelledby="orderPaymentLinkTitle">
         <div class="editor-modal-head"><div><span class="eyebrow">Transbank</span><h3 id="orderPaymentLinkTitle">Asignar enlace de pago</h3></div><button type="button" class="editor-close-x" id="closeOrderPaymentLinkX" aria-label="Cerrar">×</button></div>
-        <p class="module-help">Define exactamente hasta qué fecha y hora podrá utilizarse este enlace. No se asigna una vigencia automática.</p>
-        <div class="form-grid payment-link-form">
-          <label class="field-group span-2"><span>Válido hasta</span><input id="orderPaymentExpiresAt" type="datetime-local" required><small>La fecha y hora son obligatorias y se definen al asignar el botón de pago.</small></label>
+        <p class="module-help">Define exactamente hasta qué fecha y hora podrá utilizarse este enlace. La vigencia se asigna manualmente para cada pedido.</p>
+        <div class="payment-link-order-summary">
+          <div><span>Pedido</span><strong id="orderPaymentOrderNumber">—</strong></div>
+          <div><span>Monto a cobrar</span><strong id="orderPaymentAmount">CLP $0</strong><small>Peso chileno · CLP</small></div>
         </div>
-        <div class="payment-link-warning"><i class="bi bi-shield-check"></i><span>El enlace siempre apunta al mismo pedido. Generar otro enlace no duplica el pedido ni invalida automáticamente los enlaces anteriores que aún estén vigentes.</span></div>
+        <div class="payment-expiry-grid">
+          <label class="payment-expiry-field"><span><i class="bi bi-calendar3"></i> Fecha de vencimiento</span><div class="payment-expiry-control"><input id="orderPaymentExpiryDate" type="date" required></div></label>
+          <label class="payment-expiry-field"><span><i class="bi bi-clock"></i> Hora de vencimiento</span><div class="payment-expiry-control"><input id="orderPaymentExpiryTime" type="time" step="60" required></div></label>
+        </div>
+        <small class="payment-expiry-help"><i class="bi bi-info-circle"></i> Fecha y hora obligatorias. El enlace deja de funcionar al vencer, pero el pedido se conserva.</small>
+        <div class="payment-link-warning"><i class="bi bi-shield-check"></i><span>El cobro se envía a Transbank en <strong>pesos chilenos (CLP)</strong>, sin conversión a dólares. El enlace siempre apunta al mismo pedido y no genera duplicados.</span></div>
         <div class="editor-actions">
           <button class="btn btn-primary" id="generatePaymentLinkWhatsapp" type="button"><i class="bi bi-whatsapp"></i> Generar y enviar</button>
           <button class="btn btn-light" id="generatePaymentLinkCopy" type="button"><i class="bi bi-link-45deg"></i> Generar y copiar</button>
@@ -434,7 +440,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <label class="field-group"><span>Instagram</span><input id="sInstagram" placeholder="https://instagram.com/..."></label>
           <label class="field-group"><span>Facebook</span><input id="sFacebook" placeholder="https://facebook.com/..."></label>
           <label class="field-group"><span>TikTok</span><input id="sTiktok" placeholder="https://tiktok.com/@..."></label>
-          <label class="field-group"><span>Valor despacho</span><input id="sDelivery" type="number" min="0" placeholder="0"></label>
+          <label class="field-group"><span>Valor despacho · CLP</span><input id="sDelivery" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 5.000"></label>
           <label class="field-group"><span>IVA cotizaciones (%)</span><input id="sIva" type="number" min="0" max="100" step="0.01" placeholder="19"></label>
           <label class="field-group"><span>Validez cotización (días)</span><input id="sQuoteValidity" type="number" min="1" max="365" placeholder="15"></label>
           <div class="span-2 form-help">Guarda aquí tus enlaces reales. La web mostrará únicamente WhatsApp y las redes sociales configuradas.</div>
@@ -448,5 +454,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260917-r91820-checkout-cliente-fix"></script><script src="api.js?v=20260917-r91820-checkout-cliente-fix"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260917-r91820-checkout-cliente-fix"></script>
+<script src="config.js?v=20260917-r91821-clp-voz-modal"></script><script src="api.js?v=20260917-r91821-clp-voz-modal"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260917-r91821-clp-voz-modal"></script>
 </body></html>

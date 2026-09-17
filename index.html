@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#8d5060">
   <title>Ale Atencio | Repostería</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260917-r91820-checkout-cliente-fix"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260917-r91821-clp-voz-modal"/>
   <meta name="description" content="Ale Atencio Repostería. Tortas, galletas, postres y regalos para cumpleaños, celebraciones y momentos especiales.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="preload" as="image" href="producto-001-torta-chocolate-ganache.jpg?v=20260917-r91820-checkout-cliente-fix" fetchpriority="high">
-  <link rel="stylesheet" href="styles.css?v=20260917-r91820-checkout-cliente-fix">
+  <link rel="preload" as="image" href="producto-001-torta-chocolate-ganache.jpg?v=20260917-r91821-clp-voz-modal" fetchpriority="high">
+  <link rel="stylesheet" href="styles.css?v=20260917-r91821-clp-voz-modal">
 </head>
 <body>
 <div class="splash-screen" id="splashScreen" aria-live="polite">
@@ -77,7 +77,7 @@
     <div class="grand-total"><span>Total</span><strong id="cartTotal">$0</strong></div>
     <button class="btn btn-primary btn-block" id="checkoutBtn">Finalizar pedido</button>
     <button class="btn btn-transbank btn-block hidden" id="transbankCartBtn" type="button"><i class="bi bi-credit-card-2-front"></i> <span id="transbankCartLabel">Pagar con Transbank</span></button>
-    <small class="payment-cart-note hidden" id="transbankCartNote">El pedido se registra primero; luego Transbank genera una transacción segura y única para ese monto.</small>
+    <small class="payment-cart-note hidden" id="transbankCartNote">El pedido se registra primero; luego Transbank genera una transacción segura y única en pesos chilenos (CLP) por ese monto.</small>
     <button class="btn btn-light btn-block" id="clearCart">Vaciar carrito</button>
   </div>
 </aside>
@@ -113,7 +113,7 @@
       <input id="coAddress" class="span-2" placeholder="Dirección / comuna" autocomplete="street-address">
       <textarea id="coNotes" class="span-2" placeholder="Observaciones del pedido"></textarea>
     </div>
-    <div class="checkout-payment-intent hidden" id="checkoutPaymentIntent"><i class="bi bi-credit-card-2-front"></i><span>Después de registrar el pedido continuarás a Transbank.</span></div>
+    <div class="checkout-payment-intent hidden" id="checkoutPaymentIntent"><i class="bi bi-credit-card-2-front"></i><span>Después de registrar el pedido continuarás a Transbank. El cobro se procesa en pesos chilenos (CLP).</span></div>
     <button class="btn btn-primary btn-block" id="submitOrderBtn">Enviar pedido</button>
     <section class="order-success-panel hidden" id="orderSuccessPanel" aria-live="polite">
       <div class="order-success-icon"><i class="bi bi-check-circle-fill"></i></div>
@@ -136,8 +136,8 @@
   <span class="whatsapp-pulse" aria-hidden="true"></span><i class="bi bi-whatsapp"></i>
 </a>
 
-<script src="config.js?v=20260917-r91820-checkout-cliente-fix"></script>
-<script src="api.js?v=20260917-r91820-checkout-cliente-fix"></script>
-<script src="app.js?v=20260917-r91820-checkout-cliente-fix"></script>
+<script src="config.js?v=20260917-r91821-clp-voz-modal"></script>
+<script src="api.js?v=20260917-r91821-clp-voz-modal"></script>
+<script src="app.js?v=20260917-r91821-clp-voz-modal"></script>
 </body>
 </html>

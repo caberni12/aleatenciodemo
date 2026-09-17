@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.20 · Checkout Cliente Fix
+// ALE ATENCIO R9.18.21 · CLP + voz monetaria + modal vigencia premium
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -33,6 +33,63 @@ function toNumber(value){
   else if((clean.match(/\./g)||[]).length>1 || /\.\d{3}$/.test(clean)) normalized=clean.replace(/\./g,"");
   const n=Number(normalized);
   return Number.isFinite(n)?n:0;
+}
+
+// R9.18.21 · Parser monetario chileno. Evita que "40.000" se convierta en 40.
+const CLP_WORDS={
+  cero:0,un:1,uno:1,una:1,dos:2,tres:3,cuatro:4,cinco:5,seis:6,siete:7,ocho:8,nueve:9,diez:10,once:11,doce:12,trece:13,catorce:14,quince:15,
+  dieciseis:16,diecisiete:17,dieciocho:18,diecinueve:19,veinte:20,veintiuno:21,veintidos:22,veintitres:23,veinticuatro:24,veinticinco:25,veintiseis:26,veintisiete:27,veintiocho:28,veintinueve:29,
+  treinta:30,cuarenta:40,cincuenta:50,sesenta:60,setenta:70,ochenta:80,noventa:90,cien:100,ciento:100,doscientos:200,trescientos:300,cuatrocientos:400,quinientos:500,seiscientos:600,setecientos:700,ochocientos:800,novecientos:900
+};
+function spokenSpanishInteger(value){
+  const text=normalizeText(value).replace(/\b(?:pesos?|chilenos?|clp|monto|precio|valor|total|de)\b/g," ").replace(/[^a-z0-9.,\s-]/g," ").replace(/\s+/g," ").trim();
+  if(!text)return NaN;
+  const tokens=text.split(" ");let total=0,current=0,recognized=false;
+  for(const token0 of tokens){const token=token0.replace(/^-|-$/g,"");if(!token||token==="y")continue;
+    if(/^\d/.test(token)){const n=parseClpNumeric(token);if(Number.isFinite(n)){current+=n;recognized=true;continue}}
+    if(token==="mil"||token==="miles"){total+=current>=1000?current:(current||1)*1000;current=0;recognized=true;continue}
+    if(token==="millon"||token==="millones"){total+=(current||1)*1000000;current=0;recognized=true;continue}
+    if(token==="luca"||token==="lucas"){total+=current>=1000?current:(current||1)*1000;current=0;recognized=true;continue}
+    if(Object.prototype.hasOwnProperty.call(CLP_WORDS,token)){current+=CLP_WORDS[token];recognized=true;continue}
+  }
+  return recognized?total+current:NaN;
+}
+function parseClpNumeric(value){
+  if(typeof value==="number")return Number.isFinite(value)?value:NaN;
+  let raw=String(value??"").trim();if(!raw)return NaN;
+  raw=raw.replace(/\s+/g,"").replace(/[^0-9,.-]/g,"");if(!raw)return NaN;
+  const neg=raw.startsWith("-");if(neg)raw=raw.slice(1);
+  let normalized=raw;
+  if(/^\d{1,3}([.,]\d{3})+$/.test(raw)) normalized=raw.replace(/[.,]/g,"");
+  else if(raw.includes(",")&&raw.includes(".")) normalized=raw.lastIndexOf(",")>raw.lastIndexOf(".")?raw.replace(/\./g,"").replace(",", "."):raw.replace(/,/g,"");
+  else if(raw.includes(",")){const parts=raw.split(",");normalized=parts.length===2&&parts[1].length===3?parts.join(""):raw.replace(",", ".")}
+  else if((raw.match(/\./g)||[]).length>1||/\.\d{3}$/.test(raw))normalized=raw.replace(/\./g,"");
+  const n=Number(normalized);return Number.isFinite(n)?(neg?-n:n):NaN;
+}
+function parseClpAmount(value){
+  if(typeof value==="number")return Number.isFinite(value)?Math.max(0,Math.round(value)):0;
+  const raw=String(value??"").trim();if(!raw)return 0;
+  const normalized=normalizeText(raw);
+  const hasScale=/\b(mil|miles|millon|millones|luca|lucas)\b/.test(normalized);
+  if(hasScale){
+    const spoken=spokenSpanishInteger(normalized);
+    if(Number.isFinite(spoken)&&spoken>=0)return Math.round(spoken);
+  }
+  const numeric=parseClpNumeric(raw);if(Number.isFinite(numeric)&&numeric>=0)return Math.round(numeric);
+  const spoken=spokenSpanishInteger(normalized);return Number.isFinite(spoken)&&spoken>=0?Math.round(spoken):0;
+}
+function formatClpEditable(value){const n=parseClpAmount(value);return n?new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(n):"0"}
+function clpLabel(value){return `CLP ${money(parseClpAmount(value))}`}
+function normalizeClpInput(input){if(!input)return;const n=parseClpAmount(input.value);input.value=n?new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(n):"0"}
+function speechRecognitionCtor(){return window.SpeechRecognition||window.webkitSpeechRecognition||null}
+function listenClpAmount(input,button){
+  const Ctor=speechRecognitionCtor();if(!Ctor)return toast("El reconocimiento de voz no está disponible en este navegador");
+  const rec=new Ctor();rec.lang="es-CL";rec.interimResults=false;rec.maxAlternatives=3;button?.classList.add("is-listening");
+  rec.onresult=e=>{const transcript=Array.from(e.results?.[0]||[]).map(x=>x.transcript).join(" ")||e.results?.[0]?.[0]?.transcript||"";const amount=parseClpAmount(transcript);if(!amount){toast(`No pude interpretar el monto: ${transcript}`);return}input.value=new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(amount);input.dispatchEvent(new Event("input",{bubbles:true}));input.dispatchEvent(new Event("change",{bubbles:true}));toast(`Monto reconocido: ${clpLabel(amount)}`)};
+  rec.onerror=()=>toast("No fue posible escuchar el monto");rec.onend=()=>button?.classList.remove("is-listening");rec.start();
+}
+function installStaticClpFields(){
+  [["#pPrice","Precio"],["#ocDispatch","Despacho"],["#sDelivery","Valor despacho"]].forEach(([sel,label])=>{const input=$(sel);if(!input||input.dataset.clpReady)return;input.dataset.clpReady="1";input.type="text";input.inputMode="numeric";input.autocomplete="off";input.classList.add("clp-money-input");const wrap=document.createElement("div");wrap.className="clp-input-shell";input.parentNode.insertBefore(wrap,input);wrap.appendChild(input);const prefix=document.createElement("span");prefix.className="clp-input-prefix";prefix.textContent="CLP $";wrap.insertBefore(prefix,input);const Ctor=speechRecognitionCtor();if(Ctor){const mic=document.createElement("button");mic.type="button";mic.className="clp-voice-btn";mic.title=`Dictar ${label}`;mic.setAttribute("aria-label",`Dictar ${label}`);mic.innerHTML='<i class="bi bi-mic-fill"></i>';mic.addEventListener("click",()=>listenClpAmount(input,mic));wrap.appendChild(mic)}input.addEventListener("blur",()=>normalizeClpInput(input));});
 }
 let token=localStorage.getItem("aleAdminToken")||sessionStorage.getItem("aleAdminToken")||"", data={products:[],categories:[],banners:[],orders:[],requests:[],quotes:[],clients:[],users:[],config:{},currentUser:null};
 
@@ -719,7 +776,7 @@ function renderProducts(){
   const canDelete=!!data.permissions?.products?.delete;if(!canDelete)selectedSet("products").clear();
   const visibleIds=list.map(p=>String(p.id));
   const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("products",visibleIds)}</span>`,"Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"]:["Imagen","Producto","Categoría","Precio editable","Stock","Estado","Destacado","Acciones"];
-  const rows=list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";const selected=selectedSet("products").has(String(p.id));return `<tr class="${active?"":"product-row-inactive"} ${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("products",p.id)}</td>`:""}<td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>$</span><input id="price-${esc(p.id)}" type="number" min="0" step="1" value="${toNumber(p.precio)}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="product-state-badge ${active?"is-active":"is-inactive"}"><span class="product-state-dot" aria-hidden="true"></span>${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button>${canDelete?`<button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("");
+  const rows=list.map(p=>{const active=String(p.activo??"SI").toUpperCase()!=="NO";const selected=selectedSet("products").has(String(p.id));return `<tr class="${active?"":"product-row-inactive"} ${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("products",p.id)}</td>`:""}<td>${imgTag(p.image_url)}</td><td><strong>${esc(p.nombre)}</strong><br><small>${esc(p.descripcion||"")}</small></td><td>${esc(p.categoria_nombre||"")}</td><td><div class="quick-price"><span>CLP $</span><input id="price-${esc(p.id)}" type="text" inputmode="numeric" autocomplete="off" value="${new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(parseClpAmount(p.precio))}"><button type="button" data-save-price="${esc(p.id)}">Guardar</button></div></td><td>${toNumber(p.stock)}</td><td><span class="product-state-badge ${active?"is-active":"is-inactive"}"><span class="product-state-dot" aria-hidden="true"></span>${active?"Activo":"Inactivo"}</span></td><td>${String(p.destacado).toUpperCase()==="SI"?"Sí":"No"}</td><td><div class="row-actions"><button type="button" data-edit-product="${esc(p.id)}">Editar</button>${canDelete?`<button type="button" class="danger" data-delete-product="${esc(p.id)}">Eliminar</button>`:""}</div></td></tr>`}).join("");
   $("#productsTable").innerHTML=table(headers,rows);updateBulkBar("products");syncSelectedRows($("#productsTable"));
 }
 let productPreviewObjectUrl="";
@@ -734,7 +791,7 @@ function productEditorSnapshot(imageOverride=""){
     id:$("#pId")?.value||"",
     nombre:$("#pName")?.value.trim()||"Producto sin nombre",
     descripcion:$("#pDescription")?.value.trim()||"Agrega una descripción para mostrarla en la tienda.",
-    precio:toNumber($("#pPrice")?.value),
+    precio:parseClpAmount($("#pPrice")?.value),
     categoria_nombre:$("#pCategory")?.value||"Categoría",
     stock:toNumber($("#pStock")?.value),
     activo:$("#pActive")?.value||"SI",
@@ -800,7 +857,7 @@ function closeProductEditor(){
   document.body.classList.remove("product-editor-open");
 }
 window.editProduct=id=>openProductEditor(id);
-window.saveQuickPrice=async(id,btn)=>busy(btn,async()=>{const input=$("#price-"+CSS.escape(String(id)));if(!input)return;const precio=toNumber(input.value);if(!Number.isFinite(precio)||precio<0){toast("Precio no válido");return}try{await AleAPI.savePriceVerified({id,precio},token);const p=data.products.find(x=>String(x.id)===String(id));if(p)p.precio=precio;input.value=precio;toast("✓ Precio actualizado")}catch(e){console.warn(e);toast("✕ No se confirmó el cambio de precio")}});
+window.saveQuickPrice=async(id,btn)=>busy(btn,async()=>{const input=$("#price-"+CSS.escape(String(id)));if(!input)return;const precio=parseClpAmount(input.value);if(!Number.isFinite(precio)||precio<0){toast("Precio no válido");return}try{await AleAPI.savePriceVerified({id,precio},token);const p=data.products.find(x=>String(x.id)===String(id));if(p)p.precio=precio;input.value=precio;toast("✓ Precio actualizado")}catch(e){console.warn(e);toast("✕ No se confirmó el cambio de precio")}});
 $("#productsTable").addEventListener("click",e=>{
   const edit=e.target.closest("[data-edit-product]"); if(edit){openProductEditor(edit.dataset.editProduct);return}
   const save=e.target.closest("[data-save-price]"); if(save){window.saveQuickPrice(save.dataset.savePrice,save);return}
@@ -830,7 +887,7 @@ function updateProductStatusHint(){const select=$("#pActive"),hint=$("#pActiveHi
 $("#pActive")?.addEventListener("change",updateProductStatusHint);
 function clearProduct(){revokeProductPreviewObjectUrl();["pId","pImageId","pImageUrl","pOrder","pName","pPrice","pStock","pOccasion","pDescription"].forEach(id=>$("#"+id).value="");$("#pFeatured").checked=false;if($("#pActive"))$("#pActive").value="SI";updateProductStatusHint();resetFilePicker("#pImage");renderProductImageSource("");renderProductWebPreview()}
 $("#closeProductEditorX")?.addEventListener("click",closeProductEditor);
-$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:toNumber($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:$("#pActive")?.value||"SI",ocasion:$("#pOccasion").value.trim(),orden:toNumber($("#pOrder").value)};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast(file?"✓ Producto actualizado · imagen guardada en Supabase":"✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
+$("#saveProduct").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#pImageId").value,imageUrl=$("#pImageUrl").value;const file=$("#pImage").files[0];if(file){const u=await upload(file,"PRODUCTOS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}const payload={id:$("#pId").value,nombre:$("#pName").value.trim(),descripcion:$("#pDescription").value.trim(),precio:parseClpAmount($("#pPrice").value),categoria_nombre:$("#pCategory").value,stock:toNumber($("#pStock").value),drive_file_id:imageId,image_url:imageUrl,destacado:$("#pFeatured").checked?"SI":"NO",activo:$("#pActive")?.value||"SI",ocasion:$("#pOccasion").value.trim(),orden:toNumber($("#pOrder").value)};if(!payload.nombre){toast("El nombre es obligatorio");return}await AleAPI.saveProductVerified(payload,token);toast(file?"✓ Producto actualizado · imagen guardada en Supabase":"✓ Producto actualizado");closeProductEditor();await reload()}catch(err){console.warn(err);toast("✕ No se confirmó la actualización")}}));
 
 function renderCategories(){$("#categoriesTable").innerHTML=table(["Imagen","Categoría","Descripción","Orden","Acciones"],data.categories.map(c=>`<tr><td>${imgTag(c.image_url)}</td><td><strong>${esc(c.nombre)}</strong></td><td>${esc(c.descripcion||"")}</td><td>${Number(c.orden||0)}</td><td><div class="row-actions"><button onclick="editCategory('${c.id}')">Editar</button><button class="danger" onclick="removeEntity('category','${c.id}',this)">Eliminar</button></div></td></tr>`).join(""))}
 $("#newCategory").addEventListener("click",()=>{clearCategory();$("#categoryEditor").classList.remove("hidden")});
@@ -845,7 +902,7 @@ window.editBanner=id=>{const b=data.banners.find(x=>x.id===id);if(!b)return;rese
 $("#saveBanner").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let imageId=$("#bImageId").value,imageUrl=$("#bImageUrl").value;const file=$("#bImage").files[0];if(file){const u=await upload(file,"BANNERS");imageId=u.fileId;imageUrl=u.imageUrl||imageUrl}await AleAPI.post("saveBanner",{id:$("#bId").value,titulo:$("#bTitle").value.trim(),subtitulo:$("#bSubtitle").value.trim(),cta_texto:$("#bCta").value.trim(),enlace:$("#bLink").value.trim(),drive_file_id:imageId,image_url:imageUrl,activo:"SI",orden:Number($("#bOrder").value||0)},token);toast("Banner guardado");$("#bannerEditor").classList.add("hidden");await reload()}catch(err){console.warn(err);toast("No fue posible guardar")}}));
 
 
-function parseOrderLines(text){return String(text||"").split(/\n+/).map(line=>{const p=line.split("|").map(x=>x.trim());if(p.length<3)return null;const nombre=p[0],cantidad=Math.max(1,Number(p[1])||1),precio=Math.max(0,Number(String(p[2]).replace(/[^0-9.,-]/g,"").replace(/\./g,"").replace(",","."))||0);return nombre?{nombre,producto_nombre:nombre,cantidad,precio_unitario:precio,precio}:null}).filter(Boolean)}
+function parseOrderLines(text){return String(text||"").split(/\n+/).map(line=>{const p=line.split("|").map(x=>x.trim());if(p.length<3)return null;const nombre=p[0],cantidad=Math.max(1,Number(p[1])||1),precio=parseClpAmount(p[2]);return nombre?{nombre,producto_nombre:nombre,cantidad,precio_unitario:precio,precio}:null}).filter(Boolean)}
 function fillOrderQuoteSelect(){const sel=$("#ocQuote");if(!sel)return;const used=new Set((data.orders||[]).map(o=>String(o.cotizacion_id||"")).filter(Boolean));sel.innerHTML='<option value="">Pedido manual</option>'+data.quotes.filter(q=>!used.has(String(q.id))&&!["ANULADA","RECHAZADA","VENCIDA"].includes(String(q.estado||"").toUpperCase())).map(q=>`<option value="${esc(q.id)}">${esc(q.numero_cotizacion||q.id)} · ${esc(q.cliente_nombre||"")} · ${money(q.total||0)}</option>`).join("")}
 function ensureOrderCreateBackdrop(){
   let backdrop=$("#orderCreateBackdrop");
@@ -882,7 +939,7 @@ $("#closeOrderCreateX")?.addEventListener("click",closeOrderCreate);
 $("#cancelOrderCreate")?.addEventListener("click",closeOrderCreate);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderCreateEditor")?.classList.contains("hidden"))closeOrderCreate()});
 $("#ocQuote")?.addEventListener("change",e=>{const q=data.quotes.find(x=>String(x.id)===String(e.target.value));if(!q)return;$("#ocName").value=q.cliente_nombre||"";$("#ocRut").value=q.rut?formatRutChile(q.rut):"";$("#ocPhone").value=q.telefono||"";$("#ocEmail").value=q.email||"";$("#ocNotes").value=q.observaciones||"";$("#ocItems").value=(Array.isArray(q.items)?q.items:[]).map(i=>`${i.descripcion||i.nombre||"Producto"} | ${i.cantidad||1} | ${i.precio_unitario||i.precio||0}`).join("\n")});
-$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:Number($("#ocDispatch").value||0),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await reload();if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue tomada por otro pedido y no puede reutilizarse.":"✕ No fue posible crear el pedido")}}));
+$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await reload();if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue tomada por otro pedido y no puede reutilizarse.":"✕ No fue posible crear el pedido")}}));
 
 function renderOrders(){
   const host=$("#ordersTable");if(!host)return;
@@ -929,10 +986,10 @@ function openOrderPaymentLinkEditor(){
   if(String(o.estado_pago||"").toUpperCase()==="PAGADO")return toast("Este pedido ya está pagado");
   const modal=$("#orderPaymentLinkEditor");if(!modal)return;
   if(modal.parentElement!==document.body)document.body.appendChild(modal);
-  $("#orderPaymentExpiresAt").value="";modal.classList.remove("hidden");document.body.classList.add("payment-link-open");setTimeout(()=>$("#orderPaymentExpiresAt")?.focus(),30);
+  if($("#orderPaymentExpiryDate"))$("#orderPaymentExpiryDate").value="";if($("#orderPaymentExpiryTime"))$("#orderPaymentExpiryTime").value="";if($("#orderPaymentOrderNumber"))$("#orderPaymentOrderNumber").textContent=o.numero_pedido||o.id||"";if($("#orderPaymentAmount"))$("#orderPaymentAmount").textContent=clpLabel(o.total);modal.classList.remove("hidden");document.body.classList.add("payment-link-open");setTimeout(()=>$("#orderPaymentExpiryDate")?.focus(),30);
 }
 function closeOrderPaymentLinkEditor(){$("#orderPaymentLinkEditor")?.classList.add("hidden");document.body.classList.remove("payment-link-open")}
-function selectedPaymentExpiryIso(){const raw=$("#orderPaymentExpiresAt")?.value||"";if(!raw)throw new Error("VIGENCIA_ENLACE_REQUERIDA");const d=new Date(raw);if(!Number.isFinite(d.getTime())||d.getTime()<=Date.now()+60000)throw new Error("VIGENCIA_ENLACE_INVALIDA");return d.toISOString()}
+function selectedPaymentExpiryIso(){const date=$("#orderPaymentExpiryDate")?.value||"",time=$("#orderPaymentExpiryTime")?.value||"";if(!date||!time)throw new Error("VIGENCIA_ENLACE_REQUERIDA");const d=new Date(`${date}T${time}:00`);if(!Number.isFinite(d.getTime())||d.getTime()<=Date.now()+60000)throw new Error("VIGENCIA_ENLACE_INVALIDA");return d.toISOString()}
 async function generateAssignedPaymentLink(mode,btn){
   const o=data.orders.find(x=>String(x.id)===String(currentOrderDetailId));if(!o)return;
   const expiresAt=selectedPaymentExpiryIso();const out=await AleAPI.post("adminorderpaymentlink",{id:o.id,expires_at:expiresAt},token);
@@ -1025,7 +1082,7 @@ $("#testTransbankLink")?.addEventListener("click",()=>refreshTransbankHealth(tru
 $("#openTransbankManualLink")?.addEventListener("click",()=>{try{const raw=$("#pTransbankManualUrl")?.value.trim()||"";if(!raw)return toast("Agrega primero el Link Webpay manual entregado por Transbank");const url=safeTransbankManualUrl(raw);window.open(url,"_blank","noopener,noreferrer")}catch(err){console.warn(err);toast("✕ El Link Webpay manual no es válido")}});
 
 function renderSettings(){const c=data.config||{};resetFilePicker("#sLogo");$("#sLogoId").value=c.logo_drive_file_id||"";$("#sBusiness").value=c.empresa||"";if($("#sBusinessRut"))$("#sBusinessRut").value=c.empresa_rut?formatRutChile(c.empresa_rut):"";if($("#sPublicWebUrl"))$("#sPublicWebUrl").value=c.web_public_url||c.transbank_checkout_url||window.ALE_ATENCIO_CONFIG?.PUBLIC_BASE_URL||"";$("#sWhatsapp").value=c.whatsapp||"";$("#sEmail").value=c.email||"";$("#sAddress").value=c.direccion||"";$("#sInstagram").value=c.instagram||"";$("#sFacebook").value=c.facebook||"";$("#sTiktok").value=c.tiktok||"";$("#sDelivery").value=c.valor_despacho||0;$("#sIva").value=c.iva_porcentaje||19;$("#sQuoteValidity").value=c.cotizacion_validez_dias||15}
-$("#saveSettings").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let logoId=$("#sLogoId").value,logoUrl=data.config?.logo_url||"";const f=$("#sLogo").files[0];if(f){const up=await upload(f,"LOGO");logoId=up.fileId;logoUrl=up.imageUrl||logoUrl}const empresaRut=$("#sBusinessRut")?.value.trim()?requireRutChile($("#sBusinessRut").value):"";const publicWebUrl=clientPublicUrl($("#sPublicWebUrl")?.value.trim()||window.ALE_ATENCIO_CONFIG?.PUBLIC_BASE_URL||"");await AleAPI.post("saveConfig",{empresa:$("#sBusiness").value.trim(),empresa_rut:empresaRut,web_public_url:publicWebUrl,whatsapp:$("#sWhatsapp").value.trim(),email:$("#sEmail").value.trim(),direccion:$("#sAddress").value.trim(),instagram:$("#sInstagram").value.trim(),facebook:$("#sFacebook").value.trim(),tiktok:$("#sTiktok").value.trim(),valor_despacho:$("#sDelivery").value,iva_porcentaje:$("#sIva").value,cotizacion_validez_dias:$("#sQuoteValidity").value,logo_drive_file_id:logoId,logo_url:logoUrl},token);toast("Configuración guardada");await reload()}catch(err){console.warn(err);toast("No fue posible guardar")}}));
+$("#saveSettings").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{let logoId=$("#sLogoId").value,logoUrl=data.config?.logo_url||"";const f=$("#sLogo").files[0];if(f){const up=await upload(f,"LOGO");logoId=up.fileId;logoUrl=up.imageUrl||logoUrl}const empresaRut=$("#sBusinessRut")?.value.trim()?requireRutChile($("#sBusinessRut").value):"";const publicWebUrl=clientPublicUrl($("#sPublicWebUrl")?.value.trim()||window.ALE_ATENCIO_CONFIG?.PUBLIC_BASE_URL||"");await AleAPI.post("saveConfig",{empresa:$("#sBusiness").value.trim(),empresa_rut:empresaRut,web_public_url:publicWebUrl,whatsapp:$("#sWhatsapp").value.trim(),email:$("#sEmail").value.trim(),direccion:$("#sAddress").value.trim(),instagram:$("#sInstagram").value.trim(),facebook:$("#sFacebook").value.trim(),tiktok:$("#sTiktok").value.trim(),valor_despacho:parseClpAmount($("#sDelivery").value),iva_porcentaje:$("#sIva").value,cotizacion_validez_dias:$("#sQuoteValidity").value,logo_drive_file_id:logoId,logo_url:logoUrl},token);toast("Configuración guardada");await reload()}catch(err){console.warn(err);toast("No fue posible guardar")}}));
 
 async function upload(file,kind){if(file.size>6*1024*1024)throw new Error("IMAGEN_MUY_GRANDE");const dataUrl=await AleAPI.fileToDataUrl(file);return AleAPI.post("uploadImage",{kind,fileName:file.name,dataUrl},token)}
 window.removeEntity=async(kind,id,btn)=>{const label=kind==="product"?"producto":"registro";const extra=kind==="product"?"\n\nEl producto se eliminará definitivamente. Si su imagen fue subida a Supabase Storage, también se limpiará. Las imágenes locales de GitHub no se modifican.":"";if(!confirm(`¿Eliminar definitivamente este ${label}?${extra}`))return;await busy(btn,async()=>{try{const out=await AleAPI.post("deleteEntity",{kind,id},token);if(!out?.deleted)throw new Error("REGISTRO_NO_ELIMINADO");selectedSet(kind==="product"?"products":kind+"s").delete(String(id));toast("Registro eliminado");await reload()}catch(e){console.warn(e);toast("No fue posible eliminar")}})};
@@ -1046,7 +1103,7 @@ function newQuoteItem(item={}){
     key:(crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random())),
     descripcion:String(item.descripcion||item.nombre||""),
     cantidad:Math.max(0,Number(item.cantidad||1)||1),
-    precio_unitario:Math.max(0,toNumber(item.precio_unitario??item.precio??0))
+    precio_unitario:parseClpAmount(item.precio_unitario??item.precio??0)
   };
 }
 function quoteAmounts(){
@@ -1069,7 +1126,7 @@ function renderQuoteItems(){
   host.innerHTML=quoteDraftItems.map((x,i)=>`<div class="quote-item-row" data-quote-key="${esc(x.key)}">
     <input class="quote-desc" data-q-index="${i}" data-q-field="descripcion" value="${esc(x.descripcion)}" placeholder="Descripción">
     <input class="quote-qty" data-q-index="${i}" data-q-field="cantidad" type="number" min="0.01" step="0.01" value="${Number(x.cantidad||1)}">
-    <input class="quote-price" data-q-index="${i}" data-q-field="precio_unitario" type="number" min="0" step="1" value="${Number(x.precio_unitario||0)}">
+    <div class="quote-price-shell"><span>CLP $</span><input class="quote-price" data-q-index="${i}" data-q-field="precio_unitario" type="text" inputmode="numeric" autocomplete="off" value="${new Intl.NumberFormat("es-CL",{maximumFractionDigits:0}).format(Number(x.precio_unitario||0))}"><button type="button" class="clp-voice-btn quote-voice-btn" data-q-voice="${i}" title="Dictar precio" aria-label="Dictar precio"><i class="bi bi-mic-fill"></i></button></div>
     <strong class="quote-line-total">${money(Number(x.cantidad||0)*Number(x.precio_unitario||0))}</strong>
     <button type="button" class="quote-remove" data-q-remove="${i}" aria-label="Quitar línea"><i class="bi bi-trash3"></i></button>
   </div>`).join("");
@@ -1078,16 +1135,18 @@ function renderQuoteItems(){
 $("#quoteItems")?.addEventListener("input",e=>{
   const el=e.target.closest("[data-q-index]"); if(!el)return;
   const i=Number(el.dataset.qIndex), field=el.dataset.qField; if(!quoteDraftItems[i])return;
-  quoteDraftItems[i][field]=field==="descripcion"?el.value:toNumber(el.value);
+  quoteDraftItems[i][field]=field==="descripcion"?el.value:field==="precio_unitario"?parseClpAmount(el.value):toNumber(el.value);
   const row=el.closest(".quote-item-row");
   const item=quoteDraftItems[i];
   row?.querySelector(".quote-line-total")?.replaceChildren(document.createTextNode(money(Number(item.cantidad||0)*Number(item.precio_unitario||0))));
   updateQuoteTotals();
 });
 $("#quoteItems")?.addEventListener("click",e=>{
+  const voice=e.target.closest("[data-q-voice]");if(voice){const input=voice.closest(".quote-price-shell")?.querySelector(".quote-price");if(input)listenClpAmount(input,voice);return}
   const b=e.target.closest("[data-q-remove]"); if(!b)return;
   quoteDraftItems.splice(Number(b.dataset.qRemove),1);renderQuoteItems();
 });
+$("#quoteItems")?.addEventListener("focusout",e=>{const input=e.target.closest(".quote-price");if(input)normalizeClpInput(input)});
 $("#qIva")?.addEventListener("input",updateQuoteTotals);
 
 // R9.8 · Combo filtrable para asociar una solicitud a la cotización.
@@ -1514,3 +1573,6 @@ wireRutInput("#sBusinessRut");
     if(!st?.ok&&$("#apiWarning"))$("#apiWarning").textContent="Backend Supabase sin respuesta: "+(st.error||"SIN_RESPUESTA")+". Revisa la Edge Function dynamic-processor.";
   }).catch(()=>{});
 })();
+
+// R9.18.21 · Inicialización monetaria CLP/voz.
+installStaticClpFields();
