@@ -204,7 +204,7 @@
       return request("generateorderpdf", {id:String(id||"")}, token, {timeoutMs:45000});
     },
 
-    // R9.18.11: salesreport tolera esquema histórico en backend y conserva reintentos de transporte.
+    // R9.18.12: salesreport tolera esquema histórico en backend y conserva reintentos de transporte.
     async salesReport(data = {}, token = "") {
       let lastErr = null;
       for (const timeoutMs of [20000, 45000]) {

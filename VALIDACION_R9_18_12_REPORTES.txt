@@ -1,0 +1,6 @@
+VALIDACION R9.18.12
+
+[OK] No existe referencia suelta a high_demand como variable.
+[OK] Respuesta salesReport usa high_demand: highDemand.
+[OK] Backend version: ALE-SUPABASE-R9.18.12-REPORTES-HIGH-DEMAND-FIX.
+[OK] No requiere migración SQL adicional respecto de R9.18.11.

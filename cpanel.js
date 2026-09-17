@@ -678,7 +678,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260916-r91811-reportes-autoreparable";
+const CPANEL_MEDIA_VERSION="20260916-r91812-high-demand-fix";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
