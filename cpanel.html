@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <link rel="icon" type="image/png" href="favicon.png?v=20260916-r91813-pedidos-cpanel-pagos"/>
+  <link rel="icon" type="image/png" href="favicon.png?v=20260917-r91817-public-whatsapp-url"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260916-r91813-pedidos-cpanel-pagos"><link rel="stylesheet" href="cpanel.css?v=20260916-r91814-modal-crear-pedido">
+  <link rel="stylesheet" href="styles.css?v=20260917-r91817-public-whatsapp-url"><link rel="stylesheet" href="cpanel.css?v=20260917-r91817-public-whatsapp-url">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -427,6 +427,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <div class="form-grid">
           <label class="field-group"><span>Nombre del negocio</span><input id="sBusiness" placeholder="Ale Atencio"></label>
           <label class="field-group"><span>RUT del negocio</span><input id="sBusinessRut" placeholder="12.345.678-5" inputmode="text"></label>
+          <label class="field-group span-2"><span>URL pública de la Web</span><input id="sPublicWebUrl" type="url" placeholder="https://tu-dominio.cl/"><small>Esta es la única URL que se comparte con clientes por WhatsApp. Nunca uses aquí Supabase, Apps Script ni otra URL de backend.</small></label>
           <label class="field-group"><span>WhatsApp</span><input id="sWhatsapp" placeholder="+56..."></label>
           <label class="field-group"><span>Correo</span><input id="sEmail" type="email" placeholder="correo@ejemplo.cl"></label>
           <label class="field-group"><span>Dirección / retiro</span><input id="sAddress" placeholder="Dirección"></label>
@@ -447,5 +448,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260916-r91813-pedidos-cpanel-pagos"></script><script src="api.js?v=20260916-r91813-pedidos-cpanel-pagos"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260916-r91814-modal-crear-pedido"></script>
+<script src="config.js?v=20260917-r91817-public-whatsapp-url"></script><script src="api.js?v=20260917-r91817-public-whatsapp-url"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260917-r91817-public-whatsapp-url"></script>
 </body></html>
