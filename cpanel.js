@@ -846,9 +846,40 @@ $("#saveBanner").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{
 
 function parseOrderLines(text){return String(text||"").split(/\n+/).map(line=>{const p=line.split("|").map(x=>x.trim());if(p.length<3)return null;const nombre=p[0],cantidad=Math.max(1,Number(p[1])||1),precio=Math.max(0,Number(String(p[2]).replace(/[^0-9.,-]/g,"").replace(/\./g,"").replace(",","."))||0);return nombre?{nombre,producto_nombre:nombre,cantidad,precio_unitario:precio,precio}:null}).filter(Boolean)}
 function fillOrderQuoteSelect(){const sel=$("#ocQuote");if(!sel)return;sel.innerHTML='<option value="">Pedido manual</option>'+data.quotes.filter(q=>!["ANULADA","RECHAZADA","VENCIDA"].includes(String(q.estado||"").toUpperCase())).map(q=>`<option value="${esc(q.id)}">${esc(q.numero_cotizacion||q.id)} · ${esc(q.cliente_nombre||"")} · ${money(q.total||0)}</option>`).join("")}
-function openOrderCreate(){fillOrderQuoteSelect();["#ocName","#ocRut","#ocPhone","#ocEmail","#ocAddress","#ocItems","#ocNotes"].forEach(x=>{if($(x))$(x).value=""});if($("#ocDispatch"))$("#ocDispatch").value=0;if($("#ocPayment"))$("#ocPayment").value="EFECTIVO";$("#orderCreateEditor")?.classList.remove("hidden")}
-function closeOrderCreate(){$("#orderCreateEditor")?.classList.add("hidden")}
-$("#newOrder")?.addEventListener("click",openOrderCreate);$("#closeOrderCreateX")?.addEventListener("click",closeOrderCreate);$("#cancelOrderCreate")?.addEventListener("click",closeOrderCreate);
+function ensureOrderCreateBackdrop(){
+  let backdrop=$("#orderCreateBackdrop");
+  if(!backdrop){
+    backdrop=document.createElement("div");
+    backdrop.id="orderCreateBackdrop";
+    backdrop.className="hidden";
+    backdrop.setAttribute("aria-hidden","true");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click",closeOrderCreate);
+  }
+  return backdrop;
+}
+function openOrderCreate(){
+  fillOrderQuoteSelect();
+  ["#ocName","#ocRut","#ocPhone","#ocEmail","#ocAddress","#ocItems","#ocNotes"].forEach(x=>{if($(x))$(x).value=""});
+  if($("#ocDispatch"))$("#ocDispatch").value=0;
+  if($("#ocPayment"))$("#ocPayment").value="EFECTIVO";
+  const editor=$("#orderCreateEditor");if(!editor)return;
+  // El modal se monta directamente en body para evitar stacking/overflow de tablas, tarjetas o sidebar.
+  if(editor.parentElement!==document.body)document.body.appendChild(editor);
+  ensureOrderCreateBackdrop().classList.remove("hidden");
+  editor.classList.remove("hidden");
+  document.body.classList.add("order-create-open");
+  requestAnimationFrame(()=>{editor.scrollTop=0;$("#ocQuote")?.focus({preventScroll:true})});
+}
+function closeOrderCreate(){
+  $("#orderCreateEditor")?.classList.add("hidden");
+  $("#orderCreateBackdrop")?.classList.add("hidden");
+  document.body.classList.remove("order-create-open");
+}
+$("#newOrder")?.addEventListener("click",openOrderCreate);
+$("#closeOrderCreateX")?.addEventListener("click",closeOrderCreate);
+$("#cancelOrderCreate")?.addEventListener("click",closeOrderCreate);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderCreateEditor")?.classList.contains("hidden"))closeOrderCreate()});
 $("#ocQuote")?.addEventListener("change",e=>{const q=data.quotes.find(x=>String(x.id)===String(e.target.value));if(!q)return;$("#ocName").value=q.cliente_nombre||"";$("#ocRut").value=q.rut?formatRutChile(q.rut):"";$("#ocPhone").value=q.telefono||"";$("#ocEmail").value=q.email||"";$("#ocNotes").value=q.observaciones||"";$("#ocItems").value=(Array.isArray(q.items)?q.items:[]).map(i=>`${i.descripcion||i.nombre||"Producto"} | ${i.cantidad||1} | ${i.precio_unitario||i.precio||0}`).join("\n")});
 $("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:Number($("#ocDispatch").value||0),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await reload();if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o){o._payment_url=out.payment_url;o._checkout_token=out.checkout_token}}}catch(err){console.warn(err);toast("✕ No fue posible crear el pedido")}}));
 
