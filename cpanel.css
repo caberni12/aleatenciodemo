@@ -2012,3 +2012,18 @@ body.payment-link-open::before{
   #orderPaymentLinkEditor .payment-link-order-summary,#orderPaymentLinkEditor .payment-expiry-grid{grid-template-columns:1fr!important}
   #orderPaymentLinkEditor .editor-actions .btn{width:100%!important;justify-content:center!important}
 }
+
+
+/* R9.18.24 · Pedidos finalizados / anulación obligatoria */
+.status-select.is-final{background:#f4efec;color:#7d6860;border-color:#dfd3ce;cursor:not-allowed;font-weight:700}
+.order-final-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;background:#f4efec;border:1px solid #dfd3ce;color:#6b554d;font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.order-final-chip.cancelled{background:#fff1f1;border-color:#efcccc;color:#9a3131}
+.order-cancel-editor{position:fixed!important;z-index:10050!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(620px,calc(100vw - 32px))!important;max-height:calc(100vh - 32px)!important;overflow:auto!important;background:#fffaf6!important;border:1px solid #eadbd3!important;border-radius:26px!important;box-shadow:0 28px 80px rgba(61,39,31,.28)!important;padding:24px!important}
+body.order-cancel-open{overflow:hidden}
+body.order-cancel-open:before{content:"";position:fixed;inset:0;background:rgba(52,37,31,.45);backdrop-filter:blur(3px);z-index:10040}
+.order-cancel-warning{display:flex;gap:14px;align-items:flex-start;margin:14px 0 18px;padding:16px;border:1px solid #edcaca;border-radius:16px;background:#fff4f4;color:#793838}
+.order-cancel-warning>i{font-size:22px;color:#a63838;margin-top:1px}.order-cancel-warning strong,.order-cancel-warning span{display:block}.order-cancel-warning span{margin-top:5px;line-height:1.5;color:#7b5d58}
+.order-cancel-reason textarea{min-height:130px;resize:vertical;background:#fff;border:1px solid #dbcac2;border-radius:14px;padding:13px}.order-cancel-reason b{color:#a63838}.order-cancel-reason small{color:#8b756c;margin-top:6px}
+.order-detail-final-note{grid-column:1/-1!important;background:#fff4f4!important;border-color:#edcaca!important}.order-detail-final-note.delivered{background:#f4faf5!important;border-color:#cfe3d3!important}.order-detail-final-note strong{font-size:13px!important}
+.row-actions .cancel-order-row{border-color:#e6c3c3;color:#9a3131;background:#fff7f7}.row-actions .cancel-order-row:hover{background:#ffeded}
+@media(max-width:620px){.order-cancel-editor{padding:18px!important;border-radius:20px!important}}
