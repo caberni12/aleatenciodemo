@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.25 · tabla Pedidos compacta + pago visual + estados finales
+// ALE ATENCIO R9.18.26 · notificaciones leídas sincronizadas entre dispositivos + tabla Pedidos compacta
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -381,19 +381,37 @@ restoreSidebarState();
 
 function toast(msg){const t=$("#adminToast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
 
-// ========================= NOTIFICACIONES R9.2 =========================
-const NOTIFY_STORE_KEY="aleAtencioAdminNotificationsV2";
-const NOTIFY_CURSOR_KEY="aleAtencioAdminNotifyCursorV2";
+// ========================= NOTIFICACIONES R9.18.26 · ESTADO SERVIDOR =========================
+const NOTIFY_STORE_PREFIX="aleAtencioAdminNotificationsV3";
+const NOTIFY_LEGACY_STORE_KEY="aleAtencioAdminNotificationsV2";
+const NOTIFY_CURSOR_PREFIX="aleAtencioAdminNotifyCursorV3";
+const NOTIFY_LEGACY_OWNER_KEY="aleAtencioAdminNotificationsV2Owner";
 const NOTIFY_VOICE_KEY="aleAtencioAdminVoiceV2";
+const NOTIFY_READ_MIGRATION_PREFIX="aleAtencioNotifyReadMigratedV1";
 let notifyTimer=null;
 let notifyBusy=false;
 let notifyVoice=localStorage.getItem(NOTIFY_VOICE_KEY)!=="0";
 let notifications=[];
-try{notifications=JSON.parse(localStorage.getItem(NOTIFY_STORE_KEY)||"[]");if(!Array.isArray(notifications))notifications=[]}catch(_){notifications=[]}
+let notificationCacheUserId="";
 
+function notificationUserId(){return String(data.currentUser?.id||"").trim()}
+function notificationStoreKey(){const uid=notificationUserId();return `${NOTIFY_STORE_PREFIX}:${uid||"anonymous"}`}
+function notificationCursorKey(){const uid=notificationUserId();return `${NOTIFY_CURSOR_PREFIX}:${uid||"anonymous"}`}
+function loadNotificationCache(){
+  const uid=notificationUserId();
+  if(!uid||notificationCacheUserId===uid)return;
+  notificationCacheUserId=uid;
+  let raw=localStorage.getItem(notificationStoreKey());
+  // Migración única desde la caché antigua: se vincula al primer usuario que actualiza para no mezclar cuentas.
+  if(raw===null){
+    const legacy=localStorage.getItem(NOTIFY_LEGACY_STORE_KEY),owner=localStorage.getItem(NOTIFY_LEGACY_OWNER_KEY);
+    if(legacy!==null&&(!owner||owner===uid)){raw=legacy;if(!owner)localStorage.setItem(NOTIFY_LEGACY_OWNER_KEY,uid)}
+  }
+  try{const parsed=JSON.parse(raw||"[]");notifications=Array.isArray(parsed)?parsed.slice(0,60):[]}catch(_){notifications=[]}
+}
 function persistNotifications(){
   notifications=notifications.slice(0,60);
-  localStorage.setItem(NOTIFY_STORE_KEY,JSON.stringify(notifications));
+  const uid=notificationUserId();if(uid)localStorage.setItem(notificationStoreKey(),JSON.stringify(notifications));
 }
 function unreadCount(){return notifications.filter(n=>!n.read).length}
 function notificationIcon(kind){return kind==="payment"?"credit-card-2-front":kind==="transfer"?"bank":kind==="order"?"bag-check":"clipboard-heart"}
@@ -422,23 +440,59 @@ function showNotificationCard(n){
   stack.prepend(card);requestAnimationFrame(()=>card.classList.add("show"));
   setTimeout(()=>{card.classList.remove("show");setTimeout(()=>card.remove(),260)},9000);
 }
-function markNotificationRead(key){const n=notifications.find(x=>x.key===key);if(n)n.read=true;persistNotifications();renderNotificationCenter()}
-function addIncomingNotification(kind,item){
+function applyServerReadKeys(keys){
+  const set=new Set((Array.isArray(keys)?keys:[]).map(String));if(!set.size)return false;
+  let changed=false;for(const n of notifications){if(!n.read&&set.has(String(n.key))){n.read=true;changed=true}}
+  if(changed){persistNotifications();renderNotificationCenter()}return changed;
+}
+async function markNotificationRead(key){
+  key=String(key||"").trim();if(!key)return false;
+  const n=notifications.find(x=>x.key===key),wasRead=!!n?.read;
+  if(n){n.read=true;persistNotifications();renderNotificationCenter()}
+  try{await AleAPI.markNotificationRead(key,token);return true}catch(err){
+    console.warn("notificationRead",err);
+    if(n&&!wasRead){n.read=false;persistNotifications();renderNotificationCenter()}
+    toast("No fue posible sincronizar la lectura de la notificación");return false;
+  }
+}
+async function markAllNotificationsRead(){
+  const keys=notifications.filter(n=>!n.read).map(n=>String(n.key)).filter(Boolean);
+  if(!keys.length)return true;
+  const previous=new Set(keys);notifications.forEach(n=>{if(previous.has(String(n.key)))n.read=true});persistNotifications();renderNotificationCenter();
+  try{await AleAPI.markAllNotificationsRead(keys,token);return true}catch(err){
+    console.warn("notificationReadAll",err);
+    notifications.forEach(n=>{if(previous.has(String(n.key)))n.read=false});persistNotifications();renderNotificationCenter();
+    toast("No fue posible sincronizar las notificaciones");return false;
+  }
+}
+async function migrateLocalReadStateOnce(){
+  const uid=notificationUserId();if(!uid||!token)return;
+  const flag=`${NOTIFY_READ_MIGRATION_PREFIX}:${uid}`;if(localStorage.getItem(flag)==="1")return;
+  const keys=notifications.filter(n=>n.read).map(n=>String(n.key)).filter(Boolean);
+  try{if(keys.length)await AleAPI.markAllNotificationsRead(keys,token);localStorage.setItem(flag,"1")}catch(err){console.warn("notification read migration",err)}
+}
+function addIncomingNotification(kind,item,serverReadKeys){
   const suffix=kind==="payment"?String(item.fecha_pago||item.updated_at||"paid"):"";
   const key=`${kind}:${item.id}${suffix?":"+suffix:""}`;if(notifications.some(n=>n.key===key))return false;
   const isOrder=kind==="order",isPayment=kind==="payment",isTransfer=kind==="transfer";const name=String(item.nombre||"Cliente"),reqNumber=item.numero_solicitud||"",orderNumber=item.numero_pedido||item.id||"";
-  const n={key,kind,view:isOrder||isPayment?"orders":"requests",id:item.id,at:item.fecha_pago||item.updated_at||item.fecha||new Date().toISOString(),read:false,title:isPayment?"Pago confirmado":isTransfer?"Comprobante de transferencia":isOrder?"Nuevo pedido":"Nueva solicitud",message:isTransfer?`${orderNumber} · ${name} · comprobante pendiente de revisión`:isPayment?`${orderNumber} · ${name} · ${money(item.total||0)}`:isOrder?`${orderNumber} · ${name} · ${money(item.total||0)}`:`${reqNumber?reqNumber+" · ":""}${name} · ${item.tipo||"Solicitud web"}`};
-  notifications.unshift(n);persistNotifications();renderNotificationCenter();showNotificationCard(n);speakNotification(isTransfer?`Comprobante de transferencia recibido para el pedido ${orderNumber}`:isPayment?`Pago confirmado del pedido ${orderNumber} por ${money(item.total||0)}`:isOrder?`Nuevo pedido recibido de ${name}`:`Nueva solicitud recibida de ${name}`);return true;
+  const alreadyRead=serverReadKeys instanceof Set&&serverReadKeys.has(key);
+  const n={key,kind,view:isOrder||isPayment||isTransfer?"orders":"requests",id:item.id,at:item.fecha_pago||item.updated_at||item.fecha||new Date().toISOString(),read:alreadyRead,title:isPayment?"Pago confirmado":isTransfer?"Comprobante de transferencia":isOrder?"Nuevo pedido":"Nueva solicitud",message:isTransfer?`${orderNumber} · ${name} · comprobante pendiente de revisión`:isPayment?`${orderNumber} · ${name} · ${money(item.total||0)}`:isOrder?`${orderNumber} · ${name} · ${money(item.total||0)}`:`${reqNumber?reqNumber+" · ":""}${name} · ${item.tipo||"Solicitud web"}`};
+  notifications.unshift(n);persistNotifications();renderNotificationCenter();
+  // Una alerta ya leída en otro dispositivo se incorpora al historial, pero no vuelve a interrumpir al usuario.
+  if(!alreadyRead){showNotificationCard(n);speakNotification(isTransfer?`Comprobante de transferencia recibido para el pedido ${orderNumber}`:isPayment?`Pago confirmado del pedido ${orderNumber} por ${money(item.total||0)}`:isOrder?`Nuevo pedido recibido de ${name}`:`Nueva solicitud recibida de ${name}`)}
+  return true;
 }
 function mergeIncomingFeed(feed){
+  const serverReadKeys=new Set((feed?.readKeys||feed?.read_keys||[]).map(String));
+  applyServerReadKeys([...serverReadKeys]);
   let changed=false,paymentChanged=false;
   for(const o of feed.orders||[]){
     const ix=data.orders.findIndex(x=>String(x.id)===String(o.id));const prev=ix>=0?data.orders[ix]:null;const prevPay=String(prev?.estado_pago||"").toUpperCase();
-    if(ix<0){data.orders.unshift(o);changed=addIncomingNotification("order",o)||changed}else{data.orders[ix]={...prev,...o};changed=true}
-    if(String(o.estado_pago||"").toUpperCase()==="PAGADO"){if(prevPay!=="PAGADO")paymentChanged=true;changed=addIncomingNotification("payment",o)||changed}
-    if(String(o.comprobante_pago_estado||"").toUpperCase()==="PENDIENTE_REVISION"&&String(prev?.comprobante_pago_estado||"").toUpperCase()!=="PENDIENTE_REVISION")changed=addIncomingNotification("transfer",o)||changed;
+    if(ix<0){data.orders.unshift(o);changed=addIncomingNotification("order",o,serverReadKeys)||changed}else{data.orders[ix]={...prev,...o};changed=true}
+    if(String(o.estado_pago||"").toUpperCase()==="PAGADO"){if(prevPay!=="PAGADO")paymentChanged=true;changed=addIncomingNotification("payment",o,serverReadKeys)||changed}
+    if(String(o.comprobante_pago_estado||"").toUpperCase()==="PENDIENTE_REVISION"&&String(prev?.comprobante_pago_estado||"").toUpperCase()!=="PENDIENTE_REVISION")changed=addIncomingNotification("transfer",o,serverReadKeys)||changed;
   }
-  for(const r of feed.requests||[]){const ix=data.requests.findIndex(x=>String(x.id)===String(r.id));if(ix<0){data.requests.unshift(r);changed=addIncomingNotification("request",r)||changed}else data.requests[ix]={...data.requests[ix],...r}}
+  for(const r of feed.requests||[]){const ix=data.requests.findIndex(x=>String(x.id)===String(r.id));if(ix<0){data.requests.unshift(r);changed=addIncomingNotification("request",r,serverReadKeys)||changed}else data.requests[ix]={...data.requests[ix],...r}}
   if(changed){renderOrders();renderRequests();$("#kpiOrders").textContent=data.orders.filter(x=>String(x.estado).toUpperCase()==="PENDIENTE").length;$("#kpiRequests").textContent=data.requests.filter(x=>String(x.estado).toUpperCase()==="NUEVA").length}
   if(paymentChanged){reportAnalytics=null;renderDashboardSalesSnapshot();if($("#view-reports")?.classList.contains("active"))loadReports(true).catch(err=>console.warn("report refresh after payment",err))}
 }
@@ -446,23 +500,24 @@ async function pollNotifications(){
   if(!token||notifyBusy||document.body.classList.contains("login-open"))return;
   notifyBusy=true;
   try{
-    let since=localStorage.getItem(NOTIFY_CURSOR_KEY)||"";
-    if(!since){since=new Date(Date.now()-24*60*60*1000).toISOString();localStorage.setItem(NOTIFY_CURSOR_KEY,since)}
+    const cursorKey=notificationCursorKey();
+    let since=localStorage.getItem(cursorKey)||"";
+    if(!since){since=new Date(Date.now()-24*60*60*1000).toISOString();localStorage.setItem(cursorKey,since)}
     const feed=await AleAPI.notificationFeed(since,token);
     mergeIncomingFeed(feed||{});
-    if(feed?.serverTime)localStorage.setItem(NOTIFY_CURSOR_KEY,feed.serverTime);
+    if(feed?.serverTime)localStorage.setItem(cursorKey,feed.serverTime);
   }catch(err){console.warn("notificationFeed",err)}finally{notifyBusy=false}
 }
 function startNotificationWatcher(){
-  stopNotificationWatcher();renderNotificationCenter();
-  if(!localStorage.getItem(NOTIFY_CURSOR_KEY))localStorage.setItem(NOTIFY_CURSOR_KEY,new Date(Date.now()-24*60*60*1000).toISOString());
+  stopNotificationWatcher();loadNotificationCache();renderNotificationCenter();migrateLocalReadStateOnce();
+  const cursorKey=notificationCursorKey();if(!localStorage.getItem(cursorKey))localStorage.setItem(cursorKey,new Date(Date.now()-24*60*60*1000).toISOString());
   notifyTimer=setInterval(pollNotifications,5000);setTimeout(pollNotifications,700);
 }
 function stopNotificationWatcher(){if(notifyTimer){clearInterval(notifyTimer);notifyTimer=null}}
 
 $("#notificationBell")?.addEventListener("click",e=>{e.stopPropagation();setNotificationPanel($("#notificationPanel").classList.contains("hidden"))});
 $("#closeNotifications")?.addEventListener("click",()=>setNotificationPanel(false));
-$("#markAllNotifications")?.addEventListener("click",()=>{notifications.forEach(n=>n.read=true);persistNotifications();renderNotificationCenter()});
+$("#markAllNotifications")?.addEventListener("click",()=>{markAllNotificationsRead()});
 $("#notificationVoiceToggle")?.addEventListener("click",()=>{notifyVoice=!notifyVoice;localStorage.setItem(NOTIFY_VOICE_KEY,notifyVoice?"1":"0");renderNotificationCenter();toast(notifyVoice?"Voz de alertas activada":"Voz de alertas silenciada")});
 $("#notificationList")?.addEventListener("click",e=>{const b=e.target.closest("[data-notification-key]");if(!b)return;markNotificationRead(b.dataset.notificationKey);setNotificationPanel(false);openAdminView(b.dataset.notificationView)});
 document.addEventListener("click",e=>{if(!e.target.closest(".notification-wrap"))setNotificationPanel(false)});

@@ -182,6 +182,14 @@
       return request("notificationfeed", {since:String(since || "")}, token, {timeoutMs:8000});
     },
 
+    async markNotificationRead(key, token) {
+      return request("notificationread", {key:String(key || "")}, token, {timeoutMs:8000});
+    },
+
+    async markAllNotificationsRead(keys, token) {
+      return request("notificationreadall", {keys:Array.isArray(keys)?keys:[]}, token, {timeoutMs:10000});
+    },
+
     async savePriceVerified(data = {}, token = "") {
       const out = await request("saveprice", data, token, {timeoutMs:12000});
       return {...out, verified:true};

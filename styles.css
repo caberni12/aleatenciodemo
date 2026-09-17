@@ -2282,3 +2282,42 @@ button.is-loading::after,.btn.is-loading::after{border-color:rgba(127,82,96,.28)
 .public-share-card{max-width:920px;margin:0 auto;background:#fff;border:1px solid rgba(95,76,65,.14);border-radius:24px;padding:28px;box-shadow:0 18px 55px rgba(80,57,43,.08)}
 .public-share-loading{padding:34px;text-align:center;color:#7d6c64}.public-share-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border-bottom:1px solid rgba(95,76,65,.12);padding-bottom:18px;margin-bottom:20px}.public-share-head h2{margin:4px 0}.public-share-state{padding:8px 12px;border-radius:999px;background:#f5efe9;font-weight:700;font-size:.78rem}.public-share-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}.public-share-meta>div{background:#faf7f4;border-radius:16px;padding:14px}.public-share-meta span,.public-share-totals span{display:block;color:#8b7770;font-size:.78rem}.public-share-meta strong{display:block;margin-top:4px}.public-share-items{border-top:1px solid rgba(95,76,65,.1);border-bottom:1px solid rgba(95,76,65,.1);padding:8px 0}.public-share-items>div,.public-share-totals>div{display:flex;justify-content:space-between;gap:18px;padding:10px 0}.public-share-totals{margin-left:auto;max-width:390px;padding-top:10px}.public-share-totals .total{font-size:1.15rem;border-top:1px solid rgba(95,76,65,.15);margin-top:4px;padding-top:14px}.public-share-note{margin:18px 0;background:#faf7f4;border-radius:16px;padding:16px}.public-share-note p{margin:6px 0 0;white-space:pre-wrap}.public-share-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}@media(max-width:680px){.public-share-card{padding:18px;border-radius:18px}.public-share-head{flex-direction:column}.public-share-meta{grid-template-columns:1fr}.public-share-totals{max-width:none}.public-share-items>div,.public-share-totals>div{gap:10px}}
 @media print{header,.site-footer,.whatsapp-float,.public-share-actions{display:none!important}.public-share-card{box-shadow:none;border:0;max-width:none;padding:0}.view-hero{padding:12px 0!important}}
+
+
+/* =========================================================
+   R9.18.27 · HEADER PÚBLICO SIEMPRE VISIBLE + VISTAS SEGURAS
+   ========================================================= */
+:root{
+  --public-header-height:82px;
+  --public-header-safe-gap:18px;
+}
+html{
+  scroll-padding-top:calc(var(--public-header-height) + var(--public-header-safe-gap));
+}
+.site-header{
+  position:sticky !important;
+  top:0 !important;
+  z-index:300 !important;
+  isolation:isolate;
+  box-shadow:0 8px 24px rgba(73,48,40,.055);
+}
+#app{
+  position:relative;
+  z-index:1;
+}
+#app>.view-hero:first-child,
+#app>.section:first-child,
+#solicitud-formulario{
+  scroll-margin-top:calc(var(--public-header-height) + var(--public-header-safe-gap)) !important;
+}
+.view-hero{
+  position:relative;
+  z-index:1;
+}
+@media(max-width:760px){
+  :root{--public-header-height:72px;--public-header-safe-gap:12px;}
+  .main-nav{
+    top:72px !important;
+    max-height:calc(100vh - 88px) !important;
+  }
+}

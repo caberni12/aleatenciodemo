@@ -531,6 +531,20 @@ function focusRequestForm(){
   if(!target)return;
   requestAnimationFrame(()=>target.scrollIntoView({block:"start",behavior:"smooth"}));
 }
+
+// R9.18.27 · Navegación pública: cada vista se abre con su cabecera visible.
+// La barra de anuncios puede desplazarse fuera de pantalla, pero el header principal
+// queda pegado arriba y el inicio real de la vista nunca queda oculto debajo de él.
+function publicViewScrollTop(hash=""){
+  const route=String(hash||location.hash||"").replace(/^#/,"");
+  if(route==="inicio"||!route)return 0;
+  const announcement=$(".announcement-bar");
+  return Math.max(0,Math.round(announcement?.getBoundingClientRect().height||announcement?.offsetHeight||0));
+}
+function showPublicViewTop(hash="",behavior="auto"){
+  const top=publicViewScrollTop(hash);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo({top,left:0,behavior})));
+}
 function render(){
   const hash=location.hash.replace("#","")||"inicio";
   if(hash==="inicio") $("#app").innerHTML=homeView();
@@ -543,7 +557,7 @@ function render(){
   else if(hash.startsWith("seguimiento")) $("#app").innerHTML=trackingView();
   else if(hash==="politicas") $("#app").innerHTML=policiesView();
   else $("#app").innerHTML=homeView();
-  if(hash==="solicitud") focusRequestForm(); else window.scrollTo({top:0,behavior:"smooth"});
+  showPublicViewTop(hash,"auto");
   closeMobile(); wireCarousel(); wireCatalog(); wireRequest(); wireTracking(); wireSharedQuote(); wireSharedRequest();
 }
 
@@ -870,7 +884,18 @@ $("#searchAction").addEventListener("click",doSearch);$("#searchInput").addEvent
 function doSearch(){const q=normalizeText($("#searchInput").value);const list=state.products.filter(p=>isProductActive(p)&&productSearchText(p).includes(q)).slice(0,8);$("#searchResults").innerHTML=list.length?list.map(p=>`<div class="search-result"><div><strong>${esc(p.nombre)}</strong><br><small>${esc(p.categoria_nombre||"")}</small></div><button class="add-button" onclick="addToCart('${p.id}')">Agregar</button></div>`).join(""):'<div class="empty-card">No encontramos coincidencias.</div>'}
 $(".nav-trigger").addEventListener("click",e=>{e.stopPropagation();e.currentTarget.closest(".nav-group").classList.toggle("open")});document.addEventListener("click",()=>$(".nav-group").classList.remove("open"));
 $("#mobileToggle").addEventListener("click",()=>$("#mainNav").classList.toggle("show"));function closeMobile(){$("#mainNav").classList.remove("show");$(".nav-group").classList.remove("open")}
-document.addEventListener("click",e=>{const a=e.target.closest('a[href="#solicitud"]');if(!a)return;if(location.hash==="#solicitud"){e.preventDefault();focusRequestForm();closeMobile()}});
+document.addEventListener("click",e=>{
+  const a=e.target.closest('a[href^="#"]');
+  if(!a)return;
+  const href=a.getAttribute("href")||"";
+  if(!href||href==="#"||href!==location.hash)return;
+  const route=href.replace(/^#/,"");
+  const isPublicView=route==="inicio"||route==="ofertas"||route==="nosotros"||route==="solicitud"||route==="seguimiento"||route==="politicas"||route.startsWith("productos/");
+  if(!isPublicView)return;
+  e.preventDefault();
+  showPublicViewTop(route,"smooth");
+  closeMobile();
+});
 function toast(msg,type="info"){
   let t=$(".toast");
   if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t)}
