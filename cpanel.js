@@ -829,7 +829,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260917-r91830-payment-method-proof";
+const CPANEL_MEDIA_VERSION="20260918-r91834-payment-secret-manager";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1201,7 +1201,52 @@ async function refreshTransbankHealth(showToast=false){
     return out;
   }catch(err){console.warn("transbankhealth",err);if(status){status.textContent="No verificado";status.classList.remove("is-ready");status.classList.add("is-warning")}if(creds)creds.textContent="No verificado";if(callback)callback.value="";if(showToast)toast("✕ No fue posible verificar Transbank");return null}
 }
-function renderPayments(){const c=data.config||{},checkout=c.transbank_checkout_url||TRANSBANK_DEFAULT_STOREFRONT_URL;let returnUrl=c.transbank_return_url||checkout||TRANSBANK_DEFAULT_STOREFRONT_URL,manualUrl=c.transbank_payment_url||"";try{const legacyHost=returnUrl?new URL(returnUrl).hostname.toLowerCase():"";if(isTransbankHost(legacyHost)){if(!manualUrl)manualUrl=returnUrl;returnUrl=checkout||TRANSBANK_DEFAULT_STOREFRONT_URL}}catch(_){}if($("#pTransbankCheckoutUrl"))$("#pTransbankCheckoutUrl").value=checkout;if($("#pTransbankReturnUrl"))$("#pTransbankReturnUrl").value=returnUrl;if($("#pTransbankManualUrl"))$("#pTransbankManualUrl").value=manualUrl;refreshTransbankHealth(false)}
+const PAYMENT_SECRET_DEFAULTS=["TRANSBANK_COMMERCE_CODE","TRANSBANK_API_KEY_SECRET","TRANSBANK_ENVIRONMENT"];
+let paymentSecretDrafts=[];
+let paymentSecretsSaved=[];
+function paymentSecretEsc(v){return esc(String(v||""))}
+function paymentSecretDraft(name=""){return{id:`sec-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,name:String(name||"").toUpperCase(),value:"",visible:false}}
+function ensurePaymentSecretDrafts(){
+  if(paymentSecretDrafts.length)return;
+  const saved=new Set(paymentSecretsSaved.map(x=>String(x.name||"").toUpperCase()));
+  const pending=PAYMENT_SECRET_DEFAULTS.filter(x=>!saved.has(x));
+  (pending.length?pending:[""]).forEach(n=>paymentSecretDrafts.push(paymentSecretDraft(n)));
+}
+function renderPaymentSecretRows(){
+  const host=$("#paymentSecretRows");if(!host)return;ensurePaymentSecretDrafts();
+  host.innerHTML=paymentSecretDrafts.map((r,i)=>`<div class="payment-secret-row" data-secret-row="${paymentSecretEsc(r.id)}">
+    <input class="secret-name-input" data-secret-name="${paymentSecretEsc(r.id)}" value="${paymentSecretEsc(r.name)}" placeholder="Ej: TRANSBANK_API_KEY_SECRET" autocomplete="off" spellcheck="false">
+    <div class="secret-value-wrap"><input class="secret-value-input" data-secret-value="${paymentSecretEsc(r.id)}" type="${r.visible?"text":"password"}" value="${paymentSecretEsc(r.value)}" placeholder="Escribe el valor del Secret" autocomplete="new-password" spellcheck="false"><button type="button" class="secret-eye" data-secret-eye="${paymentSecretEsc(r.id)}" aria-label="${r.visible?"Ocultar":"Mostrar"} valor"><i class="bi ${r.visible?"bi-eye-slash":"bi-eye"}"></i></button></div>
+    <button type="button" class="secret-row-remove" data-secret-remove="${paymentSecretEsc(r.id)}" aria-label="Quitar fila"><i class="bi bi-trash3"></i></button>
+  </div>`).join("");
+}
+function renderPaymentSecretsExisting(){
+  const host=$("#paymentSecretsExisting");if(!host)return;
+  if(!paymentSecretsSaved.length){host.innerHTML='<span class="secret-empty">No hay Secrets de pasarela detectados.</span>';return}
+  host.innerHTML=paymentSecretsSaved.map(s=>`<div class="stored-secret-item"><div><strong>${paymentSecretEsc(s.name)}</strong><span>••••••••••</span>${s.updated_at?`<small>Actualizado: ${paymentSecretEsc(formatDate(s.updated_at))}</small>`:""}</div><div class="stored-secret-actions"><button type="button" class="btn btn-light secret-replace-btn" data-secret-replace="${paymentSecretEsc(s.name)}"><i class="bi bi-pencil-square"></i> Reemplazar</button><button type="button" class="secret-delete-btn" data-secret-delete="${paymentSecretEsc(s.name)}" title="Eliminar Secret"><i class="bi bi-trash3"></i></button></div></div>`).join("");
+}
+async function loadPaymentSecrets(showToast=false){
+  const panel=$("#paymentSecretsPanel"),status=$("#paymentSecretsManagerStatus"),bootstrap=$("#paymentSecretsBootstrap"),save=$("#savePaymentSecrets"),add=$("#addPaymentSecret");if(!panel)return;
+  const isAdmin=String(data.currentUser?.rol||"").toUpperCase()==="ADMIN";
+  if(!isAdmin){if(status){status.textContent="Solo Administrador";status.className="secret-manager-status is-warning"}if(bootstrap)bootstrap.classList.add("hidden");if(save)save.disabled=true;if(add)add.disabled=true;paymentSecretsSaved=[];paymentSecretDrafts=[];renderPaymentSecretRows();renderPaymentSecretsExisting();return}
+  try{
+    if(status){status.textContent="Consultando servidor…";status.className="secret-manager-status"}
+    const out=await AleAPI.post("paymentsecretslist",{},token);paymentSecretsSaved=Array.isArray(out.secrets)?out.secrets:[];
+    if(bootstrap)bootstrap.classList.toggle("hidden",!!out.bootstrap_ready);
+    if(status){status.textContent=out.bootstrap_ready?"Conectado":"Activación inicial requerida";status.className=`secret-manager-status ${out.bootstrap_ready?"is-ready":"is-warning"}`}
+    if(save)save.disabled=!out.bootstrap_ready;if(add)add.disabled=!out.bootstrap_ready;
+    paymentSecretDrafts=[];renderPaymentSecretRows();renderPaymentSecretsExisting();if(showToast)toast(out.bootstrap_ready?"✓ Secrets del servidor actualizados":"Falta la activación inicial del gestor de Secrets");
+  }catch(err){console.warn("paymentsecretslist",err);if(status){status.textContent="No disponible";status.className="secret-manager-status is-warning"}if(save)save.disabled=true;if(add)add.disabled=true;if(showToast)toast("✕ No fue posible consultar los Secrets del servidor")}
+}
+function addPaymentSecretDraft(name=""){const key=String(name||"").toUpperCase();if(key){const existing=paymentSecretDrafts.find(x=>String(x.name).toUpperCase()===key);if(existing){document.querySelector(`[data-secret-value="${CSS.escape(existing.id)}"]`)?.focus();return}paymentSecretDrafts.unshift(paymentSecretDraft(key))}else paymentSecretDrafts.push(paymentSecretDraft(""));renderPaymentSecretRows();const id=paymentSecretDrafts.find(x=>!x.name)?.id||paymentSecretDrafts[0]?.id;if(id)document.querySelector(`[data-secret-name="${CSS.escape(id)}"]`)?.focus()}
+$("#paymentSecretRows")?.addEventListener("input",e=>{const n=e.target.closest("[data-secret-name]"),v=e.target.closest("[data-secret-value]");const id=n?.dataset.secretName||v?.dataset.secretValue;if(!id)return;const row=paymentSecretDrafts.find(x=>x.id===id);if(!row)return;if(n)row.name=String(n.value||"").toUpperCase().replace(/[^A-Z0-9_]/g,"");if(v)row.value=v.value});
+$("#paymentSecretRows")?.addEventListener("click",e=>{const eye=e.target.closest("[data-secret-eye]"),rm=e.target.closest("[data-secret-remove]");if(eye){const row=paymentSecretDrafts.find(x=>x.id===eye.dataset.secretEye);if(row){row.visible=!row.visible;renderPaymentSecretRows()}return}if(rm){paymentSecretDrafts=paymentSecretDrafts.filter(x=>x.id!==rm.dataset.secretRemove);renderPaymentSecretRows()}});
+$("#addPaymentSecret")?.addEventListener("click",()=>addPaymentSecretDraft(""));
+$("#refreshPaymentSecrets")?.addEventListener("click",()=>loadPaymentSecrets(true));
+$("#paymentSecretsExisting")?.addEventListener("click",async e=>{const rep=e.target.closest("[data-secret-replace]"),del=e.target.closest("[data-secret-delete]");if(rep){addPaymentSecretDraft(rep.dataset.secretReplace);return}if(del){const name=String(del.dataset.secretDelete||"");if(!name||!confirm(`¿Eliminar el Secret ${name} del servidor?\n\nLa pasarela puede dejar de funcionar hasta que vuelvas a configurarlo.`))return;try{await busy(del,()=>AleAPI.post("paymentsecretsdelete",{names:[name]},token));toast(`✓ Secret ${name} eliminado`);await loadPaymentSecrets(false);await refreshTransbankHealth(false)}catch(err){console.warn(err);toast("✕ No fue posible eliminar el Secret")}}});
+$("#savePaymentSecrets")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const secrets=paymentSecretDrafts.map(r=>({name:String(r.name||"").trim().toUpperCase(),value:String(r.value||"")})).filter(x=>x.name||x.value);if(!secrets.length){toast("Agrega al menos un Secret para guardar");return}if(secrets.some(x=>!x.name||!x.value.trim())){toast("✕ Completa el nombre y el valor de cada Secret");return}await AleAPI.post("paymentsecretsset",{secrets},token);paymentSecretDrafts=[];toast("✓ Secrets guardados en el servidor. Los valores se limpiaron del navegador.");await loadPaymentSecrets(false);await refreshTransbankHealth(false)}catch(err){console.warn(err);const code=String(err?.message||err||"");if(code.includes("BOOTSTRAP"))toast("✕ Falta ALE_MANAGEMENT_TOKEN para activar el gestor");else if(code.includes("RESERVADO")||code.includes("SOLO_PASARELAS"))toast("✕ Ese nombre está reservado o no corresponde a una pasarela de pago");else toast("✕ No fue posible guardar los Secrets")}}));
+
+function renderPayments(){const c=data.config||{},checkout=c.transbank_checkout_url||TRANSBANK_DEFAULT_STOREFRONT_URL;let returnUrl=c.transbank_return_url||checkout||TRANSBANK_DEFAULT_STOREFRONT_URL,manualUrl=c.transbank_payment_url||"";try{const legacyHost=returnUrl?new URL(returnUrl).hostname.toLowerCase():"";if(isTransbankHost(legacyHost)){if(!manualUrl)manualUrl=returnUrl;returnUrl=checkout||TRANSBANK_DEFAULT_STOREFRONT_URL}}catch(_){}if($("#pTransbankCheckoutUrl"))$("#pTransbankCheckoutUrl").value=checkout;if($("#pTransbankReturnUrl"))$("#pTransbankReturnUrl").value=returnUrl;if($("#pTransbankManualUrl"))$("#pTransbankManualUrl").value=manualUrl;refreshTransbankHealth(false);loadPaymentSecrets(false)}
 $("#savePayments")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const checkoutRaw=$("#pTransbankCheckoutUrl")?.value.trim()||"",returnRaw=$("#pTransbankReturnUrl")?.value.trim()||"",manualRaw=$("#pTransbankManualUrl")?.value.trim()||"";const checkout=checkoutRaw?safeTransbankStorefrontUrl(checkoutRaw):"",returnUrl=returnRaw?safeTransbankStorefrontUrl(returnRaw):"",manualUrl=manualRaw?safeTransbankManualUrl(manualRaw):"";if(!checkout||!returnUrl){toast("✕ Debes indicar el dominio de tienda y el dominio de regreso");return}await AleAPI.post("saveConfig",{transbank_enabled:"SI",transbank_checkout_url:checkout,transbank_return_url:returnUrl,transbank_payment_url:manualUrl,transbank_button_label:"Pagar con Transbank"},token);toast("✓ Webpay Plus y Link Webpay manual guardados por separado. Verificando…");await reload();await refreshTransbankHealth(false)}catch(err){console.warn(err);const code=String(err?.message||"");if(code.includes("TRANSBANK_LINK_MANUAL_INVALIDO"))toast("✕ El Link Webpay manual debe pertenecer a webpay.cl o transbank.cl");else if(code.includes("TRANSBANK_DOMINIO_TIENDA_INVALIDO"))toast("✕ El dominio de tienda/regreso debe ser tu web, no Supabase ni Webpay");else toast(code.includes("TRANSBANK_URL")||code.includes("URL_HTTPS")?"✕ Revisa las URL HTTPS":"✕ No fue posible guardar Transbank")}}));
 $("#testTransbankLink")?.addEventListener("click",()=>refreshTransbankHealth(true));
 $("#openTransbankManualLink")?.addEventListener("click",()=>{try{const raw=$("#pTransbankManualUrl")?.value.trim()||"";if(!raw)return toast("Agrega primero el Link Webpay manual entregado por Transbank");const url=safeTransbankManualUrl(raw);window.open(url,"_blank","noopener,noreferrer")}catch(err){console.warn(err);toast("✕ El Link Webpay manual no es válido")}});

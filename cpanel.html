@@ -434,6 +434,29 @@ Torta chocolate | 1 | 25000"></textarea></label>
             <div class="span-2 form-help" id="transbankCallbackHelp">Se genera automáticamente desde Supabase con <b>/functions/v1/dynamic-processor?tbk_return=1</b>. No debes modificarlo ni copiarlo como dominio de regreso del cliente.</div>
           </div>
           <div class="integration-note transbank-secret-note"><i class="bi bi-shield-lock"></i><span><strong>Las credenciales no se guardan en el navegador ni en la base pública.</strong> En producción el servidor usa <code>TRANSBANK_COMMERCE_CODE</code> y <code>TRANSBANK_API_KEY_SECRET</code> como Secrets.</span></div>
+
+          <div class="payment-secrets-panel" id="paymentSecretsPanel">
+            <div class="payment-secrets-head">
+              <div><span class="eyebrow">Servidor seguro</span><h3>Credenciales y Secret Keys</h3><p>Agrega o reemplaza las claves de la pasarela directamente desde este cPanel. Después de guardar, el valor queda en el servidor y no vuelve a mostrarse en texto claro.</p></div>
+              <span class="secret-manager-status" id="paymentSecretsManagerStatus">Verificando…</span>
+            </div>
+            <div class="secret-bootstrap-note hidden" id="paymentSecretsBootstrap">
+              <i class="bi bi-key"></i><div><strong>Activación inicial única</strong><span>Para habilitar este gestor debes registrar una sola vez en Supabase el Secret <code>ALE_MANAGEMENT_TOKEN</code> con permisos de lectura/escritura de Edge Function Secrets. Después podrás administrar desde aquí las credenciales de pago sin volver al panel de Supabase.</span></div>
+            </div>
+            <div class="secret-editor-head"><span>Nombre</span><span>Valor</span><span></span></div>
+            <div class="payment-secret-rows" id="paymentSecretRows"></div>
+            <div class="payment-secret-toolbar">
+              <button class="btn btn-light" id="addPaymentSecret" type="button"><i class="bi bi-plus-lg"></i> Agregar otra</button>
+              <button class="btn btn-primary" id="savePaymentSecrets" type="button"><i class="bi bi-shield-lock"></i> Guardar secretos</button>
+              <button class="btn btn-light" id="refreshPaymentSecrets" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar lista</button>
+            </div>
+            <div class="stored-secrets-box">
+              <div class="stored-secrets-title"><strong>Secretos guardados en el servidor</strong><small>Los valores permanecen ocultos por seguridad.</small></div>
+              <div id="paymentSecretsExisting" class="stored-secrets-list"><span class="secret-empty">Cargando…</span></div>
+            </div>
+            <div class="integration-note secret-security-note"><i class="bi bi-shield-check"></i><span>Solo un usuario <strong>Administrador</strong> puede guardar o eliminar Secrets. No se permite administrar desde aquí <code>ALE_MANAGEMENT_TOKEN</code>, variables <code>SUPABASE_*</code> ni secretos internos del sistema.</span></div>
+          </div>
+
           <div class="gateway-actions"><button class="btn btn-primary" id="savePayments"><i class="bi bi-floppy"></i> Guardar configuración</button><button class="btn btn-light" id="testTransbankLink" type="button"><i class="bi bi-shield-check"></i> Verificar Webpay Plus</button><button class="btn btn-light" id="openTransbankManualLink" type="button"><i class="bi bi-box-arrow-up-right"></i> Abrir Link Webpay manual</button></div>
           <div class="gateway-flow"><span><b>1.</b> Pedido registrado</span><i class="bi bi-arrow-right"></i><span><b>2.</b> Backend crea transacción</span><i class="bi bi-arrow-right"></i><span><b>3.</b> Transbank entrega token_ws</span><i class="bi bi-arrow-right"></i><span><b>4.</b> Cliente paga</span><i class="bi bi-arrow-right"></i><span><b>5.</b> Backend confirma y marca PAGADO</span></div>
         </div>
