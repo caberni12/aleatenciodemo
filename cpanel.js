@@ -995,7 +995,17 @@ $("#saveBanner").addEventListener("click",e=>busy(e.currentTarget,async()=>{try{
 
 
 function parseOrderLines(text){return String(text||"").split(/\n+/).map(line=>{const p=line.split("|").map(x=>x.trim());if(p.length<3)return null;const nombre=p[0],cantidad=Math.max(1,Number(p[1])||1),precio=parseClpAmount(p[2]);return nombre?{nombre,producto_nombre:nombre,cantidad,precio_unitario:precio,precio}:null}).filter(Boolean)}
-function fillOrderQuoteSelect(){const sel=$("#ocQuote");if(!sel)return;const used=new Set((data.orders||[]).map(o=>String(o.cotizacion_id||"")).filter(Boolean));sel.innerHTML='<option value="">Pedido manual</option>'+data.quotes.filter(q=>!used.has(String(q.id))&&!["ANULADA","RECHAZADA","VENCIDA"].includes(String(q.estado||"").toUpperCase())).map(q=>`<option value="${esc(q.id)}">${esc(q.numero_cotizacion||q.id)} · ${esc(q.cliente_nombre||"")} · ${money(q.total||0)}</option>`).join("")}
+function quoteIsConsumed(q){
+  if(!q)return false;
+  if(q._consumida||q.pedido_id)return true;
+  return (data.orders||[]).some(o=>String(o.cotizacion_id||"")===String(q.id));
+}
+function fillOrderQuoteSelect(){
+  const sel=$("#ocQuote");if(!sel)return;
+  sel.innerHTML='<option value="">Pedido manual</option>'+data.quotes
+    .filter(q=>!quoteIsConsumed(q)&&!["ANULADA","RECHAZADA","VENCIDA"].includes(String(q.estado||"").toUpperCase()))
+    .map(q=>`<option value="${esc(q.id)}">${esc(q.numero_cotizacion||q.id)} · ${esc(q.cliente_nombre||"")} · ${money(q.total||0)}</option>`).join("");
+}
 function ensureOrderCreateBackdrop(){
   let backdrop=$("#orderCreateBackdrop");
   if(!backdrop){
@@ -1031,7 +1041,7 @@ $("#closeOrderCreateX")?.addEventListener("click",closeOrderCreate);
 $("#cancelOrderCreate")?.addEventListener("click",closeOrderCreate);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderCreateEditor")?.classList.contains("hidden"))closeOrderCreate()});
 $("#ocQuote")?.addEventListener("change",e=>{const q=data.quotes.find(x=>String(x.id)===String(e.target.value));if(!q)return;$("#ocName").value=q.cliente_nombre||"";$("#ocRut").value=q.rut?formatRutChile(q.rut):"";$("#ocPhone").value=q.telefono||"";$("#ocEmail").value=q.email||"";$("#ocNotes").value=q.observaciones||"";$("#ocItems").value=(Array.isArray(q.items)?q.items:[]).map(i=>`${i.descripcion||i.nombre||"Producto"} | ${i.cantidad||1} | ${i.precio_unitario||i.precio||0}`).join("\n");const request=data.requests.find(r=>String(r.id)===String(q.solicitud_id||""));const pref=String(q.medio_pago_preferido||request?.medio_pago_preferido||"").trim().toUpperCase();const pay=$("#ocPayment");if(pay){if(pref.includes("TRANSFER"))pay.value="TRANSFERENCIA";else if(pref.includes("TRANSBANK")||pref.includes("TARJETA")||pref.includes("WEBPAY"))pay.value="TRANSBANK";else if(pref.includes("EFECTIVO"))pay.value="EFECTIVO";}});
-$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await reload();if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue tomada por otro pedido y no puede reutilizarse.":"✕ No fue posible crear el pedido")}}));
+$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);const consumedQuoteId=String(payload.cotizacion_id||"");if(consumedQuoteId){const qix=data.quotes.findIndex(x=>String(x.id)===consumedQuoteId);if(qix>=0)data.quotes[qix]={...data.quotes[qix],pedido_id:out.order?.id||"CONSUMIDA",pedido_numero:out.order?.numero_pedido||"",_consumida:true};if(out.order?.id&&!data.orders.some(x=>String(x.id)===String(out.order.id)))data.orders.unshift({...out.order,cotizacion_id:consumedQuoteId});fillOrderQuoteSelect();renderQuotes()}toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await loadAdminModules({modules:["orders","quotes"],retry:true});if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue utilizada en un pedido y no puede reutilizarse.":code.includes("COTIZACION_NO_VIGENTE")?"✕ La cotización ya no está vigente para crear pedidos.":"✕ No fue posible crear el pedido")}}));
 
 function renderOrders(){
   const host=$("#ordersTable");if(!host)return;
@@ -1126,7 +1136,7 @@ function renderRequests(){
   const canDelete=!!data.permissions?.requests?.delete;if(!canDelete)selectedSet("requests").clear();
   const visibleIds=data.requests.map(r=>String(r.id));
   const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("requests",visibleIds)}</span>`,"N.º solicitud","Fecha","Cliente / RUT","Tipo","Evento","Detalle","Estado","Acciones"]:["N.º solicitud","Fecha","Cliente / RUT","Tipo","Evento","Detalle","Estado","Acciones"];
-  const rows=data.requests.map(r=>{const selected=selectedSet("requests").has(String(r.id));return `<tr class="${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("requests",r.id)}</td>`:""}<td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.rut?formatRutChile(r.rut):"RUT sin registrar")} · ${esc(r.telefono||"")}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions"><button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button><button type="button" onclick="sendRequestWhatsapp('${r.id}',this)" title="Enviar seguimiento por WhatsApp"><i class="bi bi-whatsapp"></i></button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`}).join("");
+  const rows=data.requests.map(r=>{const selected=selectedSet("requests").has(String(r.id)),used=requestConsumedQuoteId(r),usedLabel=r.cotizacion_numero||used;const quoteAction=used?`<span class="request-used-badge" title="Esta solicitud ya fue utilizada en una cotización"><i class="bi bi-check2-circle"></i> Cotizada${usedLabel?` · ${esc(usedLabel)}`:""}</span>`:`<button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>`;return `<tr class="${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("requests",r.id)}</td>`:""}<td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.rut?formatRutChile(r.rut):"RUT sin registrar")} · ${esc(r.telefono||"")}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions">${quoteAction}<button type="button" onclick="sendRequestWhatsapp('${r.id}',this)" title="Enviar seguimiento por WhatsApp"><i class="bi bi-whatsapp"></i></button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`}).join("");
   $("#requestsTable").innerHTML=table(headers,rows);updateBulkBar("requests");syncSelectedRows($("#requestsTable"));
 }
 $("#requestsTable")?.addEventListener("change",e=>{
@@ -1267,9 +1277,21 @@ $("#qIva")?.addEventListener("input",updateQuoteTotals);
 // R9.8 · Combo filtrable para asociar una solicitud a la cotización.
 let quoteRequestHighlight=-1;
 function requestLabel(r){return `${r.numero_solicitud||r.id||"Solicitud"} · ${r.nombre||"Cliente"}${r.rut?` · ${formatRutChile(r.rut)}`:""}${r.telefono?` · ${r.telefono}`:""}`}
+function requestConsumedQuoteId(r){return String(r?.cotizacion_id||"").trim()}
+function requestConsumedForOtherQuote(r){
+  const used=requestConsumedQuoteId(r),current=String($("#qId")?.value||"").trim();
+  return !!used&&used!==current;
+}
+function setQuoteRequestLocked(locked=false){
+  const search=$("#qRequestSearch"),toggle=$("#toggleQuoteRequest"),clear=$("#clearQuoteRequest");
+  if(search){search.readOnly=!!locked;search.setAttribute("aria-disabled",String(!!locked))}
+  if(toggle)toggle.disabled=!!locked;
+  if(clear)clear.disabled=!!locked;
+}
 function quoteRequestCandidates(term=""){
   const raw=String(term??"").trim();
   return (data.requests||[]).slice().sort((a,b)=>new Date(b.fecha||0)-new Date(a.fecha||0)).filter(r=>{
+    if(requestConsumedForOtherQuote(r))return false;
     return flexibleSearchMatch([r.numero_solicitud,r.id,r.nombre,r.rut,r.telefono,r.email,r.tipo,r.detalle],raw);
   }).slice(0,18);
 }
@@ -1291,6 +1313,7 @@ function renderQuoteRequestResults(term=""){
 }
 function linkRequestToQuote(r,{replaceLine=true}={}){
   if(!r)return;
+  if(requestConsumedForOtherQuote(r)){toast(`✕ La solicitud ${r.numero_solicitud||r.id} ya fue utilizada en ${r.cotizacion_numero||"otra cotización"}.`);return}
   $("#qRequestId").value=r.id||"";
   $("#qRequestNumber").textContent=r.numero_solicitud||r.id||"";
   $("#qRequestSearch").value=requestLabel(r);
@@ -1345,6 +1368,7 @@ document.addEventListener("click",e=>{if(!e.target.closest("#requestCombobox"))s
 
 function resetQuoteEditor(){
   ["qId","qRequestId","qPdfUrl","qClient","qRut","qPhone","qEmail","qObservations"].forEach(id=>{const el=$("#"+id);if(el)el.value=""});
+  setQuoteRequestLocked(false);
   if($("#qPhone")){ $("#qPhone").readOnly=false; $("#qPhone").classList.remove("linked-phone"); $("#qPhone").title=""; }
   $("#qNumber").textContent="Se asignará al guardar";
   $("#qRequestNumber").textContent="Sin solicitud asociada";
@@ -1367,7 +1391,8 @@ function openQuoteEditor(quote=null,request=null){
     $("#qRequestNumber").textContent=quote.numero_solicitud||"Sin solicitud asociada";
     const linkedRequest=(data.requests||[]).find(r=>String(r.id)===String(quote.solicitud_id||""));
     if($("#qRequestSearch")){ $("#qRequestSearch").value=linkedRequest?requestLabel(linkedRequest):(quote.numero_solicitud||""); if(linkedRequest)$("#qRequestSearch").dataset.selectedRequestId=String(linkedRequest.id||""); }
-    if(linkedRequest&&$("#qRequestHelp")){ $("#qRequestHelp").textContent=`Asociada a ${linkedRequest.numero_solicitud||linkedRequest.id}. El WhatsApp se toma de esta solicitud.`; $("#qRequestHelp").classList.add("is-linked") }
+    if(linkedRequest&&$("#qRequestHelp")){ $("#qRequestHelp").textContent=`Asociada a ${linkedRequest.numero_solicitud||linkedRequest.id}. Esta solicitud ya está consumida por esta cotización y no puede reasignarse.`; $("#qRequestHelp").classList.add("is-linked") }
+    if(quote.solicitud_id)setQuoteRequestLocked(true);
     $("#qClient").value=quote.cliente_nombre||"";
     if($("#qRut"))$("#qRut").value=quote.rut?formatRutChile(quote.rut):"";
     $("#qPhone").value=quote.telefono||"";
@@ -1387,7 +1412,7 @@ function openQuoteEditor(quote=null,request=null){
   requestAnimationFrame(()=>{const target=(!quote&&!request)?$("#qRequestSearch"):$("#qClient");target?.focus({preventScroll:true})});
 }
 function closeQuoteEditor(){$("#quoteEditor")?.classList.add("hidden");document.body.classList.remove("quote-editor-open")}
-window.quoteFromRequest=id=>{const r=data.requests.find(x=>String(x.id)===String(id));if(!r)return toast("Solicitud no encontrada");openAdminView("quotes");openQuoteEditor(null,r)};
+window.quoteFromRequest=id=>{const r=data.requests.find(x=>String(x.id)===String(id));if(!r)return toast("Solicitud no encontrada");if(requestConsumedQuoteId(r))return toast(`✕ Esta solicitud ya fue utilizada en ${r.cotizacion_numero||"una cotización"}.`);openAdminView("quotes");openQuoteEditor(null,r)};
 window.editQuote=id=>{const q=data.quotes.find(x=>String(x.id)===String(id));if(!q)return toast("Cotización no encontrada");openQuoteEditor(q,null)};
 
 function quotePayload(){
@@ -1419,6 +1444,11 @@ async function persistQuote(){
   $("#qId").value=q.id||"";$("#qPdfUrl").value=q.pdf_url||"";
   $("#qNumber").textContent=q.numero_cotizacion||q.id||"";
   if(q.numero_solicitud)$("#qRequestNumber").textContent=q.numero_solicitud;
+  if(q.solicitud_id){
+    const r=(data.requests||[]).find(x=>String(x.id)===String(q.solicitud_id));
+    if(r){r.cotizacion_id=q.id;r.cotizacion_numero=q.numero_cotizacion||q.id;r._consumida=true;r.estado="COTIZADA";}
+    setQuoteRequestLocked(true);renderRequests();
+  }
   renderQuotes();
   return q;
 }
@@ -1438,7 +1468,7 @@ function renderQuotes(){
     <td>${money(q.subtotal)}</td>
     <td>${money(q.iva)}<br><small>${esc(q.iva_porcentaje||19)}%</small></td>
     <td><strong>${money(q.total)}</strong></td>
-    <td><select class="status-select" onchange="changeQuoteStatus('${q.id}',this.value)">${["BORRADOR","ENVIADA","ACEPTADA","RECHAZADA","VENCIDA","ANULADA"].map(st=>`<option ${String(q.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td>
+    <td>${quoteIsConsumed(q)?`<span class="quote-used-badge" title="${esc(q.pedido_numero?`Utilizada en ${q.pedido_numero}`:"Cotización utilizada en un pedido")}">UTILIZADA${q.pedido_numero?` · ${esc(q.pedido_numero)}`:""}</span>`:`<select class="status-select" onchange="changeQuoteStatus('${q.id}',this.value)">${["BORRADOR","ENVIADA","ACEPTADA","RECHAZADA","VENCIDA","ANULADA"].map(st=>`<option ${String(q.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select>`}</td>
     <td>${q.pdf_url?`<a class="pdf-link" href="${esc(q.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:"Pendiente"}</td>
     <td><div class="row-actions"><button type="button" onclick="editQuote('${q.id}')">Editar</button><button type="button" onclick="generateQuoteFromList('${q.id}',this)"><i class="bi bi-file-earmark-pdf"></i></button><button type="button" onclick="sendQuoteFromList('${q.id}',this)"><i class="bi bi-whatsapp"></i></button>${canDelete?`<button type="button" class="danger" onclick="deleteQuote('${q.id}',this)" title="Eliminar cotización"><i class="bi bi-trash3"></i></button>`:""}</div></td>
   </tr>`}).join("");
@@ -1466,7 +1496,7 @@ $("#addQuoteProduct")?.addEventListener("click",addCatalogProductToQuote);
 $("#addQuoteLine")?.addEventListener("click",()=>{quoteDraftItems.push(newQuoteItem());renderQuoteItems()});
 $("#newQuote")?.addEventListener("click",()=>openQuoteEditor());
 $("#closeQuoteEditorX")?.addEventListener("click",closeQuoteEditor);
-$("#saveQuote")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const q=await persistQuote();toast(`Cotización ${q.numero_cotizacion||""} guardada`)}catch(err){console.warn(err);toast("No fue posible guardar la cotización")}}));
+$("#saveQuote")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const q=await persistQuote();toast(`Cotización ${q.numero_cotizacion||""} guardada`)}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("SOLICITUD_YA_CONVERTIDA_EN_COTIZACION")?"✕ Esa solicitud ya fue utilizada en otra cotización.":code.includes("SOLICITUD_COTIZACION_NO_REASIGNABLE")?"✕ Una solicitud ya vinculada no puede reasignarse a otra cotización.":"No fue posible guardar la cotización")}}));
 
 function phoneForWhatsapp(raw){
   let d=String(raw||"").replace(/\D/g,"");
