@@ -880,7 +880,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260919-r91842-sync-cliente-cotizacion-utilizada";
+const CPANEL_MEDIA_VERSION="20260919-r91843-pdf-solicitud-cotizacion-pedido";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1071,7 +1071,7 @@ function ensureOrderCreateBackdrop(){
 }
 function openOrderCreate(){
   fillOrderQuoteSelect();
-  ["#ocName","#ocRut","#ocPhone","#ocEmail","#ocAddress","#ocItems","#ocNotes"].forEach(x=>{if($(x))$(x).value=""});
+  ["#ocName","#ocRut","#ocPhone","#ocEmail","#ocAddress","#ocCommune","#ocItems","#ocNotes"].forEach(x=>{if($(x))$(x).value=""});
   if($("#ocDispatch"))$("#ocDispatch").value=0;
   if($("#ocPayment"))$("#ocPayment").value="EFECTIVO";
   if($("#ocDelivery"))$("#ocDelivery").value="Retiro";
@@ -1093,9 +1093,9 @@ $("#newOrder")?.addEventListener("click",openOrderCreate);
 $("#closeOrderCreateX")?.addEventListener("click",closeOrderCreate);
 $("#cancelOrderCreate")?.addEventListener("click",closeOrderCreate);
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderCreateEditor")?.classList.contains("hidden"))closeOrderCreate()});
-$("#ocQuote")?.addEventListener("change",async e=>{const q=data.quotes.find(x=>String(x.id)===String(e.target.value));if(!q)return;$("#ocName").value=q.cliente_nombre||"";$("#ocRut").value=q.rut?formatRutChile(q.rut):"";$("#ocPhone").value=q.telefono||"";$("#ocEmail").value=q.email||"";$("#ocNotes").value=q.observaciones||"";$("#ocItems").value=(Array.isArray(q.items)?q.items:[]).map(i=>`${i.descripcion||i.nombre||"Producto"} | ${i.cantidad||1} | ${i.precio_unitario||i.precio||0}`).join("\n");const request=data.requests.find(r=>String(r.id)===String(q.solicitud_id||""));const pref=String(q.medio_pago_preferido||request?.medio_pago_preferido||"").trim().toUpperCase();const pay=$("#ocPayment");if(pay){if(pref.includes("TRANSFER"))pay.value="TRANSFERENCIA";else if(pref.includes("TRANSBANK")||pref.includes("TARJETA")||pref.includes("WEBPAY"))pay.value="TRANSBANK";else if(pref.includes("EFECTIVO"))pay.value="EFECTIVO";}if(q.rut)await hydrateClientByRut({rutSelector:"#ocRut",statusSelector:"#ocClientLookupState",fields:{name:"#ocName",phone:"#ocPhone",email:"#ocEmail",address:"#ocAddress",delivery:"#ocDelivery"},mode:"overwrite"});});
-wireClientRutLookup({rutSelector:"#ocRut",statusSelector:"#ocClientLookupState",fields:{name:"#ocName",phone:"#ocPhone",email:"#ocEmail",address:"#ocAddress",delivery:"#ocDelivery"}});
-$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:$("#ocDelivery").value,direccion:$("#ocAddress").value.trim(),medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);const consumedQuoteId=String(payload.cotizacion_id||"");if(consumedQuoteId){const qix=data.quotes.findIndex(x=>String(x.id)===consumedQuoteId);if(qix>=0)data.quotes[qix]={...data.quotes[qix],estado:"UTILIZADA",pedido_id:out.order?.id||"CONSUMIDA",pedido_numero:out.order?.numero_pedido||"",_consumida:true};if(out.order?.id&&!data.orders.some(x=>String(x.id)===String(out.order.id)))data.orders.unshift({...out.order,cotizacion_id:consumedQuoteId});fillOrderQuoteSelect();renderQuotes()}toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await loadAdminModules({modules:["orders","quotes"],retry:true});if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue utilizada en un pedido y no puede reutilizarse.":code.includes("COTIZACION_NO_VIGENTE")?"✕ La cotización ya no está vigente para crear pedidos.":code.includes("TELEFONO_YA_ASOCIADO")?"✕ Ese teléfono ya está asociado a otro RUT en Clientes.":code.includes("EMAIL_YA_ASOCIADO")?"✕ Ese correo ya está asociado a otro RUT en Clientes.":"✕ No fue posible crear el pedido")}}));
+$("#ocQuote")?.addEventListener("change",async e=>{const q=data.quotes.find(x=>String(x.id)===String(e.target.value));if(!q)return;$("#ocName").value=q.cliente_nombre||"";$("#ocRut").value=q.rut?formatRutChile(q.rut):"";$("#ocPhone").value=q.telefono||"";$("#ocEmail").value=q.email||"";$("#ocNotes").value=q.observaciones||"";$("#ocItems").value=(Array.isArray(q.items)?q.items:[]).map(i=>`${i.descripcion||i.nombre||"Producto"} | ${i.cantidad||1} | ${i.precio_unitario||i.precio||0}`).join("\n");const request=data.requests.find(r=>String(r.id)===String(q.solicitud_id||""));const pref=String(q.medio_pago_preferido||request?.medio_pago_preferido||"").trim().toUpperCase();const pay=$("#ocPayment");if(pay){if(pref.includes("TRANSFER"))pay.value="TRANSFERENCIA";else if(pref.includes("TRANSBANK")||pref.includes("TARJETA")||pref.includes("WEBPAY"))pay.value="TRANSBANK";else if(pref.includes("EFECTIVO"))pay.value="EFECTIVO";}if(q.rut)await hydrateClientByRut({rutSelector:"#ocRut",statusSelector:"#ocClientLookupState",fields:{name:"#ocName",phone:"#ocPhone",email:"#ocEmail",address:"#ocAddress",commune:"#ocCommune",delivery:"#ocDelivery"},mode:"overwrite"});});
+wireClientRutLookup({rutSelector:"#ocRut",statusSelector:"#ocClientLookupState",fields:{name:"#ocName",phone:"#ocPhone",email:"#ocEmail",address:"#ocAddress",commune:"#ocCommune",delivery:"#ocDelivery"}});
+$("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const delivery=$("#ocDelivery").value,commune=$("#ocCommune").value.trim();if(String(delivery).toUpperCase()==="DESPACHO"&&!commune){toast("✕ Ingresa la comuna para el despacho");$("#ocCommune").focus();return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:delivery,direccion:$("#ocAddress").value.trim(),comuna:commune,medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);const consumedQuoteId=String(payload.cotizacion_id||"");if(consumedQuoteId){const qix=data.quotes.findIndex(x=>String(x.id)===consumedQuoteId);if(qix>=0)data.quotes[qix]={...data.quotes[qix],estado:"UTILIZADA",pedido_id:out.order?.id||"CONSUMIDA",pedido_numero:out.order?.numero_pedido||"",_consumida:true};if(out.order?.id&&!data.orders.some(x=>String(x.id)===String(out.order.id)))data.orders.unshift({...out.order,cotizacion_id:consumedQuoteId});fillOrderQuoteSelect();renderQuotes()}toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await loadAdminModules({modules:["orders","quotes"],retry:true});if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue utilizada en un pedido y no puede reutilizarse.":code.includes("COTIZACION_NO_VIGENTE")?"✕ La cotización ya no está vigente para crear pedidos.":code.includes("TELEFONO_YA_ASOCIADO")?"✕ Ese teléfono ya está asociado a otro RUT en Clientes.":code.includes("EMAIL_YA_ASOCIADO")?"✕ Ese correo ya está asociado a otro RUT en Clientes.":"✕ No fue posible crear el pedido")}}));
 
 function renderOrders(){
   const host=$("#ordersTable");if(!host)return;
@@ -1152,7 +1152,7 @@ function renderOrderDetail(order,items,history=[]){
   const final=isFinalOrder(order),finalState=orderState(order.estado);
   const paymentMethod=canonicalOrderPaymentMethod(order.medio_pago);
   $("#orderDetailSummary").innerHTML=`<div><span>Cliente</span><strong>${esc(order.nombre||"")}</strong></div><div><span>RUT</span><strong>${esc(order.rut?formatRutChile(order.rut):"-")}</strong></div><div><span>WhatsApp</span><strong>${esc(order.telefono||"-")}</strong></div><div><span>Correo</span><strong>${esc(order.email||"-")}</strong></div><div><span>Entrega</span><strong>${esc(order.metodo_entrega||"-")}</strong></div><div><span>Dirección</span><strong>${esc([order.direccion,order.comuna].filter(Boolean).join(" · ")||"-")}</strong></div><div><span>Estado</span><strong>${esc(order.estado||"")}</strong></div><div><span>Estado de pago</span><strong>${esc(order.estado_pago||"PENDIENTE")}</strong></div><div><span>Medio de pago</span><strong>${esc(orderPaymentMethodLabel(paymentMethod))}</strong></div><div><span>Fecha</span><strong>${esc(formatDate(order.fecha))}</strong></div>${final?`<div class="order-detail-final-note ${finalState==="ENTREGADO"?"delivered":""}"><span>Estado final</span><strong>${esc(orderFinalMessage(finalState))}${finalState==="CANCELADO"&&order.anulado_motivo?` · Motivo: ${esc(order.anulado_motivo)}`:""}</strong></div>`:""}`;
-  const proofBox=$("#orderTransferProof"),proofLink=$("#orderTransferProofLink"),proofState=$("#orderTransferProofState"),approveBtn=$("#approveTransferPayment"),payWa=$("#sendOrderPaymentWhatsApp"),cancelBtn=$("#cancelOrderBtn"),regenBtn=$("#regenerateOrderPdf");if(proofBox){const transfer=paymentMethod==="TRANSFERENCIA";proofBox.classList.toggle("hidden",!transfer);if(transfer){const has=!!order.comprobante_pago_url;proofLink.classList.toggle("hidden",!has);if(has)proofLink.href=order.comprobante_pago_url;proofState.textContent=has?(order.comprobante_pago_estado||"PENDIENTE_REVISION"):"Aún sin comprobante";approveBtn.classList.toggle("hidden",final||!has||String(order.estado_pago||"").toUpperCase()==="PAGADO")}}if(payWa)payWa.classList.toggle("hidden",final||paymentMethod!=="TRANSBANK"||String(order.estado_pago||"").toUpperCase()==="PAGADO");if(cancelBtn)cancelBtn.classList.toggle("hidden",final);if(regenBtn){regenBtn.disabled=final;regenBtn.title=final?orderFinalMessage(finalState):"";}
+  const proofBox=$("#orderTransferProof"),proofLink=$("#orderTransferProofLink"),proofState=$("#orderTransferProofState"),approveBtn=$("#approveTransferPayment"),payWa=$("#sendOrderPaymentWhatsApp"),cancelBtn=$("#cancelOrderBtn"),regenBtn=$("#regenerateOrderPdf");if(proofBox){const transfer=paymentMethod==="TRANSFERENCIA";proofBox.classList.toggle("hidden",!transfer);if(transfer){const has=!!order.comprobante_pago_url;proofLink.classList.toggle("hidden",!has);if(has)proofLink.href=order.comprobante_pago_url;proofState.textContent=has?(order.comprobante_pago_estado||"PENDIENTE_REVISION"):"Aún sin comprobante";approveBtn.classList.toggle("hidden",final||!has||String(order.estado_pago||"").toUpperCase()==="PAGADO")}}if(payWa)payWa.classList.toggle("hidden",final||paymentMethod!=="TRANSBANK"||String(order.estado_pago||"").toUpperCase()==="PAGADO");if(cancelBtn)cancelBtn.classList.toggle("hidden",final);if(regenBtn){regenBtn.disabled=false;regenBtn.title=final?"El estado comercial permanece bloqueado; el PDF sí puede reimprimirse/actualizarse.":"";}
   $("#orderDetailItems").innerHTML=(items||[]).length?(items||[]).map(i=>`<div class="order-detail-line"><span><strong>${esc(i.producto_nombre||i.nombre||"Producto")}</strong><small>${esc(i.producto_id||i.id||"")}</small></span><span>${Number(i.cantidad||1)}</span><span>${money(i.precio_unitario??i.precio)}</span><span><strong>${money(i.subtotal??(Number(i.cantidad||1)*Number(i.precio_unitario??i.precio??0)))}</strong></span></div>`).join(""):'<div class="empty-card">Este pedido histórico no tiene líneas de producto recuperables.</div>';
   $("#orderDetailTotals").innerHTML=`<div><span>Subtotal</span><strong>${money(order.subtotal)}</strong></div><div><span>Despacho</span><strong>${money(order.despacho)}</strong></div><div class="grand"><span>Total</span><strong>${money(order.total)}</strong></div>${order.observaciones?`<p><b>Observaciones:</b> ${esc(order.observaciones)}</p>`:""}`;
   const hh=$("#orderDetailHistory");if(hh)hh.innerHTML=(history||[]).length?(history||[]).map(h=>`<div class="order-history-row"><span class="order-history-dot"></span><div><strong>${esc(h.descripcion||h.evento||"Actualización")}</strong><small>${esc(formatDate(h.creado_en||h.fecha))}${h.estado_pago?` · Pago: ${esc(h.estado_pago)}`:""}${h.estado_pedido?` · Pedido: ${esc(h.estado_pedido)}`:""}</small></div></div>`).join(""):'<div class="muted-text">La trazabilidad se registrará desde esta versión.</div>';
@@ -1658,7 +1658,16 @@ async function imageUrlToDataUrl(url){
 function pdfImageType(dataUrl){return /^data:image\/jpe?g/i.test(dataUrl)?"JPEG":"PNG"}
 function configuredDocumentFormat(){const f=String(data.config?.document_format||"A4").toUpperCase();return ["A4","TICKET_80","TICKET_100"].includes(f)?f:"A4"}
 function documentFormatLabel(f=configuredDocumentFormat()){return f==="TICKET_80"?"Ticket 80 mm":f==="TICKET_100"?"Ticket 100 mm":"A4"}
-async function qrDataUrl(url){if(!url)return "";if(!window.QRCode?.toDataURL)throw new Error("LIBRERIA_QR_NO_DISPONIBLE");return await window.QRCode.toDataURL(String(url),{width:720,margin:1,errorCorrectionLevel:"M"})}
+async function qrDataUrl(url){
+  if(!url)return "";
+  try{
+    if(!window.QRCode?.toDataURL){console.warn("PDF_QR_LIBRERIA_NO_DISPONIBLE");return ""}
+    return await window.QRCode.toDataURL(String(url),{width:720,margin:1,errorCorrectionLevel:"M"})
+  }catch(err){
+    console.warn("PDF_QR_NO_DISPONIBLE",err);
+    return "";
+  }
+}
 function clpPdf(v){return money(v).replace("CLP","$").trim()}
 function centeredText(doc,text,w,y,size=8,bold=false){doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);doc.text(String(text||""),w/2,y,{align:"center"})}
 async function buildQuotePdfData(quote,traceUrl=""){
@@ -1705,20 +1714,46 @@ async function buildRequestPdfData(request,traceUrl=""){
   if(ticket){centeredText(doc,company,width,y+2,12,true);y+=7;doc.setFontSize(7.5);for(const line of [data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean)){doc.text(String(line),width/2,y,{align:"center",maxWidth:content});y+=4}doc.setDrawColor(215,200,192);doc.line(margin,y,width-margin,y);y+=7;centeredText(doc,"SOLICITUD",width,y,11,true);y+=5;centeredText(doc,request.numero_solicitud||request.id||"",width,y,8.5,true);y+=7;doc.setFont("helvetica","normal");doc.setFontSize(8);for(const [label,val] of [["Fecha",new Date(request.fecha||Date.now()).toLocaleString("es-CL")],["Cliente",request.nombre],["RUT",request.rut?formatRutChile(request.rut):""],["Teléfono",request.telefono],["Correo",request.email],["Tipo",request.tipo],["Evento",request.fecha_evento],["Cantidad",request.cantidad],["Pago preferido",request.medio_pago_preferido],["Estado",request.estado]].filter(x=>x[1])){doc.setFont("helvetica","bold");doc.text(`${label}:`,margin,y);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(String(val),content-24);doc.text(lines,margin+24,y);y+=Math.max(4,lines.length*3.8)}if(request.detalle){y+=3;doc.setFont("helvetica","bold");doc.text("DETALLE",margin,y);y+=4;doc.setFont("helvetica","normal");for(const l of doc.splitTextToSize(String(request.detalle),content)){doc.text(l,margin,y);y+=3.8}}y+=5;doc.line(margin,y,width-margin,y);y+=5;doc.setFontSize(7);for(const l of doc.splitTextToSize("Escanea el QR para consultar la trazabilidad actualizada de esta solicitud y del pedido cuando corresponda.",content)){doc.text(l,width/2,y,{align:"center"});y+=3.3}y+=2;if(qr){doc.addImage(qr,"PNG",(width-40)/2,y,40,40,undefined,"FAST");y+=43}centeredText(doc,"TRAZABILIDAD",width,y,7.5,true);return {doc,dataUrl:doc.output("datauristring"),format}}
   const right=192,qrSize=30;if(qr){doc.addImage(qr,"PNG",right-qrSize,10,qrSize,qrSize,undefined,"FAST");doc.setFontSize(7);doc.text("Seguimiento / trazabilidad",right-qrSize/2,43,{align:"center"})}const companyRight=qr?right-qrSize-5:right;doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(company,companyRight,18,{align:"right"});doc.setFont("helvetica","normal");doc.setFontSize(9);[data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean).forEach((t,i)=>doc.text(String(t),companyRight,24+i*4.5,{align:"right"}));doc.setDrawColor(220,204,197);doc.line(margin,48,right,48);doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("SOLICITUD",margin,60);doc.setFontSize(11);doc.text(String(request.numero_solicitud||request.id||""),right,58,{align:"right"});y=73;doc.setFontSize(9);for(const [label,val] of [["Fecha",new Date(request.fecha||Date.now()).toLocaleString("es-CL")],["Cliente",request.nombre],["RUT",request.rut?formatRutChile(request.rut):""],["Teléfono",request.telefono],["Correo",request.email],["Tipo",request.tipo],["Evento",request.fecha_evento],["Cantidad",request.cantidad],["Pago preferido",request.medio_pago_preferido],["Estado",request.estado]].filter(x=>x[1])){doc.setFont("helvetica","bold");doc.text(`${label}:`,margin,y);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(String(val),120);doc.text(lines,58,y);y+=Math.max(6,lines.length*4.5)}if(request.detalle){y+=4;doc.setFont("helvetica","bold");doc.text("Detalle",margin,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(String(request.detalle),174),margin,y+6)}doc.setFontSize(8);doc.setTextColor(125,108,100);doc.text(`${company} · ${request.numero_solicitud||"Solicitud"}`,margin,287);return {doc,dataUrl:doc.output("datauristring"),format};
 }
-async function generateRequestPdf(request,download=true){if(!request?.id)throw new Error("SOLICITUD_NO_ENCONTRADA");const shared=await AleAPI.post("requestsharelink",{id:request.id},token),built=await buildRequestPdfData(request,shared?.trace_url||shared?.public_url||"");if(download)built.doc.save(`${request.numero_solicitud||"solicitud"}.pdf`);return built}
+async function generateRequestPdf(request,download=true){
+  if(!request?.id)throw new Error("SOLICITUD_NO_ENCONTRADA");
+  let traceUrl="";
+  try{
+    const shared=await AleAPI.post("requestsharelink",{id:request.id},token);
+    traceUrl=shared?.trace_url||shared?.public_url||"";
+  }catch(err){
+    // El enlace/QR es complementario. Nunca debe impedir generar o reimprimir el PDF.
+    console.warn("PDF_SOLICITUD_SIN_TRAZABILIDAD",err);
+  }
+  const built=await buildRequestPdfData(request,traceUrl);
+  if(download)built.doc.save(`${request.numero_solicitud||"solicitud"}.pdf`);
+  return built;
+}
 window.generateRequestPdfFromList=async(id,btn)=>busy(btn,async()=>{try{const r=data.requests.find(x=>String(x.id)===String(id));if(!r)throw new Error("SOLICITUD_NO_ENCONTRADA");await generateRequestPdf(r,true);toast(`PDF ${documentFormatLabel()} generado`)}catch(err){console.warn(err);toast("No fue posible generar el PDF de la solicitud")}});
 
 async function generateAndUploadQuotePdf(quote,download=true){
   const saved=quote?.id?quote:await persistQuote();
   const fresh=data.quotes.find(x=>String(x.id)===String(saved.id))||saved;
-  const shared=await AleAPI.post("quotesharelink",{id:fresh.id},token);
-  const built=await buildQuotePdfData(fresh,shared?.trace_url||shared?.public_url||"");
-  const out=await AleAPI.uploadQuotePdf({id:fresh.id,dataUrl:built.dataUrl},token);
-  const updated=out.quote||{...fresh,pdf_url:out.pdfUrl};
-  const ix=data.quotes.findIndex(x=>String(x.id)===String(updated.id));if(ix>=0)data.quotes[ix]=updated;else data.quotes.unshift(updated);
-  $("#qPdfUrl").value=updated.pdf_url||out.pdfUrl||"";renderQuotes();
-  if(download)built.doc.save(`${updated.numero_cotizacion||"cotizacion"}.pdf`);
-  return updated;
+  let traceUrl="";
+  try{
+    const shared=await AleAPI.post("quotesharelink",{id:fresh.id},token);
+    traceUrl=shared?.trace_url||shared?.public_url||"";
+  }catch(err){
+    // El QR es complementario. La cotización debe poder emitirse aunque falle el enlace público.
+    console.warn("PDF_COTIZACION_SIN_TRAZABILIDAD",err);
+  }
+  const built=await buildQuotePdfData(fresh,traceUrl);
+  // Primero materializa el PDF para el usuario. Un fallo de Storage no debe bloquear su emisión.
+  if(download)built.doc.save(`${fresh.numero_cotizacion||"cotizacion"}.pdf`);
+  try{
+    const out=await AleAPI.uploadQuotePdf({id:fresh.id,dataUrl:built.dataUrl},token);
+    const updated=out.quote||{...fresh,pdf_url:out.pdfUrl};
+    const ix=data.quotes.findIndex(x=>String(x.id)===String(updated.id));if(ix>=0)data.quotes[ix]=updated;else data.quotes.unshift(updated);
+    $("#qPdfUrl").value=updated.pdf_url||out.pdfUrl||"";renderQuotes();
+    return updated;
+  }catch(err){
+    console.warn("PDF_COTIZACION_STORAGE_PENDIENTE",err);
+    return {...fresh,_pdfUploadPending:true,_pdfUploadError:String(err?.message||err||"ERROR")};
+  }
 }
 async function sendQuoteWhatsapp(quote,popup=null){
   let q=quote;
@@ -1735,9 +1770,9 @@ async function sendQuoteWhatsapp(quote,popup=null){
   }
   return q;
 }
-$("#generateQuotePdf")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const q=$("#qId").value?data.quotes.find(x=>String(x.id)===String($("#qId").value)):null;const out=await generateAndUploadQuotePdf(q||null,true);toast(`PDF ${out.numero_cotizacion||""} generado`)}catch(err){console.warn(err);toast("No fue posible generar el PDF")}}));
+$("#generateQuotePdf")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const q=$("#qId").value?data.quotes.find(x=>String(x.id)===String($("#qId").value)):null;const out=await generateAndUploadQuotePdf(q||null,true);toast(out?._pdfUploadPending?`PDF ${out.numero_cotizacion||""} descargado. El respaldo en servidor quedó pendiente.`:`PDF ${out.numero_cotizacion||""} generado`)}catch(err){console.warn(err);toast("No fue posible generar el PDF")}}));
 $("#sendQuoteWhatsapp")?.addEventListener("click",e=>{const popup=window.open("about:blank","_blank");busy(e.currentTarget,async()=>{try{const q=$("#qId").value?data.quotes.find(x=>String(x.id)===String($("#qId").value)):null;await sendQuoteWhatsapp(q||null,popup);toast("Cotización preparada para WhatsApp")}catch(err){try{popup?.close()}catch(_){}console.warn(err);toast("No fue posible enviar por WhatsApp")}})});
-window.generateQuoteFromList=async(id,btn)=>busy(btn,async()=>{try{const q=data.quotes.find(x=>String(x.id)===String(id));if(!q)throw new Error("COTIZACION_NO_ENCONTRADA");await generateAndUploadQuotePdf(q,true);toast("PDF generado")}catch(e){console.warn(e);toast("No fue posible generar PDF")}});
+window.generateQuoteFromList=async(id,btn)=>busy(btn,async()=>{try{const q=data.quotes.find(x=>String(x.id)===String(id));if(!q)throw new Error("COTIZACION_NO_ENCONTRADA");const out=await generateAndUploadQuotePdf(q,true);toast(out?._pdfUploadPending?"PDF descargado. El respaldo en servidor quedó pendiente.":"PDF generado")}catch(e){console.warn(e);toast("No fue posible generar PDF")}});
 window.sendQuoteFromList=async(id,btn)=>{const popup=window.open("about:blank","_blank");return busy(btn,async()=>{try{const q=data.quotes.find(x=>String(x.id)===String(id));if(!q)throw new Error("COTIZACION_NO_ENCONTRADA");await sendQuoteWhatsapp(q,popup);toast("Cotización preparada para WhatsApp")}catch(e){try{popup?.close()}catch(_){}console.warn(e);toast("No fue posible abrir WhatsApp")}})};
 
 

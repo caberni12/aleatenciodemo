@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260917-r91826-notificaciones-sync"><link rel="stylesheet" href="cpanel.css?v=20260919-r91842-sync-cliente-cotizacion-utilizada">
+  <link rel="stylesheet" href="styles.css?v=20260917-r91826-notificaciones-sync"><link rel="stylesheet" href="cpanel.css?v=20260919-r91843-pdf-solicitud-cotizacion-pedido">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -167,6 +167,7 @@
           <label class="field-group"><span>Nombre</span><input id="ocName"></label><label class="field-group"><span>RUT</span><input id="ocRut" placeholder="12.345.678-5" inputmode="text"><small id="ocClientLookupState" class="client-rut-lookup-state">Ingresa un RUT válido para buscar en Clientes.</small></label>
           <label class="field-group"><span>WhatsApp</span><input id="ocPhone"></label><label class="field-group"><span>Correo</span><input id="ocEmail" type="email"></label>
           <label class="field-group"><span>Entrega</span><select id="ocDelivery"><option>Retiro</option><option>Despacho</option><option>Coordinar</option></select></label><label class="field-group"><span>Dirección</span><input id="ocAddress"></label>
+          <label class="field-group"><span>Comuna</span><input id="ocCommune" placeholder="Ej: Independencia"></label>
           <label class="field-group"><span>Medio de pago</span><select id="ocPayment"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label><label class="field-group"><span>Despacho · CLP</span><input id="ocDispatch" type="text" inputmode="numeric" autocomplete="off" value="0" placeholder="Ej: 5.000"></label>
           <label class="field-group span-2"><span>Productos / líneas</span><textarea id="ocItems" rows="7" placeholder="Formato: Producto | cantidad | precio
 Torta chocolate | 1 | 25000"></textarea></label>
@@ -551,5 +552,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260917-r91826-notificaciones-sync"></script><script src="api.js?v=20260917-r91830-payment-method-proof"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260919-r91842-sync-cliente-cotizacion-utilizada"></script>
+<script src="config.js?v=20260917-r91826-notificaciones-sync"></script><script src="api.js?v=20260917-r91830-payment-method-proof"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260919-r91843-pdf-solicitud-cotizacion-pedido"></script>
 </body></html>

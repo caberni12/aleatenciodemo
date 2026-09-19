@@ -854,8 +854,10 @@ async function submitOrder(){
   const metodo=$("#coMethod").value;const t=totals(metodo);
   const detail=cart.map(i=>{const p=state.products.find(x=>x.id===i.id);return{id:p.id,nombre:p.nombre,cantidad:i.qty,precio:Number(p.precio)}});
   const addressRaw=$("#coAddress").value.trim();
+  const communeRaw=$("#coCommune")?.value.trim()||"";
+  if(metodo==="Despacho"&&!communeRaw){toast("Ingresa la comuna para el despacho.","error");$("#coCommune")?.focus();endButtonLoader(btn);return}
   const paymentMethod=checkoutPaymentIntent==="TRANSBANK"?"TRANSBANK":"TRANSFERENCIA";
-  const data={id:clientRecordId("PED"),nombre,rut,telefono,email:$("#coEmail").value.trim(),metodo_entrega:metodo,direccion:addressRaw,comuna:"",observaciones:$("#coNotes").value.trim(),medio_pago:paymentMethod,detalle:detail,subtotal:t.subtotal,despacho:t.delivery,total:t.total};
+  const data={id:clientRecordId("PED"),nombre,rut,telefono,email:$("#coEmail").value.trim(),metodo_entrega:metodo,direccion:addressRaw,comuna:communeRaw,observaciones:$("#coNotes").value.trim(),medio_pago:paymentMethod,detalle:detail,subtotal:t.subtotal,despacho:t.delivery,total:t.total};
   let result=null,saved=false;
   if(assistedCheckout){const pending={order_id:assistedCheckout.order_id,numero_pedido:assistedCheckout.order?.numero_pedido||assistedCheckout.order_id,checkout_token:assistedCheckout.checkout_token,payment_link_id:assistedCheckout.payment_link_id||"",total:Number(assistedCheckout.order?.total||t.total)};setPendingTransbank(pending);endButtonLoader(btn);try{await startTransbankForOrder(pending)}catch(payErr){console.warn(payErr);toast("No fue posible iniciar Transbank. Intenta nuevamente.","error")}return;}
   try{
