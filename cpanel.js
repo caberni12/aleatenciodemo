@@ -1097,6 +1097,38 @@ $("#ocQuote")?.addEventListener("change",async e=>{const q=data.quotes.find(x=>S
 wireClientRutLookup({rutSelector:"#ocRut",statusSelector:"#ocClientLookupState",fields:{name:"#ocName",phone:"#ocPhone",email:"#ocEmail",address:"#ocAddress",commune:"#ocCommune",delivery:"#ocDelivery"}});
 $("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const detalle=parseOrderLines($("#ocItems").value);if(!detalle.length){toast("✕ Agrega al menos un producto");return}const delivery=$("#ocDelivery").value,commune=$("#ocCommune").value.trim();if(String(delivery).toUpperCase()==="DESPACHO"&&!commune){toast("✕ Ingresa la comuna para el despacho");$("#ocCommune").focus();return}const payload={cotizacion_id:$("#ocQuote").value||null,nombre:$("#ocName").value.trim(),rut:requireRutChile($("#ocRut").value),telefono:$("#ocPhone").value.trim(),email:$("#ocEmail").value.trim(),metodo_entrega:delivery,direccion:$("#ocAddress").value.trim(),comuna:commune,medio_pago:$("#ocPayment").value,despacho:parseClpAmount($("#ocDispatch").value),detalle,total:(data.quotes.find(x=>String(x.id)===String($("#ocQuote").value))?.total||0),observaciones:$("#ocNotes").value.trim()};const out=await AleAPI.post("admincreateorder",payload,token);const consumedQuoteId=String(payload.cotizacion_id||"");if(consumedQuoteId){const qix=data.quotes.findIndex(x=>String(x.id)===consumedQuoteId);if(qix>=0)data.quotes[qix]={...data.quotes[qix],estado:"UTILIZADA",pedido_id:out.order?.id||"CONSUMIDA",pedido_numero:out.order?.numero_pedido||"",_consumida:true};if(out.order?.id&&!data.orders.some(x=>String(x.id)===String(out.order.id)))data.orders.unshift({...out.order,cotizacion_id:consumedQuoteId});fillOrderQuoteSelect();renderQuotes()}toast(`✓ Pedido ${out.order?.numero_pedido||out.order?.id||""} creado`);closeOrderCreate();await loadAdminModules({modules:["orders","quotes"],retry:true});if(out.order?.id){window.openOrderDetail(out.order.id);const o=data.orders.find(x=>String(x.id)===String(out.order.id));if(o&&out.payment_link_required)o._payment_link_required=true}}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("COTIZACION_YA_CONVERTIDA")?"✕ Esta cotización ya fue utilizada en un pedido y no puede reutilizarse.":code.includes("COTIZACION_NO_VIGENTE")?"✕ La cotización ya no está vigente para crear pedidos.":code.includes("TELEFONO_YA_ASOCIADO")?"✕ Ese teléfono ya está asociado a otro RUT en Clientes.":code.includes("EMAIL_YA_ASOCIADO")?"✕ Ese correo ya está asociado a otro RUT en Clientes.":"✕ No fue posible crear el pedido")}}));
 
+window.changeCashPaymentState=async(id,next,control)=>{
+  const o=data.orders.find(x=>String(x.id)===String(id));
+  if(!o){toast("✕ Pedido no encontrado");renderOrders();return}
+  const target=String(next||"").trim().toUpperCase();
+  if(target!=="PAGADO"){renderOrders();return}
+  if(isFinalOrder(o)){toast(`✕ ${orderFinalMessage(o.estado)}. El pedido está bloqueado.`);renderOrders();return}
+  if(canonicalOrderPaymentMethod(o.medio_pago)!=="EFECTIVO"){toast("✕ Solo los pedidos en EFECTIVO pueden confirmarse manualmente desde este control.");renderOrders();return}
+  if(String(o.estado_pago||"").toUpperCase()==="PAGADO"){toast("✓ Este pedido ya está pagado");renderOrders();return}
+  const total=money(o.total);
+  if(!window.confirm(`¿Marcar como PAGADO el pedido ${o.numero_pedido||o.id}?
+
+Medio: EFECTIVO
+Monto recibido: ${total}
+
+El movimiento quedará registrado en la trazabilidad.`)){renderOrders();return}
+  try{
+    beginBusy(control);
+    const out=await AleAPI.post("adminmarkcashpaid",{id:o.id},token);
+    const ix=data.orders.findIndex(x=>String(x.id)===String(o.id));
+    if(ix>=0)data.orders[ix]={...data.orders[ix],estado_pago:"PAGADO",estado:out?.estado||data.orders[ix].estado,fecha_pago:out?.fecha_pago||new Date().toISOString(),medio_pago:"EFECTIVO"};
+    toast("✓ Pedido marcado como PAGADO · EFECTIVO");
+    await loadAdminModules({modules:["orders","requests"],retry:true});
+    renderOrders();renderRequests();reportAnalytics=null;
+    if(currentOrderDetailId&&String(currentOrderDetailId)===String(o.id))await window.openOrderDetail(o.id);
+  }catch(err){
+    console.warn("changeCashPaymentState",err);
+    const code=String(err?.message||err||"").toUpperCase();
+    toast(code.includes("PEDIDO_NO_ES_EFECTIVO")?"✕ El pedido no está registrado como EFECTIVO":code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios":code.includes("PEDIDO_YA_PAGADO")?"✓ Este pedido ya está pagado":"✕ No fue posible marcar el pedido como PAGADO");
+    try{await loadAdminModules({modules:["orders"],retry:true})}catch(_){ }
+    renderOrders();
+  }finally{endBusy(control)}
+};
 function renderOrders(){
   const host=$("#ordersTable");if(!host)return;
   const normalStates=["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO"];
@@ -1106,7 +1138,13 @@ function renderOrders(){
     const statusHtml=final?`<select class="status-select is-final" disabled title="${esc(orderFinalMessage(st))}"><option selected>${esc(st)}</option></select>`:`<select class="status-select" title="${esc(st)}" onchange="this.title=this.value;changeStatus('order','${o.id}',this.value)">${normalStates.map(x=>`<option ${st===x?"selected":""}>${x}</option>`).join("")}</select>`;
     const cancelAction=final?`<span class="order-final-chip ${st==="CANCELADO"?"cancelled":""}"><i class="bi ${st==="CANCELADO"?"bi-x-octagon":"bi-check2-circle"}"></i>${st}</span>`:`<button type="button" class="cancel-order-row" onclick="openOrderCancel('${o.id}')"><i class="bi bi-x-octagon"></i> Anular</button>`;
     const paymentState=String(o.estado_pago||"PENDIENTE").trim().toUpperCase();
+    const paymentMethod=canonicalOrderPaymentMethod(o.medio_pago);
     const paymentClass=paymentState==="PAGADO"?"payment-pagado":(["RECHAZADO","CANCELADO"].includes(paymentState)?"payment-rechazado":"payment-pendiente");
+    const paymentControl=paymentMethod==="EFECTIVO"&&!final
+      ?(paymentState==="PAGADO"
+        ?`<select class="status-select payment-cash-select payment-pagado" disabled title="Pago en efectivo confirmado"><option selected>PAGADO</option></select>`
+        :`<select class="status-select payment-cash-select payment-pendiente" title="Cambiar estado de pago en efectivo" onchange="changeCashPaymentState('${o.id}',this.value,this)"><option value="PENDIENTE" selected>PENDIENTE</option><option value="PAGADO">PAGADO</option></select>`)
+      :`<span class="payment-status-badge ${paymentClass}" title="${esc(paymentState)}">${esc(paymentState)}</span>`;
     const fullDate=formatDate(o.fecha),dateParts=String(fullDate||"").split(","),dateMain=dateParts.shift()||"",dateTime=dateParts.join(",").trim();
     return `<tr class="order-row-clickable" data-order-id="${esc(o.id)}" tabindex="0" aria-label="Abrir detalle del pedido ${esc(o.numero_pedido||o.id)}">
     <td class="order-number-cell"><strong>${esc(o.numero_pedido||o.id)}</strong></td>
@@ -1115,7 +1153,7 @@ function renderOrders(){
     <td class="order-contact-cell"><span title="${esc(o.telefono||"")}">${esc(o.telefono||"")}</span><small title="${esc(o.email||"")}">${esc(o.email||"")}</small></td>
     <td class="order-delivery-cell"><span title="${esc(o.metodo_entrega||"")}">${esc(o.metodo_entrega||"")}</span><small title="${esc([o.direccion,o.comuna].filter(Boolean).join(" · ")||"")}">${esc([o.direccion,o.comuna].filter(Boolean).join(" · "))}</small></td>
     <td class="money-column"><strong>${money(o.total||0)}</strong></td>
-    <td class="order-payment-cell"><span class="payment-status-badge ${paymentClass}" title="${esc(paymentState)}">${esc(paymentState)}</span><small title="${esc(orderPaymentMethodLabel(o.medio_pago))}">${esc(orderPaymentMethodLabel(o.medio_pago))}</small></td>
+    <td class="order-payment-cell">${paymentControl}<small title="${esc(orderPaymentMethodLabel(paymentMethod))}">${esc(orderPaymentMethodLabel(paymentMethod))}</small></td>
     <td class="order-status-cell">${statusHtml}</td>
     <td class="order-pdf-cell">${(o.pdf_url||o.pdf_path)?`<button class="pdf-link order-pdf-secure-btn" type="button" data-order-pdf="${esc(o.id)}"><i class="bi bi-file-earmark-pdf"></i> PDF</button>`:'<span class="muted-text">Pendiente</span>'}</td>
     <td class="order-actions-cell"><div class="row-actions"><button type="button" onclick="openOrderDetail('${o.id}')"><i class="bi bi-eye"></i> Ver pedido</button>${cancelAction}</div></td>
@@ -1152,7 +1190,11 @@ function renderOrderDetail(order,items,history=[]){
   const final=isFinalOrder(order),finalState=orderState(order.estado);
   const paymentMethod=canonicalOrderPaymentMethod(order.medio_pago);
   $("#orderDetailSummary").innerHTML=`<div><span>Cliente</span><strong>${esc(order.nombre||"")}</strong></div><div><span>RUT</span><strong>${esc(order.rut?formatRutChile(order.rut):"-")}</strong></div><div><span>WhatsApp</span><strong>${esc(order.telefono||"-")}</strong></div><div><span>Correo</span><strong>${esc(order.email||"-")}</strong></div><div><span>Entrega</span><strong>${esc(order.metodo_entrega||"-")}</strong></div><div><span>Dirección</span><strong>${esc([order.direccion,order.comuna].filter(Boolean).join(" · ")||"-")}</strong></div><div><span>Estado</span><strong>${esc(order.estado||"")}</strong></div><div><span>Estado de pago</span><strong>${esc(order.estado_pago||"PENDIENTE")}</strong></div><div><span>Medio de pago</span><strong>${esc(orderPaymentMethodLabel(paymentMethod))}</strong></div><div><span>Fecha</span><strong>${esc(formatDate(order.fecha))}</strong></div>${final?`<div class="order-detail-final-note ${finalState==="ENTREGADO"?"delivered":""}"><span>Estado final</span><strong>${esc(orderFinalMessage(finalState))}${finalState==="CANCELADO"&&order.anulado_motivo?` · Motivo: ${esc(order.anulado_motivo)}`:""}</strong></div>`:""}`;
-  const proofBox=$("#orderTransferProof"),proofLink=$("#orderTransferProofLink"),proofState=$("#orderTransferProofState"),approveBtn=$("#approveTransferPayment"),payWa=$("#sendOrderPaymentWhatsApp"),cancelBtn=$("#cancelOrderBtn"),regenBtn=$("#regenerateOrderPdf");if(proofBox){const transfer=paymentMethod==="TRANSFERENCIA";proofBox.classList.toggle("hidden",!transfer);if(transfer){const has=!!order.comprobante_pago_url;proofLink.classList.toggle("hidden",!has);if(has)proofLink.href=order.comprobante_pago_url;proofState.textContent=has?(order.comprobante_pago_estado||"PENDIENTE_REVISION"):"Aún sin comprobante";approveBtn.classList.toggle("hidden",final||!has||String(order.estado_pago||"").toUpperCase()==="PAGADO")}}if(payWa)payWa.classList.toggle("hidden",final||paymentMethod!=="TRANSBANK"||String(order.estado_pago||"").toUpperCase()==="PAGADO");if(cancelBtn)cancelBtn.classList.toggle("hidden",final);if(regenBtn){regenBtn.disabled=false;regenBtn.title=final?"El estado comercial permanece bloqueado; el PDF sí puede reimprimirse/actualizarse.":"";}
+  const proofBox=$("#orderTransferProof"),proofLink=$("#orderTransferProofLink"),proofState=$("#orderTransferProofState"),approveBtn=$("#approveTransferPayment"),cashBtn=$("#confirmCashPayment"),payWa=$("#sendOrderPaymentWhatsApp"),cancelBtn=$("#cancelOrderBtn"),regenBtn=$("#regenerateOrderPdf");
+  const paymentPaid=String(order.estado_pago||"").toUpperCase()==="PAGADO";
+  if(proofBox){const transfer=paymentMethod==="TRANSFERENCIA";proofBox.classList.toggle("hidden",!transfer);if(transfer){const has=!!order.comprobante_pago_url;proofLink.classList.toggle("hidden",!has);if(has)proofLink.href=order.comprobante_pago_url;proofState.textContent=has?(order.comprobante_pago_estado||"PENDIENTE_REVISION"):"Aún sin comprobante";approveBtn.classList.toggle("hidden",final||!has||paymentPaid)}}
+  if(cashBtn){cashBtn.classList.toggle("hidden",final||paymentMethod!=="EFECTIVO"||paymentPaid);cashBtn.disabled=final||paymentPaid;cashBtn.title=paymentPaid?"Este pedido ya está pagado":"Registrar cobro manual en efectivo";}
+  if(payWa)payWa.classList.toggle("hidden",final||paymentMethod!=="TRANSBANK"||paymentPaid);if(cancelBtn)cancelBtn.classList.toggle("hidden",final);if(regenBtn){regenBtn.disabled=false;regenBtn.title=final?"El estado comercial permanece bloqueado; el PDF sí puede reimprimirse/actualizarse.":"";}
   $("#orderDetailItems").innerHTML=(items||[]).length?(items||[]).map(i=>`<div class="order-detail-line"><span><strong>${esc(i.producto_nombre||i.nombre||"Producto")}</strong><small>${esc(i.producto_id||i.id||"")}</small></span><span>${Number(i.cantidad||1)}</span><span>${money(i.precio_unitario??i.precio)}</span><span><strong>${money(i.subtotal??(Number(i.cantidad||1)*Number(i.precio_unitario??i.precio??0)))}</strong></span></div>`).join(""):'<div class="empty-card">Este pedido histórico no tiene líneas de producto recuperables.</div>';
   $("#orderDetailTotals").innerHTML=`<div><span>Subtotal</span><strong>${money(order.subtotal)}</strong></div><div><span>Despacho</span><strong>${money(order.despacho)}</strong></div><div class="grand"><span>Total</span><strong>${money(order.total)}</strong></div>${order.observaciones?`<p><b>Observaciones:</b> ${esc(order.observaciones)}</p>`:""}`;
   const hh=$("#orderDetailHistory");if(hh)hh.innerHTML=(history||[]).length?(history||[]).map(h=>`<div class="order-history-row"><span class="order-history-dot"></span><div><strong>${esc(h.descripcion||h.evento||"Actualización")}</strong><small>${esc(formatDate(h.creado_en||h.fecha))}${h.estado_pago?` · Pago: ${esc(h.estado_pago)}`:""}${h.estado_pedido?` · Pedido: ${esc(h.estado_pedido)}`:""}</small></div></div>`).join(""):'<div class="muted-text">La trazabilidad se registrará desde esta versión.</div>';
@@ -1205,6 +1247,27 @@ $("#generatePaymentLinkWhatsapp")?.addEventListener("click",e=>busy(e.currentTar
 $("#generatePaymentLinkCopy")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{await generateAssignedPaymentLink("copy",e.currentTarget)}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("VIGENCIA")?"✕ Define una fecha y hora futura para la vigencia del enlace.":"✕ No fue posible generar el enlace de pago")}}));
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderPaymentLinkEditor")?.classList.contains("hidden"))closeOrderPaymentLinkEditor()});
 $("#approveTransferPayment")?.addEventListener("click",async e=>busy(e.currentTarget,async()=>{const o=data.orders.find(x=>String(x.id)===String(currentOrderDetailId));if(o&&isFinalOrder(o))return toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar el pago.`);try{await AleAPI.post("adminverifytransfer",{id:currentOrderDetailId},token);toast("✓ Transferencia verificada: pago PAGADO y pedido CONFIRMADO");await reload();if(currentOrderDetailId)openOrderDetail(currentOrderDetailId)}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"✕ No fue posible confirmar la transferencia")}}));
+$("#confirmCashPayment")?.addEventListener("click",async e=>{
+  const o=data.orders.find(x=>String(x.id)===String(currentOrderDetailId));
+  if(!o)return toast("✕ Pedido no encontrado");
+  if(isFinalOrder(o))return toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar el pago.`);
+  if(canonicalOrderPaymentMethod(o.medio_pago)!=="EFECTIVO")return toast("✕ Este pedido no usa pago en efectivo");
+  if(String(o.estado_pago||"").toUpperCase()==="PAGADO")return toast("✓ Este pedido ya está pagado");
+  const total=money(o.total);
+  if(!window.confirm(`¿Confirmar que se recibió ${total} en EFECTIVO para el pedido ${o.numero_pedido||o.id}?\n\nEsta acción quedará registrada en la trazabilidad.`))return;
+  await busy(e.currentTarget,async()=>{
+    try{
+      const out=await AleAPI.post("adminmarkcashpaid",{id:currentOrderDetailId},token);
+      toast(`✓ Pedido marcado como PAGADO · EFECTIVO`);
+      await reload();
+      if(currentOrderDetailId)openOrderDetail(currentOrderDetailId);
+    }catch(err){
+      console.warn(err);
+      const code=String(err?.message||err||"").toUpperCase();
+      toast(code.includes("PEDIDO_YA_PAGADO")?"✓ Este pedido ya está pagado":code.includes("PEDIDO_NO_ES_EFECTIVO")?"✕ El pedido no está configurado para pago en efectivo":code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"✕ No fue posible confirmar el pago en efectivo");
+    }
+  });
+});
 
 function requestIsClosed(r){return String(r?.estado||"").trim().toUpperCase()==="CERRADA"}
 function renderRequests(){
@@ -1670,6 +1733,37 @@ async function qrDataUrl(url){
 }
 function clpPdf(v){return money(v).replace("CLP","$").trim()}
 function centeredText(doc,text,w,y,size=8,bold=false){doc.setFont("helvetica",bold?"bold":"normal");doc.setFontSize(size);doc.text(String(text||""),w/2,y,{align:"center"})}
+function drawA4PdfHeader(doc,{company,logo,qr,left=18,right=192,top=12,companyLines=[]}={}){
+  const qrSize=30;
+  const logoBox={x:left,y:top,w:36,h:22};
+  let textX=left;
+  if(logo){
+    try{
+      const props=doc.getImageProperties(logo),ratio=Math.min(logoBox.w/props.width,logoBox.h/props.height);
+      const w=props.width*ratio,h=props.height*ratio;
+      const y=top+((logoBox.h-h)/2);
+      doc.addImage(logo,pdfImageType(logo),logoBox.x,y,w,h,undefined,"FAST");
+      textX=logoBox.x+logoBox.w+6;
+    }catch(_){textX=left;}
+  }
+  if(qr){
+    try{
+      doc.addImage(qr,"PNG",right-qrSize,10,qrSize,qrSize,undefined,"FAST");
+      doc.setFont("helvetica","normal");
+      doc.setFontSize(7);
+      doc.text("Seguimiento / trazabilidad",right-qrSize/2,43,{align:"center"});
+    }catch(_){ }
+  }
+  doc.setTextColor(68,47,39);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(18);
+  doc.text(String(company||"Ale Atencio"),textX,18,{align:"left"});
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(9);
+  companyLines.filter(Boolean).forEach((line,i)=>doc.text(String(line),textX,24+i*4.5,{align:"left",maxWidth:120}));
+  doc.setDrawColor(220,204,197);
+  doc.line(left,48,right,48);
+}
 async function buildQuotePdfData(quote,traceUrl=""){
   const JsPDF=window.jspdf?.jsPDF;if(!JsPDF)throw new Error("LIBRERIA_PDF_NO_DISPONIBLE");
   const format=configuredDocumentFormat(),company=data.config?.empresa||"Ale Atencio",logo=await imageUrlToDataUrl(data.config?.logo_url||"logo-ale-atencio.png"),qr=await qrDataUrl(traceUrl);
@@ -1694,11 +1788,9 @@ async function buildQuotePdfData(quote,traceUrl=""){
     if(qr){doc.addImage(qr,"PNG",(width-40)/2,y,40,40,undefined,"FAST");y+=43}centeredText(doc,"TRAZABILIDAD",width,y,7.5,true);y+=5;doc.setFontSize(6.5);centeredText(doc,`${company} · ${quote.numero_cotizacion||"Cotización"}`,width,y,6.5);
     return {doc,dataUrl:doc.output("datauristring"),format};
   }
-  const doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"}),pageW=210,pageH=297,left=18,right=192,qrSize=30;
-  if(logo){try{doc.addImage(logo,pdfImageType(logo),left,12,48,24,undefined,"FAST")}catch(_){}}
-  if(qr){try{doc.addImage(qr,"PNG",right-qrSize,10,qrSize,qrSize,undefined,"FAST");doc.setFontSize(7);doc.setFont("helvetica","normal");doc.text("Seguimiento / trazabilidad",right-qrSize/2,43,{align:"center"})}catch(_){}}
-  const companyRight=qr?right-qrSize-5:right;doc.setTextColor(68,47,39);doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(company,companyRight,18,{align:"right"});doc.setFont("helvetica","normal");doc.setFontSize(9);
-  const companyLines=[data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean);companyLines.forEach((t,i)=>doc.text(String(t),companyRight,24+i*4.5,{align:"right"}));doc.setDrawColor(220,204,197);doc.line(left,48,right,48);
+  const doc=new JsPDF({unit:"mm",format:"a4",orientation:"portrait"}),pageW=210,pageH=297,left=18,right=192;
+  const companyLines=[data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean);
+  drawA4PdfHeader(doc,{company,logo,qr,left,right,top:12,companyLines});
   doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("COTIZACIÓN",left,59);doc.setFontSize(11);doc.text(String(quote.numero_cotizacion||quote.id||""),right,57,{align:"right"});doc.setFont("helvetica","normal");doc.setFontSize(9);doc.text(`Fecha: ${new Date(quote.fecha||quote.creado_en||Date.now()).toLocaleDateString("es-CL")}`,right,63,{align:"right"});doc.text(`Validez: ${quote.validez_dias||15} días`,right,68,{align:"right"});let y=75;
   doc.setFont("helvetica","bold");doc.text("Cliente",left,y);doc.setFont("helvetica","normal");doc.text(String(quote.cliente_nombre||""),left,y+5);let clientY=y+10;if(quote.rut){doc.text(`RUT: ${formatRutChile(quote.rut)}`,left,clientY);clientY+=5}if(quote.telefono){doc.text(`Teléfono: ${quote.telefono}`,left,clientY);clientY+=5}if(quote.email)doc.text(`Correo: ${quote.email}`,left,clientY);if(quote.numero_solicitud){doc.setFont("helvetica","bold");doc.text(`Solicitud: ${quote.numero_solicitud}`,right,y,{align:"right"});doc.setFont("helvetica","normal")}y+=25;
   const col={desc:left,qty:125,price:145,total:right},drawHeader=()=>{doc.setFillColor(248,241,238);doc.rect(left,y,right-left,9,"F");doc.setFont("helvetica","bold");doc.text("Descripción",col.desc+2,y+6);doc.text("Cant.",col.qty,y+6,{align:"right"});doc.text("P. unitario",col.price+20,y+6,{align:"right"});doc.text("Total",col.total,y+6,{align:"right"});doc.setFont("helvetica","normal");y+=12};drawHeader();
@@ -1712,7 +1804,7 @@ async function buildRequestPdfData(request,traceUrl=""){
   const doc=new JsPDF({unit:"mm",format:ticket?[width,height]:"a4",orientation:"portrait"});let y=ticket?7:12;
   if(logo){try{if(ticket){const props=doc.getImageProperties(logo),maxW=width===100?38:34,maxH=18,ratio=Math.min(maxW/props.width,maxH/props.height);const w=props.width*ratio,h=props.height*ratio;doc.addImage(logo,pdfImageType(logo),(width-w)/2,y,w,h,undefined,"FAST");y+=h+4}else doc.addImage(logo,pdfImageType(logo),margin,y,48,24,undefined,"FAST")}catch(_){}}
   if(ticket){centeredText(doc,company,width,y+2,12,true);y+=7;doc.setFontSize(7.5);for(const line of [data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean)){doc.text(String(line),width/2,y,{align:"center",maxWidth:content});y+=4}doc.setDrawColor(215,200,192);doc.line(margin,y,width-margin,y);y+=7;centeredText(doc,"SOLICITUD",width,y,11,true);y+=5;centeredText(doc,request.numero_solicitud||request.id||"",width,y,8.5,true);y+=7;doc.setFont("helvetica","normal");doc.setFontSize(8);for(const [label,val] of [["Fecha",new Date(request.fecha||Date.now()).toLocaleString("es-CL")],["Cliente",request.nombre],["RUT",request.rut?formatRutChile(request.rut):""],["Teléfono",request.telefono],["Correo",request.email],["Tipo",request.tipo],["Evento",request.fecha_evento],["Cantidad",request.cantidad],["Pago preferido",request.medio_pago_preferido],["Estado",request.estado]].filter(x=>x[1])){doc.setFont("helvetica","bold");doc.text(`${label}:`,margin,y);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(String(val),content-24);doc.text(lines,margin+24,y);y+=Math.max(4,lines.length*3.8)}if(request.detalle){y+=3;doc.setFont("helvetica","bold");doc.text("DETALLE",margin,y);y+=4;doc.setFont("helvetica","normal");for(const l of doc.splitTextToSize(String(request.detalle),content)){doc.text(l,margin,y);y+=3.8}}y+=5;doc.line(margin,y,width-margin,y);y+=5;doc.setFontSize(7);for(const l of doc.splitTextToSize("Escanea el QR para consultar la trazabilidad actualizada de esta solicitud y del pedido cuando corresponda.",content)){doc.text(l,width/2,y,{align:"center"});y+=3.3}y+=2;if(qr){doc.addImage(qr,"PNG",(width-40)/2,y,40,40,undefined,"FAST");y+=43}centeredText(doc,"TRAZABILIDAD",width,y,7.5,true);return {doc,dataUrl:doc.output("datauristring"),format}}
-  const right=192,qrSize=30;if(qr){doc.addImage(qr,"PNG",right-qrSize,10,qrSize,qrSize,undefined,"FAST");doc.setFontSize(7);doc.text("Seguimiento / trazabilidad",right-qrSize/2,43,{align:"center"})}const companyRight=qr?right-qrSize-5:right;doc.setFont("helvetica","bold");doc.setFontSize(18);doc.text(company,companyRight,18,{align:"right"});doc.setFont("helvetica","normal");doc.setFontSize(9);[data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean).forEach((t,i)=>doc.text(String(t),companyRight,24+i*4.5,{align:"right"}));doc.setDrawColor(220,204,197);doc.line(margin,48,right,48);doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("SOLICITUD",margin,60);doc.setFontSize(11);doc.text(String(request.numero_solicitud||request.id||""),right,58,{align:"right"});y=73;doc.setFontSize(9);for(const [label,val] of [["Fecha",new Date(request.fecha||Date.now()).toLocaleString("es-CL")],["Cliente",request.nombre],["RUT",request.rut?formatRutChile(request.rut):""],["Teléfono",request.telefono],["Correo",request.email],["Tipo",request.tipo],["Evento",request.fecha_evento],["Cantidad",request.cantidad],["Pago preferido",request.medio_pago_preferido],["Estado",request.estado]].filter(x=>x[1])){doc.setFont("helvetica","bold");doc.text(`${label}:`,margin,y);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(String(val),120);doc.text(lines,58,y);y+=Math.max(6,lines.length*4.5)}if(request.detalle){y+=4;doc.setFont("helvetica","bold");doc.text("Detalle",margin,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(String(request.detalle),174),margin,y+6)}doc.setFontSize(8);doc.setTextColor(125,108,100);doc.text(`${company} · ${request.numero_solicitud||"Solicitud"}`,margin,287);return {doc,dataUrl:doc.output("datauristring"),format};
+  const right=192;drawA4PdfHeader(doc,{company,logo,qr,left:margin,right,top:12,companyLines:[data.config?.empresa_rut?`RUT: ${formatRutChile(data.config.empresa_rut)}`:"",data.config?.direccion,data.config?.email,data.config?.whatsapp?`WhatsApp: ${data.config.whatsapp}`:""].filter(Boolean)});doc.setFont("helvetica","bold");doc.setFontSize(20);doc.text("SOLICITUD",margin,60);doc.setFontSize(11);doc.text(String(request.numero_solicitud||request.id||""),right,58,{align:"right"});y=73;doc.setFontSize(9);for(const [label,val] of [["Fecha",new Date(request.fecha||Date.now()).toLocaleString("es-CL")],["Cliente",request.nombre],["RUT",request.rut?formatRutChile(request.rut):""],["Teléfono",request.telefono],["Correo",request.email],["Tipo",request.tipo],["Evento",request.fecha_evento],["Cantidad",request.cantidad],["Pago preferido",request.medio_pago_preferido],["Estado",request.estado]].filter(x=>x[1])){doc.setFont("helvetica","bold");doc.text(`${label}:`,margin,y);doc.setFont("helvetica","normal");const lines=doc.splitTextToSize(String(val),120);doc.text(lines,58,y);y+=Math.max(6,lines.length*4.5)}if(request.detalle){y+=4;doc.setFont("helvetica","bold");doc.text("Detalle",margin,y);doc.setFont("helvetica","normal");doc.text(doc.splitTextToSize(String(request.detalle),174),margin,y+6)}doc.setFontSize(8);doc.setTextColor(125,108,100);doc.text(`${company} · ${request.numero_solicitud||"Solicitud"}`,margin,287);return {doc,dataUrl:doc.output("datauristring"),format};
 }
 async function generateRequestPdf(request,download=true){
   if(!request?.id)throw new Error("SOLICITUD_NO_ENCONTRADA");
