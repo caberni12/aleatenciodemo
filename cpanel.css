@@ -2315,3 +2315,34 @@ body.order-cancel-open:before{content:"";position:fixed;inset:0;background:rgba(
 @media(max-width:760px){
   #ordersTable .admin-table{min-width:1360px!important}
 }
+
+
+/* =========================================================
+   R9.18.37 · FILA DE PEDIDO CLICKEABLE
+   Toda la fila abre el detalle, excepto controles interactivos.
+   ========================================================= */
+#ordersTable .order-row-clickable{
+  cursor:pointer;
+  transition:background-color .16s ease,box-shadow .16s ease;
+  outline:none;
+}
+#ordersTable .order-row-clickable:hover td{
+  background:rgba(185,145,104,.065)!important;
+}
+#ordersTable .order-row-clickable:focus-visible td{
+  background:rgba(185,145,104,.085)!important;
+  box-shadow:inset 0 1px 0 rgba(185,145,104,.20),inset 0 -1px 0 rgba(185,145,104,.20);
+}
+#ordersTable .order-row-clickable button,
+#ordersTable .order-row-clickable a,
+#ordersTable .order-row-clickable select,
+#ordersTable .order-row-clickable input,
+#ordersTable .order-row-clickable textarea,
+#ordersTable .order-row-clickable label{
+  cursor:auto;
+}
+#ordersTable .order-row-clickable button,
+#ordersTable .order-row-clickable a,
+#ordersTable .order-row-clickable select{
+  cursor:pointer;
+}

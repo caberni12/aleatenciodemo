@@ -829,7 +829,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260918-r91836-tablas-sin-desborde";
+const CPANEL_MEDIA_VERSION="20260918-r91837-fila-pedido-clickeable";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1053,7 +1053,7 @@ function renderOrders(){
     const paymentState=String(o.estado_pago||"PENDIENTE").trim().toUpperCase();
     const paymentClass=paymentState==="PAGADO"?"payment-pagado":(["RECHAZADO","CANCELADO"].includes(paymentState)?"payment-rechazado":"payment-pendiente");
     const fullDate=formatDate(o.fecha),dateParts=String(fullDate||"").split(","),dateMain=dateParts.shift()||"",dateTime=dateParts.join(",").trim();
-    return `<tr>
+    return `<tr class="order-row-clickable" data-order-id="${esc(o.id)}" tabindex="0" aria-label="Abrir detalle del pedido ${esc(o.numero_pedido||o.id)}">
     <td class="order-number-cell"><strong>${esc(o.numero_pedido||o.id)}</strong></td>
     <td class="order-date-cell"><span>${esc(dateMain)}</span>${dateTime?`<small>${esc(dateTime)}</small>`:""}</td>
     <td class="order-client-cell"><strong title="${esc(o.nombre||"")}">${esc(o.nombre||"")}</strong><small>${esc(o.rut?formatRutChile(o.rut):"")}</small></td>
@@ -1068,7 +1068,21 @@ function renderOrders(){
 }
 async function secureOrderPdfUrl(orderId){const out=await AleAPI.post("orderpdflink",{id:String(orderId||"")},token);if(!out?.pdf_url)throw new Error("PDF_PEDIDO_NO_DISPONIBLE");return clientPublicUrl(out.pdf_url)}
 async function openSecureOrderPdf(orderId,button=null){let tab=null;try{tab=window.open("about:blank","_blank");if(tab)tab.document.write('<title>Ale Atencio · PDF</title><body style="font-family:Arial,sans-serif;padding:24px">Cargando PDF seguro…</body>');const url=await secureOrderPdfUrl(orderId);if(tab)tab.location.replace(url);else window.location.href=url}catch(err){try{tab?.close()}catch(_){}console.warn("secureOrderPdf",err);toast("✕ No fue posible abrir el PDF seguro")}}
-$("#ordersTable")?.addEventListener("click",e=>{const b=e.target.closest("[data-order-pdf]");if(b)openSecureOrderPdf(b.dataset.orderPdf,b)});
+$("#ordersTable")?.addEventListener("click",e=>{
+  const pdf=e.target.closest("[data-order-pdf]");
+  if(pdf){e.stopPropagation();openSecureOrderPdf(pdf.dataset.orderPdf,pdf);return}
+  if(e.target.closest("button,a,select,input,textarea,label,[role=button]"))return;
+  const row=e.target.closest("tr[data-order-id]");
+  if(row?.dataset?.orderId)window.openOrderDetail(row.dataset.orderId);
+});
+$("#ordersTable")?.addEventListener("keydown",e=>{
+  if(e.key!=="Enter"&&e.key!==" ")return;
+  if(e.target.closest("button,a,select,input,textarea,label,[role=button]"))return;
+  const row=e.target.closest("tr[data-order-id]");
+  if(!row?.dataset?.orderId)return;
+  e.preventDefault();
+  window.openOrderDetail(row.dataset.orderId);
+});
 window.changeStatus=async(kind,id,status)=>{
   if(kind==="order"){const o=data.orders.find(x=>String(x.id)===String(id));if(o&&isFinalOrder(o)){toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar.`);renderOrders();return}if(orderState(status)==="CANCELADO"){window.openOrderCancel(id);renderOrders();return}}
   try{await AleAPI.post("updatestatus",{kind,id,status},token);const list=kind==="order"?data.orders:data.requests;const ix=list.findIndex(x=>String(x.id)===String(id));if(ix>=0)list[ix]={...list[ix],estado:status,updated_at:new Date().toISOString()};if(kind==="order"){renderOrders();reportAnalytics=null;if($("#view-reports")?.classList.contains("active"))loadReports(true).catch(()=>{})}else renderRequests();toast(orderState(status)==="ENTREGADO"?"✓ Pedido marcado como ENTREGADO. El estado quedó bloqueado.":"✓ Estado actualizado")}catch(err){console.warn("changeStatus",err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"No fue posible actualizar el estado");try{await loadAdminModules({modules:[kind==="order"?"orders":"requests"],retry:true})}catch(_){}}};
