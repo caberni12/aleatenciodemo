@@ -2346,3 +2346,15 @@ body.order-cancel-open:before{content:"";position:fixed;inset:0;background:rgba(
 #ordersTable .order-row-clickable select{
   cursor:pointer;
 }
+
+
+/* R9.18.38 · Buscador + calendario en Pedidos, Solicitudes y Cotizaciones */
+.module-filter-bar{display:grid;grid-template-columns:minmax(240px,1.6fr) minmax(150px,.72fr) minmax(150px,.72fr) auto auto;gap:10px;align-items:end;margin:14px 0 8px;padding:12px;border:1px solid #eaded8;border-radius:16px;background:linear-gradient(145deg,#fffaf8,#fff)}
+.module-search-box{height:46px;display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;min-width:0}
+.module-search-box:focus-within{border-color:#a67868;box-shadow:0 0 0 3px rgba(166,120,104,.10)}
+.module-search-box i{color:#977a70}.module-search-box input{border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;width:100%;min-width:0;height:42px;padding:0!important}
+.module-date-filter{display:grid;gap:5px}.module-date-filter>span{font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#80685f}.module-date-filter input{height:46px;width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 10px;color:#4d3931;cursor:pointer}
+.module-filter-bar .btn{min-height:46px;white-space:nowrap}.module-filter-today.is-active{background:#6f4d41!important;color:#fff!important;border-color:#6f4d41!important}.module-filter-meta{min-height:26px;margin:0 2px 8px;color:#806e67;font-size:11px;font-weight:700;display:flex;align-items:center;gap:7px}.module-filter-meta:before{content:"";width:7px;height:7px;border-radius:50%;background:#a77b6b;flex:none}
+.request-closed-lock{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#eef3ec;color:#53704d;font-size:10px;font-weight:900;letter-spacing:.035em;white-space:nowrap}.status-select.is-request-closed{opacity:.84;cursor:not-allowed;background:#f2f6f0}.bulk-locked{display:inline-grid;place-items:center;width:22px;height:22px;color:#698064}.request-row-closed{background:rgba(239,246,236,.42)}
+@media(max-width:1120px){.module-filter-bar{grid-template-columns:1fr 1fr 1fr}.module-search-box{grid-column:1/-1}.module-filter-bar .btn{width:100%}}
+@media(max-width:680px){.module-filter-bar{grid-template-columns:1fr 1fr}.module-search-box{grid-column:1/-1}.module-date-filter{min-width:0}.module-filter-bar .btn{width:100%}}

@@ -1,4 +1,4 @@
-// ALE ATENCIO R9.18.26 · notificaciones leídas sincronizadas entre dispositivos + tabla Pedidos compacta
+// ALE ATENCIO R9.18.38 · filtros por fecha/buscador + cierre protegido de solicitudes pagadas
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const money=n=>new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -161,6 +161,38 @@ async function validateStoredSession(attempts=3){
 }
 
 
+// R9.18.38 · Filtros de tablas comerciales. Por defecto se muestra HOY para evitar tablas interminables.
+function localDateKey(value){
+  if(!value)return "";const d=new Date(value);if(!Number.isNaN(d.getTime()))return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const m=String(value).match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:"";
+}
+function todayDateKey(){return localDateKey(new Date())}
+const commercialFilters={orders:{search:"",from:todayDateKey(),to:todayDateKey()},requests:{search:"",from:todayDateKey(),to:todayDateKey()},quotes:{search:"",from:todayDateKey(),to:todayDateKey()}};
+function normalizeFilterText(v){return String(v??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()}
+function recordDateFor(kind,row){return kind==="quotes"?(row.fecha||row.creado_en||row.created_at):(row.fecha||row.created_at||row.creado_en)}
+function recordSearchText(kind,row){
+  const fields=kind==="orders"?[row.numero_pedido,row.nombre,row.rut,row.telefono,row.email,row.metodo_entrega,row.direccion,row.comuna,row.total,row.estado,row.estado_pago,row.medio_pago]:kind==="requests"?[row.numero_solicitud,row.nombre,row.rut,row.telefono,row.email,row.tipo,row.fecha_evento,row.detalle,row.estado]:[row.numero_cotizacion,row.numero_solicitud,row.cliente_nombre,row.rut,row.telefono,row.email,row.subtotal,row.iva,row.total,row.estado,row.pedido_numero];
+  return normalizeFilterText(fields.filter(v=>v!==undefined&&v!==null).join(" "));
+}
+function filteredCommercialRows(kind,rows){
+  const f=commercialFilters[kind]||{};const q=normalizeFilterText(f.search).trim();
+  return (rows||[]).filter(row=>{const dk=recordDateFor(kind,row);const key=localDateKey(dk);if(f.from&&(!key||key<f.from))return false;if(f.to&&(!key||key>f.to))return false;if(q&&!recordSearchText(kind,row).includes(q))return false;return true});
+}
+function updateCommercialFilterUi(kind,visible,total){
+  const f=commercialFilters[kind],from=$("#"+kind+"From"),to=$("#"+kind+"To"),search=$("#"+kind+"Search"),today=$("#"+kind+"Today"),meta=$("#"+kind+"FilterMeta"),td=todayDateKey();
+  if(from&&from.value!==f.from)from.value=f.from||"";if(to&&to.value!==f.to)to.value=f.to||"";if(search&&search.value!==f.search)search.value=f.search||"";today?.classList.toggle("is-active",f.from===td&&f.to===td);
+  if(meta){const range=f.from||f.to?(f.from===f.to?`Fecha: ${f.from||f.to}`:`Desde ${f.from||"inicio"} hasta ${f.to||"hoy"}`):"Todas las fechas";meta.textContent=`Mostrando ${visible} de ${total} · ${range}${f.search?` · búsqueda: “${f.search}”`:""}`;}
+}
+function renderCommercialKind(kind){if(kind==="orders")renderOrders();else if(kind==="requests")renderRequests();else if(kind==="quotes")renderQuotes()}
+function bindCommercialFilter(kind){
+  const f=commercialFilters[kind],search=$("#"+kind+"Search"),from=$("#"+kind+"From"),to=$("#"+kind+"To"),today=$("#"+kind+"Today"),all=$("#"+kind+"All");
+  if(search)search.addEventListener("input",()=>{f.search=search.value;renderCommercialKind(kind)});
+  [from,to].forEach((el,idx)=>{if(!el)return;el.addEventListener("keydown",e=>{if(!["Tab","Shift"].includes(e.key))e.preventDefault()});el.addEventListener("paste",e=>e.preventDefault());el.addEventListener("click",()=>{try{el.showPicker?.()}catch(_){}});el.addEventListener("change",()=>{if(idx===0)f.from=el.value;else f.to=el.value;if(f.from&&f.to&&f.from>f.to){if(idx===0)f.to=f.from;else f.from=f.to}renderCommercialKind(kind)});});
+  today?.addEventListener("click",()=>{const d=todayDateKey();f.from=d;f.to=d;renderCommercialKind(kind)});
+  all?.addEventListener("click",()=>{f.from="";f.to="";renderCommercialKind(kind)});
+}
+["orders","requests","quotes"].forEach(bindCommercialFilter);
+
 // R9.15.0 · Selección múltiple para eliminación masiva.
 const bulkSelection={products:new Set(),requests:new Set(),quotes:new Set()};
 function selectedSet(kind){return bulkSelection[kind]||new Set()}
@@ -228,9 +260,9 @@ function applyVerifiedDeleteResult(kind,ids,out){
     throw Object.assign(new Error(out?.error||"ELIMINACION_INCOMPLETA"),{payload:out});
   }
   clearBulkSelection(kind);
-  const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0);
-  const confirmed=Math.max(0,Number(out?.requested||ids.length)-remaining);
-  return{deleted,missing,confirmed};
+  const deleted=Number(out?.deleted||0),missing=Number(out?.missing||0),blocked=Number(out?.blocked||0);
+  const confirmed=Math.max(0,deleted+missing);
+  return{deleted,missing,blocked,confirmed};
 }
 
 async function verifyDeleteAfterAmbiguousError(kind,ids,err){
@@ -241,7 +273,8 @@ async function verifyDeleteAfterAmbiguousError(kind,ids,err){
 }
 
 async function deleteSelected(kind,btn){
-  const ids=[...selectedSet(kind)];if(!ids.length)return;
+  let ids=[...selectedSet(kind)];if(!ids.length)return;
+  if(kind==="requests"){const closed=ids.filter(id=>String(data.requests.find(r=>String(r.id)===String(id))?.estado||"").toUpperCase()==="CERRADA");if(closed.length){closed.forEach(id=>selectedSet(kind).delete(String(id)));ids=ids.filter(id=>!closed.includes(id));updateBulkBar(kind);toast(`⚠ ${closed.length} solicitud${closed.length===1?" CERRADA fue excluida":"es CERRADAS fueron excluidas"} de la eliminación masiva.`);if(!ids.length)return;}}
   const names={products:"productos",requests:"solicitudes",quotes:"cotizaciones"};
   const extra=kind==="products"?" Los productos se eliminarán definitivamente de la base. Las imágenes locales de GitHub no se borran; las imágenes propias de Supabase Storage sí se limpian cuando corresponda.":kind==="requests"?" Las cotizaciones ya creadas se conservarán, pero quedarán sin solicitud asociada.":" Los PDF asociados guardados en Supabase Storage también se eliminarán cuando correspondan.";
   if(!confirm(`¿Eliminar definitivamente ${ids.length} ${names[kind]} seleccionados?${extra}\n\nEsta acción no se puede deshacer.`))return;
@@ -278,7 +311,7 @@ async function deleteSelected(kind,btn){
 
     try{
       const result=applyVerifiedDeleteResult(kind,ids,out||{});
-      toast(`✓ Eliminación confirmada: ${result.confirmed} registro${result.confirmed===1?"":"s"} ya no ${result.confirmed===1?"está":"están"} en la base${result.missing?` · ${result.missing} ya no existían`:""}`);
+      toast(`✓ Eliminación confirmada: ${result.confirmed} registro${result.confirmed===1?"":"s"} procesado${result.confirmed===1?"":"s"}${result.missing?` · ${result.missing} ya no existían`:""}${result.blocked?` · ${result.blocked} CERRADA${result.blocked===1?"":"S"} protegida${result.blocked===1?"":"s"}`:""}`);
       // MUY IMPORTANTE: la recarga NO forma parte del resultado de la eliminación.
       const refreshed=await refreshAfterConfirmedDelete(kind);
       if(!refreshed)toast("✓ Eliminación realizada. La actualización visual se reintentará automáticamente");
@@ -1046,7 +1079,8 @@ $("#saveOrderFromCpanel")?.addEventListener("click",e=>busy(e.currentTarget,asyn
 function renderOrders(){
   const host=$("#ordersTable");if(!host)return;
   const normalStates=["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO"];
-  host.innerHTML=table(["N.º pedido","Fecha","Cliente / RUT","Contacto","Entrega","Total","Pago","Estado","PDF","Acciones"],data.orders.map(o=>{
+  const visibleOrders=filteredCommercialRows("orders",data.orders);updateCommercialFilterUi("orders",visibleOrders.length,data.orders.length);
+  host.innerHTML=table(["N.º pedido","Fecha","Cliente / RUT","Contacto","Entrega","Total","Pago","Estado","PDF","Acciones"],visibleOrders.map(o=>{
     const final=isFinalOrder(o),st=orderState(o.estado);
     const statusHtml=final?`<select class="status-select is-final" disabled title="${esc(orderFinalMessage(st))}"><option selected>${esc(st)}</option></select>`:`<select class="status-select" title="${esc(st)}" onchange="this.title=this.value;changeStatus('order','${o.id}',this.value)">${normalStates.map(x=>`<option ${st===x?"selected":""}>${x}</option>`).join("")}</select>`;
     const cancelAction=final?`<span class="order-final-chip ${st==="CANCELADO"?"cancelled":""}"><i class="bi ${st==="CANCELADO"?"bi-x-octagon":"bi-check2-circle"}"></i>${st}</span>`:`<button type="button" class="cancel-order-row" onclick="openOrderCancel('${o.id}')"><i class="bi bi-x-octagon"></i> Anular</button>`;
@@ -1084,8 +1118,9 @@ $("#ordersTable")?.addEventListener("keydown",e=>{
   window.openOrderDetail(row.dataset.orderId);
 });
 window.changeStatus=async(kind,id,status)=>{
+  if(kind==="request"){const r=data.requests.find(x=>String(x.id)===String(id));if(requestIsClosed(r)){toast("✕ La solicitud está CERRADA por pago confirmado y ya no admite cambios.");renderRequests();return}}
   if(kind==="order"){const o=data.orders.find(x=>String(x.id)===String(id));if(o&&isFinalOrder(o)){toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar.`);renderOrders();return}if(orderState(status)==="CANCELADO"){window.openOrderCancel(id);renderOrders();return}}
-  try{await AleAPI.post("updatestatus",{kind,id,status},token);const list=kind==="order"?data.orders:data.requests;const ix=list.findIndex(x=>String(x.id)===String(id));if(ix>=0)list[ix]={...list[ix],estado:status,updated_at:new Date().toISOString()};if(kind==="order"){renderOrders();reportAnalytics=null;if($("#view-reports")?.classList.contains("active"))loadReports(true).catch(()=>{})}else renderRequests();toast(orderState(status)==="ENTREGADO"?"✓ Pedido marcado como ENTREGADO. El estado quedó bloqueado.":"✓ Estado actualizado")}catch(err){console.warn("changeStatus",err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"No fue posible actualizar el estado");try{await loadAdminModules({modules:[kind==="order"?"orders":"requests"],retry:true})}catch(_){}}};
+  try{await AleAPI.post("updatestatus",{kind,id,status},token);const list=kind==="order"?data.orders:data.requests;const ix=list.findIndex(x=>String(x.id)===String(id));if(ix>=0)list[ix]={...list[ix],estado:status,updated_at:new Date().toISOString()};if(kind==="order"){renderOrders();reportAnalytics=null;if($("#view-reports")?.classList.contains("active"))loadReports(true).catch(()=>{})}else renderRequests();toast(orderState(status)==="ENTREGADO"?"✓ Pedido marcado como ENTREGADO. El estado quedó bloqueado.":"✓ Estado actualizado")}catch(err){console.warn("changeStatus",err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":code.includes("SOLICITUD_CERRADA")?"✕ La solicitud está CERRADA y protegida contra cambios.":"No fue posible actualizar el estado");try{await loadAdminModules({modules:[kind==="order"?"orders":"requests"],retry:true})}catch(_){}}};
 let currentOrderDetailId="";
 function canonicalOrderPaymentMethod(v){const s=String(v||"").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");if(!s)return"";if(s.includes("TRANSFER"))return"TRANSFERENCIA";if(s.includes("TRANSBANK")||s.includes("TARJETA")||s.includes("WEBPAY")||s.includes("CARD"))return"TRANSBANK";if(s.includes("EFECTIVO")||s.includes("CASH"))return"EFECTIVO";return s}
 function orderPaymentMethodLabel(v){const m=canonicalOrderPaymentMethod(v);return m==="TRANSFERENCIA"?"Transferencia":m==="TRANSBANK"?"Tarjeta · Transbank":m==="EFECTIVO"?"Efectivo":(m||"Por definir")}
@@ -1149,21 +1184,24 @@ $("#generatePaymentLinkCopy")?.addEventListener("click",e=>busy(e.currentTarget,
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#orderPaymentLinkEditor")?.classList.contains("hidden"))closeOrderPaymentLinkEditor()});
 $("#approveTransferPayment")?.addEventListener("click",async e=>busy(e.currentTarget,async()=>{const o=data.orders.find(x=>String(x.id)===String(currentOrderDetailId));if(o&&isFinalOrder(o))return toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar el pago.`);try{await AleAPI.post("adminverifytransfer",{id:currentOrderDetailId},token);toast("✓ Transferencia verificada: pago PAGADO y pedido CONFIRMADO");await reload();if(currentOrderDetailId)openOrderDetail(currentOrderDetailId)}catch(err){console.warn(err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"✕ No fue posible confirmar la transferencia")}}));
 
+function requestIsClosed(r){return String(r?.estado||"").trim().toUpperCase()==="CERRADA"}
 function renderRequests(){
   pruneSelection("requests",data.requests);
   const canDelete=!!data.permissions?.requests?.delete;if(!canDelete)selectedSet("requests").clear();
-  const visibleIds=data.requests.map(r=>String(r.id));
+  const visibleRequests=filteredCommercialRows("requests",data.requests);updateCommercialFilterUi("requests",visibleRequests.length,data.requests.length);
+  const visibleIds=visibleRequests.filter(r=>!requestIsClosed(r)).map(r=>String(r.id));
   const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("requests",visibleIds)}</span>`,"N.º solicitud","Fecha","Cliente / RUT","Tipo","Evento","Detalle","Estado","Acciones"]:["N.º solicitud","Fecha","Cliente / RUT","Tipo","Evento","Detalle","Estado","Acciones"];
-  const rows=data.requests.map(r=>{const selected=selectedSet("requests").has(String(r.id)),used=requestConsumedQuoteId(r),usedLabel=r.cotizacion_numero||used;const quoteAction=used?`<span class="request-used-badge" title="Esta solicitud ya fue utilizada en una cotización"><i class="bi bi-check2-circle"></i> Cotizada${usedLabel?` · ${esc(usedLabel)}`:""}</span>`:`<button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>`;return `<tr class="${selected?"is-selected":""}">${canDelete?`<td class="bulk-select-col">${bulkCheckbox("requests",r.id)}</td>`:""}<td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.rut?formatRutChile(r.rut):"RUT sin registrar")} · ${esc(r.telefono||"")}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td><select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select></td><td><div class="row-actions">${quoteAction}<button type="button" onclick="sendRequestWhatsapp('${r.id}',this)" title="Enviar seguimiento por WhatsApp"><i class="bi bi-whatsapp"></i></button>${canDelete?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:""}</div></td></tr>`}).join("");
+  const rows=visibleRequests.map(r=>{const closed=requestIsClosed(r),selected=!closed&&selectedSet("requests").has(String(r.id)),used=requestConsumedQuoteId(r),usedLabel=r.cotizacion_numero||used;const quoteAction=used?`<span class="request-used-badge" title="Esta solicitud ya fue utilizada en una cotización"><i class="bi bi-check2-circle"></i> Cotizada${usedLabel?` · ${esc(usedLabel)}`:""}</span>`:closed?`<span class="request-closed-lock"><i class="bi bi-lock-fill"></i> Cerrada</span>`:`<button type="button" onclick="quoteFromRequest('${r.id}')"><i class="bi bi-receipt-cutoff"></i> Cotizar</button>`;const statusHtml=closed?`<select class="status-select is-request-closed" disabled title="Solicitud cerrada por pedido pagado"><option selected>CERRADA</option></select>`:`<select class="status-select" onchange="changeStatus('request','${r.id}',this.value)">${["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"].map(st=>`<option ${String(r.estado).toUpperCase()===st?"selected":""}>${st}</option>`).join("")}</select>`;return `<tr class="${selected?"is-selected ":""}${closed?"request-row-closed":""}">${canDelete?`<td class="bulk-select-col">${closed?`<span class="bulk-locked" title="Solicitud CERRADA: no se puede eliminar"><i class="bi bi-lock-fill"></i></span>`:bulkCheckbox("requests",r.id)}</td>`:""}<td><strong>${esc(r.numero_solicitud||r.id)}</strong></td><td>${esc(formatDate(r.fecha))}</td><td><strong>${esc(r.nombre)}</strong><br><small>${esc(r.rut?formatRutChile(r.rut):"RUT sin registrar")} · ${esc(r.telefono||"")}</small></td><td>${esc(r.tipo||"")}</td><td>${esc(r.fecha_evento||"")}</td><td>${esc(r.detalle||"")}</td><td>${statusHtml}</td><td><div class="row-actions">${quoteAction}<button type="button" onclick="sendRequestWhatsapp('${r.id}',this)" title="Enviar seguimiento por WhatsApp"><i class="bi bi-whatsapp"></i></button>${canDelete&&!closed?`<button type="button" class="danger" onclick="deleteRequest('${r.id}',this)"><i class="bi bi-trash3"></i> Eliminar</button>`:closed?`<span class="request-closed-lock" title="Una solicitud CERRADA está protegida contra eliminación"><i class="bi bi-shield-lock"></i> Protegida</span>`:""}</div></td></tr>`}).join("");
   $("#requestsTable").innerHTML=table(headers,rows);updateBulkBar("requests");syncSelectedRows($("#requestsTable"));
 }
 $("#requestsTable")?.addEventListener("change",e=>{
   if(handleBulkCheckboxChange(e))return;
-  const all=e.target.closest('input[data-bulk-select-all="requests"]');if(all){handleBulkSelectAllChange(e,data.requests.map(r=>String(r.id)));renderRequests()}
+  const all=e.target.closest('input[data-bulk-select-all="requests"]');if(all){handleBulkSelectAllChange(e,filteredCommercialRows("requests",data.requests).filter(r=>!requestIsClosed(r)).map(r=>String(r.id)));renderRequests()}
 });
 $("#deleteSelectedRequests")?.addEventListener("click",e=>deleteSelected("requests",e.currentTarget));
 window.deleteRequest=async(id,btn)=>{
   const r=data.requests.find(x=>String(x.id)===String(id));
+  if(requestIsClosed(r))return toast("✕ Esta solicitud está CERRADA y protegida. No se puede eliminar.");
   const label=r?.numero_solicitud||id;
   if(!confirm(`¿Eliminar definitivamente la solicitud ${label}?\n\nLas cotizaciones vinculadas se conservarán y quedarán sin solicitud asociada.`))return;
   await busy(btn,async()=>{
@@ -1171,7 +1209,7 @@ window.deleteRequest=async(id,btn)=>{
       const res=await AleAPI.post("deleteEntity",{kind:"request",id},token);
       if(!res?.deleted)throw new Error("SOLICITUD_NO_ELIMINADA");
       selectedSet("requests").delete(String(id));toast("✓ Solicitud eliminada");await reload();
-    }catch(e){console.warn(e);toast("✕ No fue posible eliminar la solicitud")}
+    }catch(e){console.warn(e);const code=String(e?.message||e||"").toUpperCase();toast(code.includes("SOLICITUD_CERRADA")?"✕ La solicitud está CERRADA y no puede eliminarse.":"✕ No fue posible eliminar la solicitud")}
   });
 };
 window.sendRequestWhatsapp=(id,btn)=>{const popup=window.open("about:blank","_blank");return busy(btn,async()=>{const r=data.requests.find(x=>String(x.id)===String(id));if(!r){try{popup?.close()}catch(_){};throw new Error("SOLICITUD_NO_ENCONTRADA")}const phone=phoneForWhatsapp(r.telefono);if(!phone){try{popup?.close()}catch(_){};return toast("La solicitud no tiene WhatsApp")}try{const out=await AleAPI.post("requestsharelink",{id:r.id},token),url=clientPublicUrl(out?.public_url||"");const text=`Hola ${r.nombre||""}, puedes consultar tu solicitud ${r.numero_solicitud||r.id} aquí: ${url}`,waUrl=`https://wa.me/${phone}?text=${encodeURIComponent(text)}`;if(popup&&!popup.closed)popup.location.href=waUrl;else window.open(waUrl,"_blank","noopener");toast("Enlace público de solicitud preparado")}catch(err){try{popup?.close()}catch(_){};console.warn(err);toast("No fue posible generar el enlace de la solicitud")}})};
@@ -1520,9 +1558,10 @@ function renderQuotes(){
   const host=$("#quotesTable");if(!host)return;
   pruneSelection("quotes",data.quotes);
   const canDelete=!!data.permissions?.quotes?.delete;if(!canDelete)selectedSet("quotes").clear();
-  const visibleIds=data.quotes.map(q=>String(q.id));
+  const visibleQuotes=filteredCommercialRows("quotes",data.quotes);updateCommercialFilterUi("quotes",visibleQuotes.length,data.quotes.length);
+  const visibleIds=visibleQuotes.map(q=>String(q.id));
   const headers=canDelete?[`<span class="bulk-select-col">${bulkHeaderCheckbox("quotes",visibleIds)}</span>`,"N.º cotización","Solicitud","Fecha","Cliente","Neto","IVA","Total","Estado","PDF","Acciones"]:["N.º cotización","Solicitud","Fecha","Cliente","Neto","IVA","Total","Estado","PDF","Acciones"];
-  const rows=data.quotes.map(q=>{const selected=selectedSet("quotes").has(String(q.id));return `<tr class="${selected?"is-selected":""}">
+  const rows=visibleQuotes.map(q=>{const selected=selectedSet("quotes").has(String(q.id));return `<tr class="${selected?"is-selected":""}">
     ${canDelete?`<td class="bulk-select-col">${bulkCheckbox("quotes",q.id)}</td>`:""}
     <td><strong>${esc(q.numero_cotizacion||q.id)}</strong></td>
     <td>${esc(q.numero_solicitud||"-")}</td>
@@ -1539,7 +1578,7 @@ function renderQuotes(){
 }
 $("#quotesTable")?.addEventListener("change",e=>{
   if(handleBulkCheckboxChange(e))return;
-  const all=e.target.closest('input[data-bulk-select-all="quotes"]');if(all){handleBulkSelectAllChange(e,data.quotes.map(q=>String(q.id)));renderQuotes()}
+  const all=e.target.closest('input[data-bulk-select-all="quotes"]');if(all){handleBulkSelectAllChange(e,filteredCommercialRows("quotes",data.quotes).map(q=>String(q.id)));renderQuotes()}
 });
 $("#deleteSelectedQuotes")?.addEventListener("click",e=>deleteSelected("quotes",e.currentTarget));
 window.deleteQuote=async(id,btn)=>{
