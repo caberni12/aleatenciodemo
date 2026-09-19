@@ -192,6 +192,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <div class="editor-actions">
           <a class="btn btn-light hidden" id="orderDetailPdfLink" href="#" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Abrir PDF</a>
           <button class="btn btn-primary" id="regenerateOrderPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar / actualizar PDF</button>
+          <button class="btn btn-light" id="reprintOrderPdf" type="button"><i class="bi bi-printer"></i> Reimprimir</button>
           <button class="btn btn-light" id="copyOrderTracking" type="button"><i class="bi bi-link-45deg"></i> Copiar seguimiento</button>
           <button class="btn btn-light hidden" id="sendOrderPaymentWhatsApp" type="button"><i class="bi bi-credit-card-2-front"></i> Asignar enlace de pago</button>
           <button class="btn btn-light" id="sendOrderTrackingWhatsApp" type="button"><i class="bi bi-whatsapp"></i> Enviar seguimiento</button>
@@ -260,6 +261,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         </div>
         <div class="editor-actions">
           <button class="btn btn-primary" id="saveRequestClient" type="button"><i class="bi bi-floppy"></i> Guardar datos</button>
+          <button class="btn btn-light" id="requestClientPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF / reimprimir</button>
           <button class="btn btn-light" id="closeRequestClientEditor" type="button">Cerrar</button>
         </div>
       </div>
@@ -343,7 +345,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
 
           <div class="editor-actions quote-actions">
             <button class="btn btn-primary" id="saveQuote" type="button"><i class="bi bi-floppy"></i> Guardar cotización</button>
-            <button class="btn btn-light" id="generateQuotePdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar PDF</button>
+            <button class="btn btn-light" id="generateQuotePdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Generar / reimprimir PDF</button>
             <button class="btn btn-whatsapp" id="sendQuoteWhatsapp" type="button"><i class="bi bi-whatsapp"></i> Enviar por WhatsApp</button>
             <button class="btn btn-light" data-cancel="quoteEditor" type="button">Cerrar</button>
           </div>
@@ -537,6 +539,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <label class="field-group"><span>Valor despacho · CLP</span><input id="sDelivery" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 5.000"></label>
           <label class="field-group"><span>IVA cotizaciones (%)</span><input id="sIva" type="number" min="0" max="100" step="0.01" placeholder="19"></label>
           <label class="field-group"><span>Validez cotización (días)</span><input id="sQuoteValidity" type="number" min="1" max="365" placeholder="15"></label>
+          <label class="field-group"><span>Formato de documentos</span><select id="sDocumentFormat"><option value="A4">A4</option><option value="TICKET_80">Ticket térmico · 80 mm de ancho</option><option value="TICKET_100">Ticket térmico · 100 mm de ancho</option></select><small>80/100 mm usan ancho fijo y largo automático según el contenido.</small></label>
           <div class="span-2 form-help">Guarda aquí tus enlaces reales. La web mostrará únicamente WhatsApp y las redes sociales configuradas.</div>
           <div class="field-group file-field span-2" data-file-picker="image"><span>Logo del negocio</span><input id="sLogo" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="sLogo"><i class="bi bi-image"></i><span class="file-picker-text">Seleccionar logo</span></label><small class="file-name">Sin archivo seleccionado</small></div>
         </div>
@@ -548,5 +551,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260917-r91826-notificaciones-sync"></script><script src="api.js?v=20260917-r91830-payment-method-proof"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="cpanel.js?v=20260919-r91840-cliente-rut"></script>
+<script src="config.js?v=20260917-r91826-notificaciones-sync"></script><script src="api.js?v=20260917-r91830-payment-method-proof"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260919-r91841-documentos-ticket-qr"></script>
 </body></html>

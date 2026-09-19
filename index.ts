@@ -1,8 +1,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import QRCode from "npm:qrcode@1.5.4";
 
-const VERSION = "ALE-SUPABASE-R9.18.29-COMPROBANTE-TRANSFERENCIA-TRACKING";
+const VERSION = "ALE-SUPABASE-R9.18.41-DOCUMENTOS-A4-TICKET-QR";
 const BUCKET = "ale-atencio-public";
+const ORDER_PDF_BUCKET = "ale-atencio-private";
 const SESSION_HOURS = 24;
 const SESSION_TOUCH_MINUTES = 5;
 const MAX_LOGIN_FAILS = 5;
@@ -372,7 +374,7 @@ async function login(req: Request, d: Dict) {
   return {
     ok:true, token, user:safeUser(user), permissions:ctx.permissions,
     expires_in:SESSION_HOURS*3600, version:VERSION, api_contract:2,
-    capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","ecommerce_integrations","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"]
+    capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","ecommerce_integrations","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync","protected_order_pdf","request_paid_close_lock","commercial_table_filters","document_formats","document_trace_qr"]
   };
 }
 
@@ -432,6 +434,7 @@ async function configMap(): Promise<Dict> {
   if(!out.logo_url && out.logo_storage_path) out.logo_url = storagePublicUrl(out.logo_storage_path);
   // ALE ATENCIO opera únicamente en pesos chilenos. No exponer USD por configuración heredada.
   out.moneda = "CLP";
+  out.document_format = normalizeDocumentFormat(out.document_format);
   return out;
 }
 function apiWarning(scope:string, err:any): string {
@@ -456,6 +459,14 @@ function pdfSafeText(v: unknown): string {
 function clp(v: unknown): string {
   return `$${Math.round(money(v)).toLocaleString("es-CL")}`;
 }
+function normalizeDocumentFormat(v:unknown):"A4"|"TICKET_80"|"TICKET_100"{
+  const x=clean(v,40).toUpperCase().replace(/[ -]+/g,"_");
+  if(x==="TICKET_80"||x==="80"||x==="80MM")return "TICKET_80";
+  if(x==="TICKET_100"||x==="100"||x==="100MM")return "TICKET_100";
+  return "A4";
+}
+const MM_TO_PT=72/25.4;
+function mmPt(mm:number):number{return mm*MM_TO_PT;}
 function wrapPdfText(font:any, text:string, size:number, maxWidth:number): string[] {
   const out:string[]=[];
   for(const paragraph of pdfSafeText(text).split(/\n/)){
@@ -494,85 +505,205 @@ async function maybeEmbedLogo(pdf:any, config:Dict): Promise<any|null> {
   }finally{clearTimeout(timer);}
   return null;
 }
+async function embedTraceQr(pdf:any,url:string):Promise<any|null>{
+  if(!url)return null;
+  try{
+    const dataUrl=await (QRCode as any).toDataURL(url,{width:720,margin:1,errorCorrectionLevel:"M"});
+    const base64=String(dataUrl||"").split(",")[1]||"";
+    if(!base64)return null;
+    return await pdf.embedPng(b64Bytes(base64));
+  }catch(err){console.warn("PDF_QR",err instanceof Error?err.message:String(err));return null;}
+}
 async function buildOrderPdf(order:Dict, items:Dict[], config:Dict): Promise<Uint8Array> {
   const pdf=await PDFDocument.create();
   const regular=await pdf.embedFont(StandardFonts.Helvetica);
   const bold=await pdf.embedFont(StandardFonts.HelveticaBold);
   const logo=await maybeEmbedLogo(pdf,config);
-  const pageSize:[number,number]=[595.28,841.89];
-  const margin=44, right=pageSize[0]-margin;
-  let page:any,y=0;
+  const format=normalizeDocumentFormat(config.document_format);
+  const traceUrl=await documentTraceUrl("PEDIDO",String(order.id||""),config);
+  const qr=await embedTraceQr(pdf,traceUrl);
+  const business=pdfSafeText(config.empresa||"Ale Atencio"),orderNumber=pdfSafeText(order.numero_pedido||order.id||"");
+  const businessRut=formatRut(config.empresa_rut||"");
+  const companyLines=[businessRut?`RUT: ${businessRut}`:"",config.direccion,config.email,config.whatsapp?`WhatsApp: ${config.whatsapp}`:""].filter(Boolean).map(pdfSafeText);
+  const customerLines=[order.nombre,order.rut?`RUT: ${formatRut(order.rut)}`:"",order.telefono?`WhatsApp: ${order.telefono}`:"",order.email?`Correo: ${order.email}`:"",order.metodo_entrega?`Entrega: ${order.metodo_entrega}`:"",order.direccion?`Dirección: ${order.direccion}`:"",order.comuna?`Comuna: ${order.comuna}`:""].filter(Boolean).map(pdfSafeText);
+
+  if(format!=="A4"){
+    const widthMm=format==="TICKET_100"?100:80,width=mmPt(widthMm),margin=mmPt(5),content=width-margin*2,qrSize=mmPt(40);
+    const size=8.2,lineH=10.5,small=7.2;
+    const lineCount=(text:unknown,font=regular,fontSize=size,max=content)=>wrapPdfText(font,pdfSafeText(text),fontSize,max).length;
+    let estimated=margin+mmPt(18)+18+companyLines.reduce((a,x)=>a+lineCount(x,regular,small)*9,0)+24;
+    estimated+=30+customerLines.reduce((a,x)=>a+lineCount(x)*lineH,0)+15;
+    for(const item of items){estimated+=lineCount(item.producto_nombre||item.nombre||item.descripcion||"Producto",regular,size,content)*lineH+22;}
+    estimated+=72+(order.observaciones?lineCount(order.observaciones,regular,small,content)*9+24:0)+28+qrSize+38+margin;
+    const height=Math.max(mmPt(180),Math.min(mmPt(2000),estimated));
+    const page=pdf.addPage([width,height]);let y=height-margin;
+    const draw=(text:unknown,x:number,yy:number,fontSize=size,font=regular,opts:any={})=>page.drawText(pdfSafeText(text),{x,y:yy,size:fontSize,font,color:opts.color||rgb(.18,.15,.14),maxWidth:opts.maxWidth});
+    const wrapped=(text:unknown,fontSize=size,font=regular,lh=lineH,maxWidth=content)=>{const lines=wrapPdfText(font,pdfSafeText(text),fontSize,maxWidth);for(const ln of lines){draw(ln,margin,y,fontSize,font);y-=lh;}return lines.length};
+    if(logo){try{const maxW=mmPt(widthMm===100?38:34),maxH=mmPt(18),scale=Math.min(maxW/logo.width,maxH/logo.height);const w=logo.width*scale,h=logo.height*scale;page.drawImage(logo,{x:(width-w)/2,y:y-h,width:w,height:h});y-=h+6;}catch(_){}}
+    const bw=bold.widthOfTextAtSize(business,12);draw(business,Math.max(margin,(width-bw)/2),y,12,bold);y-=15;
+    for(const line of companyLines){for(const ln of wrapPdfText(regular,line,small,content)){const tw=regular.widthOfTextAtSize(ln,small);draw(ln,Math.max(margin,(width-tw)/2),y,small,regular);y-=9;}}
+    y-=5;page.drawLine({start:{x:margin,y},end:{x:width-margin,y},thickness:.7,color:rgb(.82,.73,.68)});y-=16;
+    const title="PEDIDO";draw(title,(width-bold.widthOfTextAtSize(title,12))/2,y,12,bold);y-=15;draw(orderNumber,(width-bold.widthOfTextAtSize(orderNumber,9.5))/2,y,9.5,bold);y-=13;
+    wrapped(`Fecha: ${new Date(order.fecha||Date.now()).toLocaleString("es-CL")}`,small,regular,9);wrapped(`Estado: ${publicOrderStatusLabel(order.estado||"PENDIENTE")}`,small,regular,9);wrapped(`Pago: ${clean(order.estado_pago||"PENDIENTE",80)}${order.medio_pago?` · ${clean(order.medio_pago,40)}`:""}`,small,regular,9);y-=8;
+    draw("CLIENTE",margin,y,9,bold);y-=12;for(const line of customerLines)wrapped(line,size,regular,lineH);y-=8;
+    page.drawLine({start:{x:margin,y},end:{x:width-margin,y},thickness:.6,color:rgb(.86,.80,.77)});y-=13;draw("DETALLE",margin,y,9,bold);y-=13;
+    for(const item of items){wrapped(item.producto_nombre||item.nombre||item.descripcion||"Producto",size,bold,lineH);const qty=Math.max(1,Number(item.cantidad||1)),unit=clp(item.precio_unitario??item.precio),lt=clp(item.subtotal??qty*Number(item.precio_unitario??item.precio??0));const left=`${qty} x ${unit}`,rightText=lt;draw(left,margin,y,small,regular);draw(rightText,width-margin-regular.widthOfTextAtSize(rightText,small),y,small,bold);y-=13;page.drawLine({start:{x:margin,y:y+5},end:{x:width-margin,y:y+5},thickness:.35,color:rgb(.90,.86,.84)});}
+    y-=5;for(const [label,value] of [["Subtotal",order.subtotal],["Despacho",order.despacho],["TOTAL",order.total]] as any[]){const total=label==="TOTAL",f=total?bold:regular,fs=total?11:8.5,val=clp(value);draw(label,margin,y,fs,f);draw(val,width-margin-f.widthOfTextAtSize(val,fs),y,fs,f);y-=total?18:13;}
+    if(order.observaciones){y-=2;draw("OBSERVACIONES",margin,y,8.5,bold);y-=12;wrapped(order.observaciones,small,regular,9);}
+    y-=8;page.drawLine({start:{x:margin,y},end:{x:width-margin,y},thickness:.6,color:rgb(.82,.73,.68)});y-=13;wrapped("Escanea el QR para consultar el seguimiento y la trazabilidad actualizada.",small,regular,9);y-=5;
+    if(qr){page.drawImage(qr,{x:(width-qrSize)/2,y:y-qrSize,width:qrSize,height:qrSize});y-=qrSize+8;}
+    const traceLabel="SEGUIMIENTO DEL PEDIDO";draw(traceLabel,(width-bold.widthOfTextAtSize(traceLabel,small))/2,y,small,bold);y-=12;
+    wrapped("Documento de respaldo. No reemplaza boleta, factura ni documento tributario.",6.5,regular,8);y-=5;
+    const foot=`${business} · ${orderNumber}`;draw(foot,Math.max(margin,(width-regular.widthOfTextAtSize(foot,6.3))/2),Math.max(margin,y),6.3,regular,{color:rgb(.45,.40,.38)});
+    return new Uint8Array(await pdf.save());
+  }
+
+  const pageSize:[number,number]=[595.28,841.89],margin=44,right=pageSize[0]-margin,qrSize=mmPt(30);let page:any,y=0;
   const addPage=()=>{page=pdf.addPage(pageSize);y=pageSize[1]-48;return page};
   const ensure=(height:number)=>{if(y-height<58)addPage()};
-  const drawText=(text:unknown,x:number,yy:number,size=9,font=regular,opts:any={})=>{page.drawText(pdfSafeText(text),{x,y:yy,size,font,color:opts.color||rgb(0.23,0.18,0.16),maxWidth:opts.maxWidth});};
+  const drawText=(text:unknown,x:number,yy:number,size=9,font=regular,opts:any={})=>page.drawText(pdfSafeText(text),{x,y:yy,size,font,color:opts.color||rgb(0.23,0.18,0.16),maxWidth:opts.maxWidth});
   const drawWrapped=(text:unknown,x:number,maxWidth:number,size=9,font=regular,lineH=12)=>{const lines=wrapPdfText(font,pdfSafeText(text),size,maxWidth);ensure(lines.length*lineH+4);for(const line of lines){drawText(line,x,y,size,font);y-=lineH;}return lines.length};
   addPage();
-  if(logo){
-    try{const scale=Math.min(110/logo.width,50/logo.height);page.drawImage(logo,{x:margin,y:y-38,width:logo.width*scale,height:logo.height*scale});}catch(_){ }
-  }
-  const business=pdfSafeText(config.empresa||"Ale Atencio");
-  drawText(business,right-bold.widthOfTextAtSize(business,17),y,17,bold);
-  const businessRut=formatRut(config.empresa_rut||"");
-  const companyLines=[businessRut?`RUT: ${businessRut}`:"",config.direccion,config.email,config.whatsapp?`WhatsApp: ${config.whatsapp}`:""].filter(Boolean);
-  let cy=y-17;for(const line of companyLines){const t=pdfSafeText(line);drawText(t,right-regular.widthOfTextAtSize(t,8.5),cy,8.5,regular);cy-=11;}
-  y-=64;page.drawLine({start:{x:margin,y},end:{x:right,y},thickness:1,color:rgb(0.82,0.73,0.68)});y-=27;
-  drawText("RESPALDO DE PEDIDO",margin,y,18,bold);
-  const orderNumber=pdfSafeText(order.numero_pedido||order.id||"");drawText(orderNumber,right-bold.widthOfTextAtSize(orderNumber,11),y+2,11,bold);y-=19;
+  if(logo){try{const scale=Math.min(110/logo.width,50/logo.height);page.drawImage(logo,{x:margin,y:y-38,width:logo.width*scale,height:logo.height*scale});}catch(_){}}
+  const qrX=right-qrSize;if(qr){page.drawImage(qr,{x:qrX,y:y-qrSize+4,width:qrSize,height:qrSize});drawText("Seguimiento",qrX+qrSize/2-regular.widthOfTextAtSize("Seguimiento",7)/2,y-qrSize-5,7,regular);}
+  const companyRight=qr?qrX-12:right;drawText(business,companyRight-bold.widthOfTextAtSize(business,17),y,17,bold);
+  let cy=y-17;for(const line of companyLines){const t=pdfSafeText(line);drawText(t,companyRight-regular.widthOfTextAtSize(t,8.5),cy,8.5,regular);cy-=11;}
+  y-=102;page.drawLine({start:{x:margin,y},end:{x:right,y},thickness:1,color:rgb(0.82,0.73,0.68)});y-=27;
+  drawText("RESPALDO DE PEDIDO",margin,y,18,bold);drawText(orderNumber,right-bold.widthOfTextAtSize(orderNumber,11),y+2,11,bold);y-=19;
   const dateText=`Fecha: ${new Date(order.fecha||Date.now()).toLocaleString("es-CL")}`;drawText(dateText,margin,y,9,regular);const stateText=`Pedido: ${publicOrderStatusLabel(order.estado||"PENDIENTE")}`;drawText(stateText,right-regular.widthOfTextAtSize(pdfSafeText(stateText),9),y,9,regular);y-=14;const paymentText=`Pago: ${clean(order.estado_pago||"PENDIENTE",80)}${order.medio_pago?` · ${clean(order.medio_pago,40)}`:""}`;drawText(paymentText,margin,y,9,regular);y-=20;
-
-  drawText("Cliente",margin,y,11,bold);y-=16;
-  const customerLines=[order.nombre,order.rut?`RUT: ${formatRut(order.rut)}`:"",order.telefono?`WhatsApp: ${order.telefono}`:"",order.email?`Correo: ${order.email}`:"",order.metodo_entrega?`Entrega: ${order.metodo_entrega}`:"",order.direccion?`Dirección: ${order.direccion}`:"",order.comuna?`Comuna: ${order.comuna}`:""].filter(Boolean);
-  for(const line of customerLines)drawWrapped(line,margin,right-margin,9,regular,11);
-  y-=10;
-
-  const col={desc:margin,qty:350,unit:414,total:right};
-  const drawTableHeader=()=>{ensure(28);page.drawRectangle({x:margin,y:y-16,width:right-margin,height:20,color:rgb(0.96,0.93,0.91)});drawText("Producto",col.desc+5,y-3,8.5,bold);drawText("Cant.",col.qty,y-3,8.5,bold);drawText("P. unit.",col.unit,y-3,8.5,bold);const tt="Total";drawText(tt,col.total-bold.widthOfTextAtSize(tt,8.5),y-3,8.5,bold);y-=26;};
-  drawTableHeader();
-  for(const item of items){
-    const desc=pdfSafeText(item.producto_nombre||item.nombre||item.descripcion||"Producto");
-    const descLines=wrapPdfText(regular,desc,8.5,285);
-    const h=Math.max(18,descLines.length*10+6);
-    if(y-h<70){addPage();drawText(`Pedido ${orderNumber}`,margin,y,10,bold);y-=20;drawTableHeader();}
-    let ty=y;for(const line of descLines){drawText(line,col.desc+5,ty,8.5,regular);ty-=10;}
-    drawText(String(item.cantidad||1),col.qty,y,8.5,regular);
-    const unit=clp(item.precio_unitario??item.precio);drawText(unit,col.unit+50-regular.widthOfTextAtSize(unit,8.5),y,8.5,regular);
-    const lineTotal=clp(item.subtotal??(Number(item.cantidad||1)*Number(item.precio_unitario ?? item.precio ?? 0)));drawText(lineTotal,col.total-regular.widthOfTextAtSize(lineTotal,8.5),y,8.5,regular);
-    y-=h;page.drawLine({start:{x:margin,y:y+5},end:{x:right,y:y+5},thickness:.5,color:rgb(0.9,0.86,0.84)});
-  }
-  ensure(92);y-=6;
-  const totals=[['Subtotal',order.subtotal],['Despacho',order.despacho],['TOTAL',order.total]];
-  for(const [label,value] of totals){const isTotal=label==='TOTAL';const f=isTotal?bold:regular,size=isTotal?12:9.5;drawText(label,430,y,size,f);const valueText=clp(value);drawText(valueText,right-f.widthOfTextAtSize(valueText,size),y,size,f);y-=isTotal?20:15;}
+  drawText("Cliente",margin,y,11,bold);y-=16;for(const line of customerLines)drawWrapped(line,margin,right-margin,9,regular,11);y-=10;
+  const col={desc:margin,qty:350,unit:414,total:right};const drawTableHeader=()=>{ensure(28);page.drawRectangle({x:margin,y:y-16,width:right-margin,height:20,color:rgb(0.96,0.93,0.91)});drawText("Producto",col.desc+5,y-3,8.5,bold);drawText("Cant.",col.qty,y-3,8.5,bold);drawText("P. unit.",col.unit,y-3,8.5,bold);const tt="Total";drawText(tt,col.total-bold.widthOfTextAtSize(tt,8.5),y-3,8.5,bold);y-=26;};drawTableHeader();
+  for(const item of items){const desc=pdfSafeText(item.producto_nombre||item.nombre||item.descripcion||"Producto"),descLines=wrapPdfText(regular,desc,8.5,285),h=Math.max(18,descLines.length*10+6);if(y-h<70){addPage();drawText(`Pedido ${orderNumber}`,margin,y,10,bold);y-=20;drawTableHeader();}let ty=y;for(const line of descLines){drawText(line,col.desc+5,ty,8.5,regular);ty-=10;}drawText(String(item.cantidad||1),col.qty,y,8.5,regular);const unit=clp(item.precio_unitario??item.precio);drawText(unit,col.unit+50-regular.widthOfTextAtSize(unit,8.5),y,8.5,regular);const lineTotal=clp(item.subtotal??(Number(item.cantidad||1)*Number(item.precio_unitario??item.precio??0)));drawText(lineTotal,col.total-regular.widthOfTextAtSize(lineTotal,8.5),y,8.5,regular);y-=h;page.drawLine({start:{x:margin,y:y+5},end:{x:right,y:y+5},thickness:.5,color:rgb(0.9,0.86,0.84)});}
+  ensure(92);y-=6;for(const [label,value] of [["Subtotal",order.subtotal],["Despacho",order.despacho],["TOTAL",order.total]] as any[]){const isTotal=label==="TOTAL",f=isTotal?bold:regular,size=isTotal?12:9.5;drawText(label,430,y,size,f);const valueText=clp(value);drawText(valueText,right-f.widthOfTextAtSize(valueText,size),y,size,f);y-=isTotal?20:15;}
   if(order.observaciones){y-=6;drawText("Observaciones",margin,y,10,bold);y-=14;drawWrapped(order.observaciones,margin,right-margin,8.5,regular,11);}
-  ensure(45);y-=12;page.drawLine({start:{x:margin,y},end:{x:right,y},thickness:.7,color:rgb(0.82,0.73,0.68)});y-=16;
-  drawWrapped("Este PDF es un respaldo del pedido registrado en Ale Atencio. No reemplaza una boleta, factura ni documento tributario.",margin,right-margin,7.5,regular,9);
+  ensure(45);y-=12;page.drawLine({start:{x:margin,y},end:{x:right,y},thickness:.7,color:rgb(0.82,0.73,0.68)});y-=16;drawWrapped("Este PDF es un respaldo del pedido registrado en Ale Atencio. No reemplaza una boleta, factura ni documento tributario.",margin,right-margin,7.5,regular,9);
   const pages=pdf.getPages();for(let i=0;i<pages.length;i++){const pg=pages[i];pg.drawText(pdfSafeText(`${business} · ${orderNumber}`),{x:margin,y:27,size:7.5,font:regular,color:rgb(.45,.40,.38)});const pn=`Página ${i+1} de ${pages.length}`;pg.drawText(pn,{x:right-regular.widthOfTextAtSize(pn,7.5),y:27,size:7.5,font:regular,color:rgb(.45,.40,.38)});}
   return new Uint8Array(await pdf.save());
 }
+
 async function loadOrderItems(order:Dict): Promise<Dict[]> {
   const q=await db.from("pedido_items").select("linea,producto_id,producto_nombre,cantidad,precio_unitario,subtotal").eq("pedido_id",order.id).order("linea");
   if(!q.error&&(q.data||[]).length)return q.data||[];
   const raw=Array.isArray(order.detalle)?order.detalle:[];
   return raw.map((x:any,i:number)=>({linea:i+1,producto_id:clean(x.producto_id||x.id,100)||null,producto_nombre:clean(x.producto_nombre||x.nombre,250)||"Producto",cantidad:Math.max(1,Math.floor(Number(x.cantidad||x.qty||1))),precio_unitario:money(x.precio_unitario??x.precio),subtotal:money(Number(x.cantidad||x.qty||1)*Number(x.precio_unitario ?? x.precio ?? 0))}));
 }
+async function ensureOrderPdfBucket(): Promise<void> {
+  try{
+    const info=await db.storage.getBucket(ORDER_PDF_BUCKET);
+    if(!info.error&&info.data){
+      if((info.data as any).public){
+        const upd=await db.storage.updateBucket(ORDER_PDF_BUCKET,{public:false,fileSizeLimit:12*1024*1024,allowedMimeTypes:["application/pdf"]});
+        if(upd.error)console.warn("PDF_BUCKET_PRIVATE_UPDATE",upd.error.message);
+      }
+      return;
+    }
+  }catch(_){ }
+  const created=await db.storage.createBucket(ORDER_PDF_BUCKET,{public:false,fileSizeLimit:12*1024*1024,allowedMimeTypes:["application/pdf"]});
+  if(created.error&&!/already exists|duplicate/i.test(String(created.error.message||"")))throw created.error;
+}
+async function protectedOrderPdfUrl(order:Dict, config:Dict): Promise<string> {
+  const id=clean(order?.id,100);if(!id)return "";
+  const token=await signedPublicToken("ORDER_PDF",id);
+  const number=clean(order?.numero_pedido||id,120);
+  return `${publicWebBaseUrl(config)}pdf.html?pedido=${encodeURIComponent(number)}&t=${encodeURIComponent(token)}`;
+}
+function legacyPdfPathFromUrl(value:unknown,bucket:string):string{
+  const raw=clean(value,3000);if(!raw||!bucket)return "";
+  try{
+    const u=new URL(raw),needle=`/storage/v1/object/public/${encodeURIComponent(bucket)}/`;
+    const ix=u.pathname.indexOf(needle);if(ix<0)return "";
+    return decodeURIComponent(u.pathname.slice(ix+needle.length));
+  }catch(_){return "";}
+}
 async function persistOrderPdf(order:Dict, items:Dict[], config:Dict, actorUserId:string|null=null): Promise<{pdfUrl:string;storagePath:string;bytes:number}> {
   const bytes=await buildOrderPdf(order,items,config);
   if(bytes.length>12*1024*1024)throw new Error("PDF_PEDIDO_SUPERA_12MB");
-  const safeNumber=sanitizeFileName(String(order.numero_pedido||order.id||"pedido")).replace(/\.[^.]+$/,"");
+  await ensureOrderPdfBucket();
+  const safeNumber=sanitizeFileName(String(order.numero_pedido||order.id||"pedido")).replace(/\.[^.]+$/,"" );
   const suffix=sanitizeFileName(String(order.id||"").slice(-16))||crypto.randomUUID().slice(0,8);
   const path=`pedidos/${safeNumber}-${suffix}.pdf`;
-  const up=await db.storage.from(BUCKET).upload(path,bytes,{contentType:"application/pdf",upsert:true});
+  const oldBucket=clean(order.pdf_bucket,120)||BUCKET;
+  const oldPath=clean(order.pdf_path,1200)||legacyPdfPathFromUrl(order.pdf_url,oldBucket);
+  const up=await db.storage.from(ORDER_PDF_BUCKET).upload(path,bytes,{contentType:"application/pdf",upsert:true,cacheControl:"0"});
   if(up.error)throw up.error;
-  const pdfUrl=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl||"";
-  const upd=await db.from("pedidos").update({pdf_bucket:BUCKET,pdf_path:path,pdf_url:pdfUrl}).eq("id",order.id);
+  const pdfUrl=await protectedOrderPdfUrl(order,config);
+  const upd=await db.from("pedidos").update({pdf_bucket:ORDER_PDF_BUCKET,pdf_path:path,pdf_url:pdfUrl}).eq("id",order.id);
   if(upd.error){
-    // Evita dejar un PDF huérfano si la referencia no pudo persistirse en la cabecera.
-    try{await db.storage.from(BUCKET).remove([path]);}catch(_){ }
+    try{await db.storage.from(ORDER_PDF_BUCKET).remove([path]);}catch(_){ }
     throw upd.error;
   }
-  const fileRow={entidad:"PEDIDO",entidad_id:order.id,tipo:"PDF",bucket:BUCKET,storage_path:path,nombre_original:`${safeNumber}.pdf`,mime_type:"application/pdf",bytes:bytes.length,public_url:pdfUrl,activo:true,subido_por:actorUserId};
+  const fileRow={entidad:"PEDIDO",entidad_id:order.id,tipo:"PDF",bucket:ORDER_PDF_BUCKET,storage_path:path,nombre_original:`${safeNumber}.pdf`,mime_type:"application/pdf",bytes:bytes.length,public_url:pdfUrl,activo:true,subido_por:actorUserId};
   const meta=await db.from("archivos").upsert(fileRow,{onConflict:"bucket,storage_path"});
   if(meta.error)console.warn("PEDIDO_PDF_METADATA",meta.error.message);
+  // Si el pedido venía de la carpeta pública antigua, elimina esa copia sólo después de guardar la nueva versión privada.
+  if(oldPath&&(oldBucket!==ORDER_PDF_BUCKET||oldPath!==path)){
+    try{await db.storage.from(oldBucket).remove([oldPath]);}catch(err){console.warn("PDF_ANTIGUO_LIMPIEZA",err instanceof Error?err.message:String(err));}
+  }
   return{pdfUrl,storagePath:path,bytes:bytes.length};
+}
+
+async function publicOrderPdfResponse(req:Request):Promise<Response>{
+  const u=new URL(req.url),number=clean(u.searchParams.get("pedido")||u.searchParams.get("order"),120),token=clean(u.searchParams.get("t")||u.searchParams.get("token"),300);
+  if(!number||!token)return new Response("Enlace de PDF incompleto",{status:400,headers:{...cors(req),"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+  let q=await db.from("pedidos").select("id,numero_pedido,pdf_bucket,pdf_path,pdf_url").eq("numero_pedido",number).limit(1).maybeSingle();
+  if(q.error)throw q.error;
+  if(!q.data){q=await db.from("pedidos").select("id,numero_pedido,pdf_bucket,pdf_path,pdf_url").eq("id",number).limit(1).maybeSingle();if(q.error)throw q.error;}
+  if(!q.data)return new Response("PDF no encontrado",{status:404,headers:{...cors(req),"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+  const order:any=q.data;
+  if(!(await validPublicToken("ORDER_PDF",String(order.id),token)))return new Response("Enlace de PDF no válido",{status:403,headers:{...cors(req),"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+  let bucket=clean(order.pdf_bucket,120)||BUCKET;
+  let path=clean(order.pdf_path,1200)||legacyPdfPathFromUrl(order.pdf_url,bucket);
+  // Para pedidos históricos/finales, la cabecera puede ser inmutable. En ese caso,
+  // la ubicación privada vigente se resuelve desde archivos sin tocar el estado del pedido.
+  try{
+    const meta=await db.from("archivos").select("bucket,storage_path").eq("entidad","PEDIDO").eq("entidad_id",order.id).eq("tipo","PDF").eq("bucket",ORDER_PDF_BUCKET).eq("activo",true).limit(1).maybeSingle();
+    if(!meta.error&&meta.data?.storage_path){bucket=ORDER_PDF_BUCKET;path=clean(meta.data.storage_path,1200);}
+  }catch(_){ }
+  if(!path)return new Response("PDF aún no disponible",{status:404,headers:{...cors(req),"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+  const out=await db.storage.from(bucket).download(path);
+  if(out.error||!out.data)return new Response("PDF no disponible",{status:404,headers:{...cors(req),"Content-Type":"text/plain; charset=utf-8","Cache-Control":"no-store"}});
+  // Migración silenciosa: al abrir un PDF histórico que aún vive en el bucket público,
+  // se copia al bucket privado y se elimina la copia pública sólo si la referencia pudo actualizarse.
+  if(bucket===BUCKET){
+    try{
+      await ensureOrderPdfBucket();
+      const bytes=new Uint8Array(await out.data.arrayBuffer());
+      const migrated=await db.storage.from(ORDER_PDF_BUCKET).upload(path,bytes,{contentType:"application/pdf",upsert:true,cacheControl:"0"});
+      if(!migrated.error){
+        const cfg=await configMap(),siteUrl=await protectedOrderPdfUrl(order,cfg);
+        // Primero dejamos una referencia privada independiente en archivos. Esto permite migrar
+        // incluso pedidos ENTREGADOS/CANCELADOS cuya cabecera está protegida por trigger.
+        const meta=await db.from("archivos").upsert({entidad:"PEDIDO",entidad_id:order.id,tipo:"PDF",bucket:ORDER_PDF_BUCKET,storage_path:path,nombre_original:`${sanitizeFileName(String(order.numero_pedido||"pedido"))}.pdf`,mime_type:"application/pdf",bytes:bytes.length,public_url:siteUrl,activo:true,subido_por:null},{onConflict:"bucket,storage_path"});
+        if(!meta.error){
+          const upd=await db.from("pedidos").update({pdf_bucket:ORDER_PDF_BUCKET,pdf_path:path,pdf_url:siteUrl}).eq("id",order.id);
+          if(upd.error)console.warn("PDF_CABECERA_INMUTABLE",upd.error.message||upd.error);
+          try{await db.from("archivos").update({activo:false}).eq("entidad","PEDIDO").eq("entidad_id",order.id).eq("bucket",BUCKET).eq("storage_path",path);}catch(_){ }
+          try{await db.storage.from(BUCKET).remove([path]);}catch(_){ }
+        }else{
+          try{await db.storage.from(ORDER_PDF_BUCKET).remove([path]);}catch(_){ }
+        }
+      }
+      // El Blob original ya fue consumido para la migración; recreamos la respuesta desde bytes si aplica.
+      if(!migrated.error){
+        const privateCopy=await db.storage.from(ORDER_PDF_BUCKET).download(path);
+        if(!privateCopy.error&&privateCopy.data){
+          const fileName=`${sanitizeFileName(String(order.numero_pedido||"pedido"))}.pdf`;
+          return new Response(privateCopy.data,{status:200,headers:{...cors(req),"Content-Type":"application/pdf","Content-Disposition":`inline; filename="${fileName}"`,"Cache-Control":"private, no-store, max-age=0","Pragma":"no-cache","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"}});
+        }
+      }
+    }catch(err){console.warn("PDF_LEGACY_MIGRATION",err instanceof Error?err.message:String(err));}
+  }
+  const fileName=`${sanitizeFileName(String(order.numero_pedido||"pedido"))}.pdf`;
+  return new Response(out.data,{status:200,headers:{...cors(req),"Content-Type":"application/pdf","Content-Disposition":`inline; filename="${fileName}"`,"Cache-Control":"private, no-store, max-age=0","Pragma":"no-cache","X-Content-Type-Options":"nosniff","Referrer-Policy":"no-referrer"}});
+}
+
+async function adminOrderPdfLink(ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"orders","read");
+  const id=clean(d.id||d.order_id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");
+  const q=await db.from("pedidos").select("id,numero_pedido,pdf_bucket,pdf_path,pdf_url").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");
+  if(!q.data.pdf_path&&!q.data.pdf_url)throw new Error("PDF_PEDIDO_NO_DISPONIBLE");
+  const cfg=await configMap();
+  return{ok:true,pdf_url:await protectedOrderPdfUrl(q.data as Dict,cfg),numero_pedido:q.data.numero_pedido||q.data.id};
 }
 
 async function appendOrderHistory(pedidoId:string,evento:string,estadoPedido:string,estadoPago:string,descripcion:string,actor:string|null=null){
@@ -615,19 +746,40 @@ async function adminOrderTrackingLink(ctx:SessionCtx,d:Dict){
   const token=await trackingTokenForOrder(id),hash=await sha256Hex(token);
   if(String(q.data.tracking_token_hash||"")!==hash){const u=await db.from("pedidos").update({tracking_token_hash:hash,updated_at:nowIso()}).eq("id",id);if(u.error)throw u.error;}
   const cfg=await configMap(),number=q.data.numero_pedido||id;
-  return{ok:true,tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`,numero_pedido:number};
+  return{ok:true,tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(token)}`,trace_url:await documentTraceUrl("PEDIDO",id,cfg,token),numero_pedido:number};
+}
+async function documentTraceUrl(type:"SOLICITUD"|"COTIZACION"|"PEDIDO",id:string,cfg:Dict,token?:string):Promise<string>{
+  const scope=type==="PEDIDO"?"ORDER":type==="COTIZACION"?"QUOTE":"REQUEST";
+  const signed=token||await signedPublicToken(scope,id);
+  return `${publicWebBaseUrl(cfg)}trazabilidad.html?tipo=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&t=${encodeURIComponent(signed)}`;
 }
 async function adminQuoteShareLink(ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"quotes","read");const id=clean(d.id||d.quote_id,100);if(!id)throw new Error("COTIZACION_REQUERIDA");
   const q=await db.from("cotizaciones").select("id,numero_cotizacion").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");
   const token=await quoteTokenForId(id),cfg=await configMap(),number=q.data.numero_cotizacion||id;
-  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#cotizacion/${encodeURIComponent(number)}?qid=${encodeURIComponent(id)}&qt=${encodeURIComponent(token)}`,numero_cotizacion:number};
+  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#cotizacion/${encodeURIComponent(number)}?qid=${encodeURIComponent(id)}&qt=${encodeURIComponent(token)}`,trace_url:await documentTraceUrl("COTIZACION",id,cfg,token),numero_cotizacion:number};
 }
 async function adminRequestShareLink(ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"requests","read");const id=clean(d.id||d.request_id,100);if(!id)throw new Error("SOLICITUD_REQUERIDA");
   const q=await db.from("solicitudes").select("id,numero_solicitud").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("SOLICITUD_NO_ENCONTRADA");
   const token=await requestTokenForId(id),cfg=await configMap(),number=q.data.numero_solicitud||id;
-  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#solicitud/${encodeURIComponent(number)}?rid=${encodeURIComponent(id)}&rt=${encodeURIComponent(token)}`,numero_solicitud:number};
+  return{ok:true,public_url:`${publicWebBaseUrl(cfg)}#solicitud/${encodeURIComponent(number)}?rid=${encodeURIComponent(id)}&rt=${encodeURIComponent(token)}`,trace_url:await documentTraceUrl("SOLICITUD",id,cfg,token),numero_solicitud:number};
+}
+async function publicTraceView(d:Dict){
+  const type=clean(d.tipo||d.type,30).toUpperCase(),id=clean(d.id,100),token=clean(d.t||d.token,300);
+  const scope=type==="PEDIDO"?"ORDER":type==="COTIZACION"?"QUOTE":type==="SOLICITUD"?"REQUEST":"";
+  if(!scope||!id||!(await validPublicToken(scope,id,token)))throw new Error("TRAZABILIDAD_ENLACE_INVALIDO");
+  let request:any=null,quote:any=null,order:any=null;
+  if(type==="SOLICITUD"){const q=await db.from("solicitudes").select("id,numero_solicitud,estado,fecha,cotizacion_id").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("SOLICITUD_NO_ENCONTRADA");request=q.data;const cq=await db.from("cotizaciones").select("id,numero_cotizacion,estado,fecha,solicitud_id,pedido_id").eq("solicitud_id",id).order("fecha",{ascending:true}).limit(1).maybeSingle();if(!cq.error&&cq.data)quote=cq.data;}
+  if(type==="COTIZACION"){const q=await db.from("cotizaciones").select("id,numero_cotizacion,estado,fecha,solicitud_id,pedido_id").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");quote=q.data;if(quote.solicitud_id){const rq=await db.from("solicitudes").select("id,numero_solicitud,estado,fecha,cotizacion_id").eq("id",quote.solicitud_id).maybeSingle();if(!rq.error)request=rq.data;}}
+  if(type==="PEDIDO"){const q=await db.from("pedidos").select("id,numero_pedido,estado,estado_pago,fecha,solicitud_id,cotizacion_id").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");order=q.data;}
+  if(!order&&quote){const oq=await db.from("pedidos").select("id,numero_pedido,estado,estado_pago,fecha,solicitud_id,cotizacion_id").eq("cotizacion_id",quote.id).order("fecha",{ascending:false}).limit(1).maybeSingle();if(!oq.error&&oq.data)order=oq.data;}
+  if(!order&&request){const oq=await db.from("pedidos").select("id,numero_pedido,estado,estado_pago,fecha,solicitud_id,cotizacion_id").eq("solicitud_id",request.id).order("fecha",{ascending:false}).limit(1).maybeSingle();if(!oq.error&&oq.data)order=oq.data;}
+  if(!quote&&order?.cotizacion_id){const cq=await db.from("cotizaciones").select("id,numero_cotizacion,estado,fecha,solicitud_id,pedido_id").eq("id",order.cotizacion_id).maybeSingle();if(!cq.error)quote=cq.data;}
+  if(!request){const rid=order?.solicitud_id||quote?.solicitud_id;if(rid){const rq=await db.from("solicitudes").select("id,numero_solicitud,estado,fecha,cotizacion_id").eq("id",rid).maybeSingle();if(!rq.error)request=rq.data;}}
+  let history:any[]=[];let trackingUrl="";
+  if(order){const h=await db.from("pedido_estado_historial").select("evento,estado_pedido,estado_pago,descripcion,creado_en").eq("pedido_id",order.id).order("creado_en",{ascending:true}).limit(100);if(!h.error)history=h.data||[];const cfg=await configMap(),ot=await trackingTokenForOrder(String(order.id));trackingUrl=`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(order.numero_pedido||order.id)}?t=${encodeURIComponent(ot)}`;}
+  return{ok:true,type,request,quote,order,history,tracking_url:trackingUrl};
 }
 async function publicQuoteView(d:Dict){
   const id=clean(d.id||d.quote_id||d.qid,100),token=clean(d.token||d.quote_token||d.qt,300);
@@ -656,6 +808,16 @@ async function resolveOrderPaymentMethod(row:any):Promise<string>{
   if(method)return method;
   // Un comprobante existente prueba que este pedido corresponde a transferencia.
   if(row?.comprobante_pago_url||row?.comprobante_pago_path)return "TRANSFERENCIA";
+
+  const orderId=clean(row?.id,100);
+  // Si el pedido tiene una transacción/enlace Webpay histórico, el medio correcto es tarjeta.
+  if(orderId){
+    const tq=await db.from("pagos_transbank").select("id").eq("pedido_id",orderId).limit(1).maybeSingle();
+    if(!tq.error&&tq.data)return "TRANSBANK";
+    const lq=await db.from("pedido_enlaces_pago").select("id").eq("pedido_id",orderId).limit(1).maybeSingle();
+    if(!lq.error&&lq.data)return "TRANSBANK";
+  }
+
   let requestId=clean(row?.solicitud_id,100);
   if(!requestId&&row?.cotizacion_id){
     const cq=await db.from("cotizaciones").select("solicitud_id").eq("id",String(row.cotizacion_id)).maybeSingle();
@@ -664,8 +826,26 @@ async function resolveOrderPaymentMethod(row:any):Promise<string>{
   if(requestId){
     const rq=await db.from("solicitudes").select("medio_pago_preferido").eq("id",requestId).maybeSingle();
     if(!rq.error&&rq.data)method=canonicalPaymentMethod((rq.data as any).medio_pago_preferido);
+    if(method)return method;
   }
-  return method;
+
+  // Compatibilidad con pedidos Web creados por versiones anteriores: el flujo normal
+  // (sin Webpay) correspondía a transferencia, pero no persistía medio_pago.
+  if(String(row?.origen||"").trim().toUpperCase()==="WEB"||row?.checkout_token_hash)return "TRANSFERENCIA";
+  return "";
+}
+async function resolveAndPersistOrderPaymentMethod(row:any):Promise<any>{
+  const raw=canonicalPaymentMethod(row?.medio_pago);
+  const method=raw||await resolveOrderPaymentMethod(row);
+  const out={...row,medio_pago:method||raw||""};
+  if(method&&!raw&&row?.id){
+    const patch:any={medio_pago:method,updated_at:nowIso()};
+    if(!clean(row?.estado_pago,40))patch.estado_pago=method==="EFECTIVO"?"PENDIENTE":"INICIADO";
+    const u=await db.from("pedidos").update(patch).eq("id",String(row.id));
+    if(u.error)console.warn("MEDIO_PAGO_PERSIST",u.error.message||u.error);
+    else if(patch.estado_pago)out.estado_pago=patch.estado_pago;
+  }
+  return out;
 }
 
 async function publicTrackOrder(d:Dict){
@@ -695,7 +875,9 @@ async function publicTrackOrder(d:Dict){
     const hq=await db.from("pedido_estado_historial").select("evento,estado_pedido,estado_pago,descripcion,creado_en").eq("pedido_id",row.id).order("creado_en",{ascending:true}).limit(80);
     const history=(hq.error?[]:(hq.data||[])).map((h:any)=>({evento:h.evento,estado_pedido:h.estado_pedido,estado_pago:h.estado_pago,descripcion:h.descripcion,fecha:h.creado_en}));
     const paymentMethod=await resolveOrderPaymentMethod(row);
-    result.push({id:row.id,numero_pedido:row.numero_pedido||row.id,fecha:row.fecha,nombre:clean(row.nombre,2)?`${clean(row.nombre,1)}***`:"Cliente",metodo_entrega:row.metodo_entrega,total:row.total,estado:row.estado,estado_label:publicOrderStatusLabel(row.estado),estado_pago:row.estado_pago||"PENDIENTE",medio_pago:paymentMethod,fecha_pago:row.fecha_pago||"",updated_at:row.updated_at,history,verified:true,pdf_url:row.pdf_url||"",comprobante_pago_estado:row.comprobante_pago_estado||"",comprobante_pago_fecha:row.comprobante_pago_fecha||"",comprobante_pago_cargado:!!(row.comprobante_pago_url||row.comprobante_pago_path),tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(row.numero_pedido||row.id)}?t=${encodeURIComponent(secureToken)}`});
+    if(paymentMethod&&!canonicalPaymentMethod(row.medio_pago))deferTask(db.from("pedidos").update({medio_pago:paymentMethod,updated_at:nowIso()}).eq("id",row.id).then(({error}:any)=>{if(error)console.warn("TRACKING_MEDIO_PAGO_PERSIST",error.message)}));
+    const protectedPdfUrl=(row.pdf_path||row.pdf_url)?await protectedOrderPdfUrl(row,cfg):"";
+    result.push({id:row.id,numero_pedido:row.numero_pedido||row.id,fecha:row.fecha,nombre:clean(row.nombre,2)?`${clean(row.nombre,1)}***`:"Cliente",metodo_entrega:row.metodo_entrega,total:row.total,estado:row.estado,estado_label:publicOrderStatusLabel(row.estado),estado_pago:row.estado_pago||"PENDIENTE",medio_pago:paymentMethod,fecha_pago:row.fecha_pago||"",updated_at:row.updated_at,history,verified:true,pdf_url:protectedPdfUrl,comprobante_pago_estado:row.comprobante_pago_estado||"",comprobante_pago_fecha:row.comprobante_pago_fecha||"",comprobante_pago_cargado:!!(row.comprobante_pago_url||row.comprobante_pago_path),tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(row.numero_pedido||row.id)}?t=${encodeURIComponent(secureToken)}`});
   }
   return{ok:true,count:result.length,needs_verification:needsVerification&&!result.length,orders:result};
 }
@@ -837,9 +1019,12 @@ async function orderDetail(ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"orders","read");
   const id=clean(d.id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");
   const q=await db.from("pedidos").select("*").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");
-  const items=await loadOrderItems(q.data as Dict);
+  const order=await resolveAndPersistOrderPaymentMethod(q.data);
+  const cfg=await configMap();
+  if(order.pdf_path||order.pdf_url)order.pdf_url=await protectedOrderPdfUrl(order as Dict,cfg);
+  const items=await loadOrderItems(order as Dict);
   const h=await db.from("pedido_estado_historial").select("evento,estado_pedido,estado_pago,descripcion,creado_en").eq("pedido_id",id).order("creado_en",{ascending:true}).limit(100);
-  return{ok:true,order:q.data,items,history:h.error?[]:(h.data||[])};
+  return{ok:true,order,items,history:h.error?[]:(h.data||[])};
 }
 async function generateOrderPdf(req:Request,ctx:SessionCtx,d:Dict){
   requirePermission(ctx,"orders","write");
@@ -847,7 +1032,8 @@ async function generateOrderPdf(req:Request,ctx:SessionCtx,d:Dict){
   const cfg=await configMap();
   const out=await persistOrderPdf(detail.order,detail.items,cfg,String(ctx.user.id||"")||null);
   const refreshed=await db.from("pedidos").select("*").eq("id",detail.order.id).single();if(refreshed.error)throw refreshed.error;
-  await audit(req,ctx,"GENERAR_PDF","PEDIDO",detail.order.id,{pdf_url:out.pdfUrl,bytes:out.bytes});
+  (refreshed.data as any).pdf_url=out.pdfUrl;
+  await audit(req,ctx,"GENERAR_PDF","PEDIDO",detail.order.id,{pdf_url:out.pdfUrl,bytes:out.bytes,storage_private:true});
   return{ok:true,order:refreshed.data,items:detail.items,history:detail.history||[],pdfUrl:out.pdfUrl,storagePath:out.storagePath};
 }
 
@@ -879,12 +1065,24 @@ async function adminModule(ctx: SessionCtx, d: Dict) {
   if(module==="requests"){
     if(!ctx.permissions.requests?.read)return{module,requests:[]};
     const q=await db.from("solicitudes").select("*").order("fecha",{ascending:false}).limit(1000);if(q.error)throw q.error;
-    return{module,requests:q.data||[]};
+    // R9.18.33: una solicitud utilizada por una cotización deja de estar disponible.
+    // Se cruza también contra cotizaciones para cubrir registros históricos y despliegues escalonados.
+    const usedQ=await db.from("cotizaciones").select("id,numero_cotizacion,solicitud_id,fecha").not("solicitud_id","is",null).order("fecha",{ascending:true}).limit(3000);
+    const used=new Map<string,any>();
+    if(!usedQ.error)for(const c of (usedQ.data||[])){const key=String((c as any).solicitud_id||"");if(key&&!used.has(key))used.set(key,c)}
+    const requests=(q.data||[]).map((x:any)=>{const c=used.get(String(x.id));return c?{...x,cotizacion_id:x.cotizacion_id||c.id,cotizacion_numero:c.numero_cotizacion||"",_consumida:true}:x});
+    return{module,requests};
   }
   if(module==="quotes"){
     if(!ctx.permissions.quotes?.read)return{module,quotes:[]};
     const q=await db.from("cotizaciones").select("*").order("fecha",{ascending:false}).limit(1000);if(q.error)throw q.error;
-    return{module,quotes:q.data||[]};
+    // R9.18.32: una cotización utilizada deja de estar disponible aunque la migración
+    // todavía no haya rellenado cotizaciones.pedido_id. Se cruza también contra pedidos.
+    const usedQ=await db.from("pedidos").select("id,numero_pedido,cotizacion_id").not("cotizacion_id","is",null).order("fecha",{ascending:true}).limit(3000);
+    const used=new Map<string,any>();
+    if(!usedQ.error)for(const o of (usedQ.data||[])){const key=String((o as any).cotizacion_id||"");if(key&&!used.has(key))used.set(key,o)}
+    const quotes=(q.data||[]).map((x:any)=>{const o=used.get(String(x.id));return o?{...x,pedido_id:x.pedido_id||o.id,pedido_numero:o.numero_pedido||"",_consumida:true}:x});
+    return{module,quotes};
   }
   if(module==="clients"){
     if(!ctx.permissions.clients?.read)return{module,clients:[]};
@@ -1019,10 +1217,86 @@ async function saveBanner(req: Request, ctx: SessionCtx, d: Dict) {
 }
 async function saveConfig(req: Request, ctx: SessionCtx, d: Dict) {
   requirePermission(ctx,"settings","write");
-  const allowed=["empresa","empresa_rut","whatsapp","instagram","facebook","tiktok","email","direccion","valor_despacho","logo_url","logo_storage_path","logo_drive_file_id","moneda","iva_porcentaje","cotizacion_validez_dias","web_public_url","transbank_enabled","transbank_payment_url","transbank_checkout_url","transbank_return_url","transbank_button_label","integration_shopify_enabled","integration_shopify_url","integration_woocommerce_enabled","integration_woocommerce_url","integration_mercadolibre_enabled","integration_mercadolibre_url","integration_meta_enabled","integration_meta_url","integration_google_merchant_enabled","integration_google_merchant_url","integration_tiktok_shop_enabled","integration_tiktok_shop_url","integration_whatsapp_catalog_enabled","integration_whatsapp_catalog_url","integration_jumpseller_enabled","integration_jumpseller_url"];
+  const allowed=["empresa","empresa_rut","whatsapp","instagram","facebook","tiktok","email","direccion","valor_despacho","logo_url","logo_storage_path","logo_drive_file_id","moneda","iva_porcentaje","cotizacion_validez_dias","document_format","web_public_url","transbank_enabled","transbank_payment_url","transbank_checkout_url","transbank_return_url","transbank_button_label","integration_shopify_enabled","integration_shopify_url","integration_woocommerce_enabled","integration_woocommerce_url","integration_mercadolibre_enabled","integration_mercadolibre_url","integration_meta_enabled","integration_meta_url","integration_google_merchant_enabled","integration_google_merchant_url","integration_tiktok_shop_enabled","integration_tiktok_shop_url","integration_whatsapp_catalog_enabled","integration_whatsapp_catalog_url","integration_jumpseller_enabled","integration_jumpseller_url"];
   const rows:any[]=[];for(const k of allowed){if(d[k]===undefined)continue;let v=(k==="valor_despacho"||k==="iva_porcentaje"||k==="cotizacion_validez_dias")?String(money(d[k])):clean(d[k],3000);if(k==="empresa_rut"&&v)v=requireValidRut(v,"RUT_EMPRESA_INVALIDO").rut;if(k==="web_public_url"&&v){v=publicWebUrl(v);if(!v)throw new Error("WEB_PUBLIC_URL_INVALIDA");}if((k==="transbank_checkout_url"||k==="transbank_return_url")&&v){const original=v;v=transbankPublicUrl(v);if(!v)throw new Error(k==="transbank_checkout_url"?"TRANSBANK_URL_CHECKOUT_HTTPS_PUBLICA_REQUERIDA":"TRANSBANK_URL_RETORNO_HTTPS_PUBLICA_REQUERIDA");if(!original.startsWith("https://"))throw new Error("TRANSBANK_URL_HTTPS_REQUERIDA");}if(k==="transbank_payment_url"&&v){v=transbankManualPaymentUrl(v);if(!v)throw new Error("TRANSBANK_LINK_MANUAL_OFICIAL_REQUERIDO");}rows.push({clave:k,valor:v,updated_by:ctx.user.id});if(k==="logo_drive_file_id")rows.push({clave:"logo_storage_path",valor:v,updated_by:ctx.user.id});}
   if(rows.length){const{error}=await db.from("config").upsert(rows,{onConflict:"clave"});if(error)throw error;}
   await audit(req,ctx,"GUARDAR","CONFIG","CONFIG",{});return{ok:true,config:await configMap()};
+}
+
+
+const PAYMENT_SECRET_BLOCKED = new Set([
+  "ALE_MANAGEMENT_TOKEN","SUPABASE_URL","SUPABASE_DB_URL","SUPABASE_ANON_KEY","SUPABASE_SERVICE_ROLE_KEY",
+  "SUPABASE_SECRET_KEY","SUPABASE_SECRET_KEYS","SUPABASE_PUBLISHABLE_KEYS","SUPABASE_JWKS","JWT_SECRET",
+  "DENO_DEPLOYMENT_ID","SB_REGION","SB_EXECUTION_ID"
+]);
+const PAYMENT_SECRET_PREFIXES = [
+  "TRANSBANK_","WEBPAY_","STRIPE_","MERCADOPAGO_","MERCADO_PAGO_","PAYPAL_","FLOW_","KLAP_","GETNET_",
+  "KHIPU_","FINTOP_","SUMUP_","WOMPI_","PAYMENT_","GATEWAY_","ALE_PAYMENT_"
+];
+function supabaseProjectRef():string{
+  try{
+    const host=new URL(SUPABASE_URL).hostname.toLowerCase();
+    const ref=host.split(".")[0]||"";
+    if(!/^[a-z0-9-]{6,80}$/.test(ref))throw new Error("PROJECT_REF_INVALIDO");
+    return ref;
+  }catch(_){throw new Error("SUPABASE_PROJECT_REF_NO_DISPONIBLE");}
+}
+function paymentSecretManagerToken():string{return clean(Deno.env.get("ALE_MANAGEMENT_TOKEN"),12000);}
+function paymentSecretName(v:unknown):string{
+  const name=clean(v,256).toUpperCase();
+  if(!/^[A-Z][A-Z0-9_]{2,127}$/.test(name))throw new Error("SECRET_NOMBRE_INVALIDO");
+  if(name.startsWith("SUPABASE_")||PAYMENT_SECRET_BLOCKED.has(name))throw new Error("SECRET_NOMBRE_RESERVADO");
+  const prefixOk=PAYMENT_SECRET_PREFIXES.some(p=>name.startsWith(p));
+  const suffixOk=/(?:_API_KEY|_API_KEY_SECRET|_SECRET|_CLIENT_SECRET|_CLIENT_ID|_COMMERCE_CODE|_TOKEN|_ACCESS_TOKEN|_PRIVATE_KEY|_PUBLIC_KEY|_ENVIRONMENT)$/.test(name);
+  if(!prefixOk&&!suffixOk)throw new Error("SECRET_SOLO_PASARELAS_PAGO");
+  return name;
+}
+async function paymentSecretsManagementFetch(path:string,init:RequestInit={}):Promise<any>{
+  const token=paymentSecretManagerToken();if(!token)throw new Error("SECRET_MANAGER_BOOTSTRAP_REQUERIDO");
+  const response=await fetch(`https://api.supabase.com${path}`,{
+    ...init,
+    headers:{"Authorization":`Bearer ${token}`,"Accept":"application/json","Content-Type":"application/json",...(init.headers||{})}
+  });
+  const text=await response.text();let payload:any={};try{payload=text?JSON.parse(text):{};}catch(_){payload={message:text.slice(0,1200)};}
+  if(!response.ok){
+    const msg=clean(payload?.message||payload?.error||payload?.msg||text||"ERROR",700);
+    throw new Error(`SECRET_MANAGER_HTTP_${response.status}:${msg}`);
+  }
+  return payload;
+}
+function safePaymentSecretMeta(row:any):Dict{
+  const name=clean(row?.name||row?.key,256).toUpperCase();
+  return {name,updated_at:clean(row?.updated_at||row?.updatedAt||row?.inserted_at||row?.created_at,120),masked:"••••••••••"};
+}
+async function paymentSecretsList(ctx:SessionCtx){
+  requireAdmin(ctx);
+  const project_ref=supabaseProjectRef(),bootstrap_ready=!!paymentSecretManagerToken();
+  if(!bootstrap_ready)return{ok:true,bootstrap_ready:false,project_ref,secrets:[],message:"Agrega una sola vez ALE_MANAGEMENT_TOKEN en Supabase para habilitar este gestor."};
+  const payload=await paymentSecretsManagementFetch(`/v1/projects/${encodeURIComponent(project_ref)}/secrets`,{method:"GET"});
+  const rows=Array.isArray(payload)?payload:Array.isArray(payload?.secrets)?payload.secrets:[];
+  const secrets=rows.map(safePaymentSecretMeta).filter((x:Dict)=>{try{return !!paymentSecretName(x.name)}catch(_){return false}}).sort((a:Dict,b:Dict)=>String(a.name).localeCompare(String(b.name)));
+  return{ok:true,bootstrap_ready:true,project_ref,secrets};
+}
+async function paymentSecretsSet(req:Request,ctx:SessionCtx,d:Dict){
+  requireAdmin(ctx);
+  const raw=Array.isArray(d.secrets)?d.secrets:[];if(!raw.length)throw new Error("SECRET_LISTA_VACIA");if(raw.length>30)throw new Error("SECRET_LIMITE_30");
+  const seen=new Set<string>(),rows:any[]=[];
+  for(const item of raw){
+    const name=paymentSecretName(item?.name),value=String(item?.value??"").slice(0,24576);
+    if(!value.trim())throw new Error(`SECRET_VALOR_REQUERIDO:${name}`);if(seen.has(name))throw new Error(`SECRET_DUPLICADO:${name}`);seen.add(name);rows.push({name,value});
+  }
+  const project_ref=supabaseProjectRef();
+  await paymentSecretsManagementFetch(`/v1/projects/${encodeURIComponent(project_ref)}/secrets`,{method:"POST",body:JSON.stringify(rows)});
+  await audit(req,ctx,"SECRET_GUARDAR","PASARELA_PAGO","SECRETS",{nombres:rows.map(x=>x.name),cantidad:rows.length});
+  return{ok:true,updated:rows.map(x=>x.name),message:"Secretos enviados al servidor. Los valores no se devuelven al navegador."};
+}
+async function paymentSecretsDelete(req:Request,ctx:SessionCtx,d:Dict){
+  requireAdmin(ctx);
+  const names=[...new Set((Array.isArray(d.names)?d.names:[d.name]).filter(Boolean).map(paymentSecretName))];if(!names.length)throw new Error("SECRET_NOMBRE_REQUERIDO");
+  const project_ref=supabaseProjectRef();
+  await paymentSecretsManagementFetch(`/v1/projects/${encodeURIComponent(project_ref)}/secrets`,{method:"DELETE",body:JSON.stringify(names)});
+  await audit(req,ctx,"SECRET_ELIMINAR","PASARELA_PAGO","SECRETS",{nombres:names,cantidad:names.length});
+  return{ok:true,deleted:names};
 }
 
 function sanitizeFileName(name:string):string{return clean(name,180).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9._-]+/g,"-").replace(/-+/g,"-").replace(/^-|-$/g,"")||`imagen-${Date.now()}.bin`;}
@@ -1116,7 +1390,7 @@ async function bulkDeleteEntities(req: Request, ctx: SessionCtx, d: Dict) {
     preferred="id,nombre,storage_path,image_url";fallback="id,nombre";
   }else if(["request","requests","solicitud","solicitudes"].includes(kind)){
     table="solicitudes";moduleName="requests";entity="SOLICITUDES";
-    preferred="id,numero_solicitud,cliente_id,nombre,telefono";fallback="id";
+    preferred="id,numero_solicitud,cliente_id,nombre,telefono,estado";fallback="id,estado";
   }else if(["quote","quotes","cotizacion","cotizaciones"].includes(kind)){
     table="cotizaciones";moduleName="quotes";entity="COTIZACIONES";
     preferred="id,numero_cotizacion,cliente_id,pdf_bucket,pdf_path";fallback="id";
@@ -1126,10 +1400,12 @@ async function bulkDeleteEntities(req: Request, ctx: SessionCtx, d: Dict) {
 
   // 1) Obtener los registros existentes. Si una columna auxiliar no existe, se usa solo ID.
   const rows:any[]=await fetchRowsByIds(table,ids,preferred,fallback) as any[];
-  const existingIds=[...new Set(rows.map((x:any)=>clean(x.id,100)).filter(Boolean))];
-  if(!existingIds.length)return{ok:true,requested:ids.length,existing:0,deleted:0,missing:ids.length,remaining:0,remainingIds:[]};
+  const blockedRows=table==="solicitudes"?rows.filter((x:any)=>String(x.estado||"").toUpperCase()==="CERRADA"):[];
+  const blockedIds=blockedRows.map((x:any)=>clean(x.id,100)).filter(Boolean);const blockedSet=new Set(blockedIds);
+  const existingIds=[...new Set(rows.map((x:any)=>clean(x.id,100)).filter((id:string)=>id&&!blockedSet.has(id)))];
+  if(!existingIds.length)return{ok:true,requested:ids.length,existing:0,deleted:0,missing:Math.max(0,ids.length-blockedIds.length),blocked:blockedIds.length,blockedIds,remaining:0,remainingIds:[]};
 
-  // 2) DELETE físico por lotes cortos. La operación es idempotente: repetir los mismos IDs es seguro.
+  // 2) DELETE físico por lotes cortos. Solicitudes CERRADAS se excluyen y quedan protegidas.
   await hardDeleteIds(table,existingIds);
 
   // 3) Verificación real posterior: no confiamos en el número de filas devuelto por PostgREST.
@@ -1137,7 +1413,7 @@ async function bulkDeleteEntities(req: Request, ctx: SessionCtx, d: Dict) {
   const remainingSet=new Set(remainingIds);
   const deletedIds=existingIds.filter(id=>!remainingSet.has(id));
   const deleted=deletedIds.length;
-  const missing=Math.max(0,ids.length-existingIds.length);
+  const missing=Math.max(0,ids.length-existingIds.length-blockedIds.length);
 
   if(remainingIds.length){
     return{ok:false,error:"ELIMINACION_INCOMPLETA",requested:ids.length,existing:existingIds.length,deleted,missing,remaining:remainingIds.length,remainingIds};
@@ -1164,7 +1440,7 @@ async function bulkDeleteEntities(req: Request, ctx: SessionCtx, d: Dict) {
     hard:true,requested:ids.length,deleted,missing,ids:deletedIds
   }));
 
-  return{ok:true,requested:ids.length,existing:existingIds.length,deleted,missing,remaining:0,remainingIds:[],deletedIds};
+  return{ok:true,requested:ids.length,existing:existingIds.length,deleted,missing,blocked:blockedIds.length,blockedIds,remaining:0,remainingIds:[],deletedIds};
 }
 
 async function deleteEntity(req: Request, ctx: SessionCtx, d: Dict) {
@@ -1174,6 +1450,7 @@ async function deleteEntity(req: Request, ctx: SessionCtx, d: Dict) {
   const normalized=kind==="product"?"products":kind==="request"?"requests":kind==="quote"?"quotes":kind;
   if(["products","requests","quotes"].includes(normalized)){
     const out=await bulkDeleteEntities(req,ctx,{kind:normalized,ids:[id]});
+    if(normalized==="requests"&&Number(out.blocked||0)>0)throw new Error("SOLICITUD_CERRADA_NO_ELIMINABLE");
     return{ok:true,deleted:Number(out.deleted||0)>0,missing:out.missing||0};
   }
   const map:Dict={category:["categorias","categories"],banner:["banners","banners"]};
@@ -1190,6 +1467,7 @@ async function updateStatus(req: Request, ctx: SessionCtx, d: Dict) {
   const kind=clean(d.kind,40).toLowerCase(),status=clean(d.status,80).toUpperCase();const allowed:Dict={order:["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO"],request:["NUEVA","CONTACTADA","COTIZADA","ACEPTADA","CERRADA"]};const map:Dict={order:["pedidos","orders"],request:["solicitudes","requests"]};
   if(!map[kind]||!allowed[kind].includes(status))throw new Error(status==="CANCELADO"&&kind==="order"?"ANULACION_REQUIERE_MOTIVO":"ESTADO_NO_VALIDO");requirePermission(ctx,map[kind][1],"write");const id=clean(d.id,100);if(!id)throw new Error("ID_REQUERIDO");
   if(kind==="order")await requireMutableOrder(id);
+  if(kind==="request"){const rq=await db.from("solicitudes").select("id,estado").eq("id",id).maybeSingle();if(rq.error)throw rq.error;if(!rq.data)throw new Error("SOLICITUD_NO_ENCONTRADA");if(String((rq.data as any).estado||"").toUpperCase()==="CERRADA")throw new Error("SOLICITUD_CERRADA_BLOQUEADA");}
   const selectFields=kind==="order"?"id,cliente_id,estado,estado_pago":"id";const{data,error}=await db.from(map[kind][0]).update({estado:status,updated_at:nowIso()}).eq("id",id).select(selectFields).maybeSingle();if(error)throw error;if(kind==="order"&&data){if(data.cliente_id)deferTask(refreshCustomerStats(String(data.cliente_id)));deferTask(appendOrderHistory(id,"ESTADO_PEDIDO",status,String(data.estado_pago||"PENDIENTE"),`Estado del pedido actualizado a ${publicOrderStatusLabel(status)}${status==="ENTREGADO"?" · Estado final e irreversible":""}`,String(ctx.user.id||"")||null));}await audit(req,ctx,"ESTADO",map[kind][0].toUpperCase(),id,{estado:status,final:kind==="order"&&status==="ENTREGADO"});return{ok:true,updated:!!data,final:kind==="order"&&status==="ENTREGADO"};
 }
 async function cancelOrder(req:Request,ctx:SessionCtx,d:Dict){
@@ -1224,9 +1502,22 @@ async function saveQuote(req: Request, ctx: SessionCtx, d: Dict) {
   const solicitudId=clean(d.solicitud_id,100)||null;
   let numeroSolicitud=clean(d.numero_solicitud,100)||null;
   let linkedRequest:any=null;
+  const existingQuote=await db.from("cotizaciones").select("id,solicitud_id").eq("id",id).maybeSingle();
+  if(existingQuote.error)throw existingQuote.error;
+  const existingSolicitudId=clean((existingQuote.data as any)?.solicitud_id,100)||null;
+  if(existingSolicitudId && existingSolicitudId!==solicitudId){
+    throw new Error("SOLICITUD_COTIZACION_NO_REASIGNABLE");
+  }
   if(solicitudId){
-    const rq=await db.from("solicitudes").select("numero_solicitud,nombre,rut,rut_normalizado,telefono,email,cliente_id").eq("id",solicitudId).maybeSingle();
-    if(rq.error)throw rq.error;if(rq.data){linkedRequest=rq.data;numeroSolicitud=clean(rq.data.numero_solicitud,100)||numeroSolicitud;}
+    const rq=await db.from("solicitudes").select("*").eq("id",solicitudId).maybeSingle();
+    if(rq.error)throw rq.error;
+    if(!rq.data)throw new Error("SOLICITUD_NO_ENCONTRADA");
+    linkedRequest=rq.data;numeroSolicitud=clean((rq.data as any).numero_solicitud,100)||numeroSolicitud;
+    const requestQuoteId=clean((rq.data as any).cotizacion_id,100);
+    if(requestQuoteId && requestQuoteId!==id)throw new Error("SOLICITUD_YA_CONVERTIDA_EN_COTIZACION");
+    const used=await db.from("cotizaciones").select("id,numero_cotizacion").eq("solicitud_id",solicitudId).neq("id",id).order("fecha",{ascending:true}).limit(1).maybeSingle();
+    if(used.error)throw used.error;
+    if(used.data)throw new Error("SOLICITUD_YA_CONVERTIDA_EN_COTIZACION");
   }
   const linkedRut=linkedRequest?.rut?requireValidRut(linkedRequest.rut,"RUT_SOLICITUD_INVALIDO"):initialRut;
   const customer=linkedRequest?.cliente_id?{id:linkedRequest.cliente_id}:await upsertCustomer(req,{...d,rut:linkedRut.rut,nombre:d.cliente_nombre},"COTIZACION",id);
@@ -1260,6 +1551,8 @@ async function saveQuote(req: Request, ctx: SessionCtx, d: Dict) {
   const {data,error}=await db.from("cotizaciones").upsert(row,{onConflict:"id"}).select("*").single();
   if(error) throw error;
   if(solicitudId){
+    // La relación inversa se fija de forma atómica por el trigger R9.18.33.
+    // Aquí solo normalizamos el estado para compatibilidad con bases históricas.
     await db.from("solicitudes").update({estado:"COTIZADA"}).eq("id",solicitudId).in("estado",["NUEVA","CONTACTADA"]);
   }
   if(data?.cliente_id)deferTask(refreshCustomerStats(String(data.cliente_id)));
@@ -1335,17 +1628,66 @@ async function upsertCustomer(req:Request,d:Dict,source:"SOLICITUD"|"PEDIDO"|"CO
   let found:any=null;
   const byRut=await db.from("clientes").select("*").eq("rut_normalizado",rutData.normalized).order("ultima_interaccion",{ascending:false}).limit(1);
   if(byRut.error)throw byRut.error;found=(byRut.data||[])[0]||null;
-  if(!found&&phone){const q=await db.from("clientes").select("*").eq("telefono_normalizado",phone).limit(1);if(q.error)throw q.error;found=(q.data||[])[0]||null;}
-  if(!found&&email){const q=await db.from("clientes").select("*").eq("email",email).limit(1);if(q.error)throw q.error;found=(q.data||[])[0]||null;}
+  if(!found&&phone){const q=await db.from("clientes").select("*").eq("telefono_normalizado",phone).limit(1);if(q.error)throw q.error;const byPhone=(q.data||[])[0]||null;if(byPhone){const otherRut=normalizeRut(byPhone.rut_normalizado||byPhone.rut);if(otherRut&&otherRut!==rutData.normalized)throw new Error("TELEFONO_YA_ASOCIADO_A_OTRO_RUT");found=byPhone;}}
+  if(!found&&email){const q=await db.from("clientes").select("*").eq("email",email).limit(1);if(q.error)throw q.error;const byEmail=(q.data||[])[0]||null;if(byEmail){const otherRut=normalizeRut(byEmail.rut_normalizado||byEmail.rut);if(otherRut&&otherRut!==rutData.normalized)throw new Error("EMAIL_YA_ASOCIADO_A_OTRO_RUT");found=byEmail;}}
   const now=nowIso();
   if(found){
-    const patch:any={nombre:nombre||found.nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono:telefono||found.telefono,telefono_normalizado:phone||found.telefono_normalizado,email:email||found.email,direccion:clean(d.direccion,500)||found.direccion||null,comuna:clean(d.comuna,180)||found.comuna||null,ultima_interaccion:now};
+    const patch:any={nombre:nombre||found.nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono:telefono||found.telefono,telefono_normalizado:phone||found.telefono_normalizado,email:email||found.email,direccion:clean(d.direccion,500)||found.direccion||null,comuna:clean(d.comuna,180)||found.comuna||null,tipo_transporte:clean(d.tipo_transporte||d.metodo_entrega,60).toUpperCase()||found.tipo_transporte||"POR DEFINIR",ultima_interaccion:now};
     const u=await db.from("clientes").update(patch).eq("id",found.id).select("*").single();if(u.error)throw u.error;return u.data;
   }
-  const row:any={nombre:nombre||"Cliente",rut:rutData.rut,rut_normalizado:rutData.normalized,telefono:telefono||null,telefono_normalizado:phone||null,email:email||null,direccion:clean(d.direccion,500)||null,comuna:clean(d.comuna,180)||null,origen_primero:source,primera_interaccion:now,ultima_interaccion:now,total_solicitudes:0,total_pedidos:0,total_cotizaciones:0};
+  const row:any={nombre:nombre||"Cliente",rut:rutData.rut,rut_normalizado:rutData.normalized,telefono:telefono||null,telefono_normalizado:phone||null,email:email||null,direccion:clean(d.direccion,500)||null,comuna:clean(d.comuna,180)||null,tipo_transporte:clean(d.tipo_transporte||d.metodo_entrega,60).toUpperCase()||"POR DEFINIR",origen_primero:source,primera_interaccion:now,ultima_interaccion:now,total_solicitudes:0,total_pedidos:0,total_cotizaciones:0};
   const i=await db.from("clientes").insert(row).select("*").single();if(i.error)throw i.error;deferTask(audit(req,null,"CREAR","CLIENTE",i.data.id,{source,sourceId,rut:rutData.rut}));return i.data;
 }
+async function clientByRut(ctx:SessionCtx,d:Dict){
+  const canRead=!!(ctx.permissions.clients?.read||ctx.permissions.requests?.write||ctx.permissions.quotes?.write||ctx.permissions.orders?.write);
+  if(!canRead)throw new Error("PERMISO_DENEGADO");
+  const rutData=requireValidRut(d.rut,"RUT_CLIENTE_INVALIDO");
+  const q=await db.from("clientes").select("id,numero_cliente,nombre,rut,rut_normalizado,telefono,email,direccion,comuna,tipo_transporte,ultima_interaccion,total_solicitudes,total_pedidos,total_cotizaciones,total_comprado").eq("rut_normalizado",rutData.normalized).eq("activo",true).order("ultima_interaccion",{ascending:false}).limit(1).maybeSingle();
+  if(q.error)throw q.error;
+  return{ok:true,found:!!q.data,client:q.data||null};
+}
+
+async function updateRequestClient(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"requests","write");
+  const id=clean(d.id,100);if(!id)throw new Error("SOLICITUD_REQUERIDA");
+  const current=await db.from("solicitudes").select("*").eq("id",id).maybeSingle();
+  if(current.error)throw current.error;if(!current.data)throw new Error("SOLICITUD_NO_ENCONTRADA");
+  if(String((current.data as any).estado||"").trim().toUpperCase()==="CERRADA")throw new Error("SOLICITUD_CERRADA");
+  if(clean((current.data as any).cotizacion_id,100))throw new Error("SOLICITUD_COTIZADA_BLOQUEADA");
+  const used=await db.from("cotizaciones").select("id").eq("solicitud_id",id).limit(1).maybeSingle();if(used.error)throw used.error;if(used.data)throw new Error("SOLICITUD_COTIZADA_BLOQUEADA");
+  const nombre=clean(d.nombre,180),telefono=clean(d.telefono,80);
+  if(!nombre)throw new Error("NOMBRE_REQUERIDO");if(!telefono)throw new Error("TELEFONO_REQUERIDO");
+  const rutData=requireValidRut(d.rut,"RUT_SOLICITUD_INVALIDO");
+  const customer=await upsertCustomer(req,{...d,nombre,telefono,rut:rutData.rut},"SOLICITUD",id);
+  const patch:any={cliente_id:customer?.id||null,nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono,email:clean(d.email,250)};
+  const u=await db.from("solicitudes").update(patch).eq("id",id).select("*").single();if(u.error)throw u.error;
+  if(customer?.id)deferTask(refreshCustomerStats(String(customer.id)));
+  await audit(req,ctx,"ACTUALIZAR_CLIENTE","SOLICITUD",id,{cliente_id:customer?.id||null,rut:rutData.rut});
+  return{ok:true,request:u.data,client:customer};
+}
+
 async function refreshCustomerStats(clienteId:string){if(!clienteId)return;const [p,s,q]=await Promise.all([db.from("pedidos").select("total,estado").eq("cliente_id",clienteId),db.from("solicitudes").select("id").eq("cliente_id",clienteId),db.from("cotizaciones").select("id").eq("cliente_id",clienteId)]);const sales=(p.data||[]).filter((x:any)=>String(x.estado).toUpperCase()==="ENTREGADO").reduce((a:number,x:any)=>a+Number(x.total||0),0);await db.from("clientes").update({total_pedidos:(p.data||[]).length,total_solicitudes:(s.data||[]).length,total_cotizaciones:(q.data||[]).length,total_comprado:money(sales),ultima_interaccion:nowIso()}).eq("id",clienteId);}
+
+
+async function saveClient(req:Request,ctx:SessionCtx,d:Dict){
+  requirePermission(ctx,"clients","write");
+  const id=clean(d.id,100),nombre=clean(d.nombre,180),rutData=requireValidRut(d.rut,"RUT_CLIENTE_INVALIDO");
+  if(!nombre)throw new Error("NOMBRE_CLIENTE_REQUERIDO");
+  const telefono=clean(d.telefono,80),telefonoNormalizado=normalizePhone(telefono),email=clean(d.email,250).toLowerCase()||null;
+  const direccion=clean(d.direccion,500)||null,comuna=clean(d.comuna,180)||null;
+  const tipoRaw=clean(d.tipo_transporte||d.metodo_entrega,60).toUpperCase();
+  const tipoMap:Record<string,string>={"RETIRO":"RETIRO","DESPACHO":"DESPACHO","OTRO":"OTRO","POR DEFINIR":"POR DEFINIR","POR_DEFINIR":"POR DEFINIR"};
+  const tipoTransporte=tipoMap[tipoRaw]||"POR DEFINIR";
+  const dupRut=await db.from("clientes").select("id,numero_cliente,nombre").eq("rut_normalizado",rutData.normalized).neq("id",id||"__NUEVO__").limit(1).maybeSingle();
+  if(dupRut.error)throw dupRut.error;if(dupRut.data)throw new Error("RUT_YA_ASOCIADO_A_OTRO_CLIENTE");
+  if(telefonoNormalizado){const dupTel=await db.from("clientes").select("id,numero_cliente,nombre").eq("telefono_normalizado",telefonoNormalizado).neq("id",id||"__NUEVO__").limit(1).maybeSingle();if(dupTel.error)throw dupTel.error;if(dupTel.data)throw new Error("TELEFONO_YA_ASOCIADO_A_OTRO_CLIENTE");}
+  const now=nowIso();
+  const patch:any={nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono:telefono||null,telefono_normalizado:telefonoNormalizado||null,email,direccion,comuna,tipo_transporte:tipoTransporte,updated_at:now};
+  let client:any;
+  if(id){const found=await db.from("clientes").select("id").eq("id",id).maybeSingle();if(found.error)throw found.error;if(!found.data)throw new Error("CLIENTE_NO_ENCONTRADO");const q=await db.from("clientes").update(patch).eq("id",id).select("*").single();if(q.error)throw q.error;client=q.data;await audit(req,ctx,"ACTUALIZAR","CLIENTE",id,{rut:rutData.rut,tipo_transporte:tipoTransporte});}
+  else{const row={...patch,origen_primero:"MANUAL",primera_interaccion:now,ultima_interaccion:now,total_solicitudes:0,total_pedidos:0,total_cotizaciones:0,total_comprado:0,activo:true,creado_en:now};const q=await db.from("clientes").insert(row).select("*").single();if(q.error)throw q.error;client=q.data;await audit(req,ctx,"CREAR","CLIENTE",String(client.id),{rut:rutData.rut,tipo_transporte:tipoTransporte});}
+  return{ok:true,client};
+}
 
 async function bulkImportProducts(req:Request,ctx:SessionCtx,d:Dict){requirePermission(ctx,"products","write");const rows=Array.isArray(d.rows)?d.rows.slice(0,2000):[];if(!rows.length)throw new Error("ARCHIVO_SIN_PRODUCTOS");const existing=await db.from("productos").select("id");if(existing.error)throw existing.error;const ids=new Set((existing.data||[]).map((x:any)=>String(x.id)));const categories=new Map<string,string>();const cq=await db.from("categorias").select("id,nombre");if(cq.error)throw cq.error;for(const c of cq.data||[])categories.set(String(c.nombre).trim().toLowerCase(),String(c.id));let imported=0,created=0,updated=0;const errors:any[]=[];for(let i=0;i<rows.length;i++){try{const d0=rows[i]||{},nombre=clean(d0.nombre,250);if(!nombre)throw new Error("NOMBRE_REQUERIDO");let id=clean(d0.id,100)||randomId("PROD"),categoriaNombre=clean(d0.categoria_nombre||d0.categoria,180),categoriaId:string|null=null;if(categoriaNombre){const k=categoriaNombre.toLowerCase();categoriaId=categories.get(k)||null;if(!categoriaId){const nc={id:randomId("CAT"),nombre:categoriaNombre,descripcion:"",orden:0,activo:true};const ins=await db.from("categorias").insert(nc);if(ins.error)throw ins.error;categoriaId=nc.id;categories.set(k,nc.id);}}const was=ids.has(id);const row={id,nombre,descripcion:clean(d0.descripcion,5000),precio:money(d0.precio),categoria_id:categoriaId,categoria_nombre:categoriaNombre,stock:money(d0.stock),image_url:clean(d0.image_url||d0.imagen_url,2000)||null,destacado:bool(d0.destacado),activo:d0.activo===undefined?true:bool(d0.activo,true),ocasion:clean(d0.ocasion,180),orden:Number(d0.orden||0)||0};const q=await db.from("productos").upsert(row,{onConflict:"id"});if(q.error)throw q.error;ids.add(id);imported++;was?updated++:created++;}catch(e){errors.push({fila:i+2,error:e instanceof Error?e.message:String(e),nombre:clean(rows[i]?.nombre,120)});}}await audit(req,ctx,"IMPORTAR_XLSX","PRODUCTOS","",{filas:rows.length,imported,created,updated,errors:errors.length});return{ok:true,imported,created,updated,errors:errors.slice(0,100)};}
 
@@ -1445,6 +1787,8 @@ async function adminCreateOrder(req:Request,ctx:SessionCtx,d:Dict){
     const used=await db.from("pedidos").select("id,numero_pedido").eq("cotizacion_id",quoteId).limit(1).maybeSingle();if(used.error)throw used.error;if(used.data)throw new Error("COTIZACION_YA_CONVERTIDA_EN_PEDIDO");
     const q=await db.from("cotizaciones").select("*").eq("id",quoteId).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("COTIZACION_NO_ENCONTRADA");
     quote=q.data;
+    if(clean(quote?.pedido_id,120))throw new Error("COTIZACION_YA_CONVERTIDA_EN_PEDIDO");
+    if(["ANULADA","RECHAZADA","VENCIDA"].includes(String(quote?.estado||"").toUpperCase()))throw new Error("COTIZACION_NO_VIGENTE");
   }
   const nombre=clean(d.nombre||quote?.cliente_nombre,180),telefono=clean(d.telefono||quote?.telefono,80),email=clean(d.email||quote?.email,250);
   if(!nombre)throw new Error("NOMBRE_REQUERIDO");if(!telefono)throw new Error("TELEFONO_REQUERIDO");
@@ -1463,7 +1807,12 @@ async function adminCreateOrder(req:Request,ctx:SessionCtx,d:Dict){
   const oq=await db.from("pedidos").select("*").eq("id",id).single();if(oq.error)throw oq.error;const order:any=oq.data;
   const trackingToken=await trackingTokenForOrder(id),trackingHash=await sha256Hex(trackingToken);const trackingUpd=await db.from("pedidos").update({tracking_token_hash:trackingHash,updated_at:nowIso()}).eq("id",id);if(trackingUpd.error)throw trackingUpd.error;
   const cfg=await configMap(),base=trackingBaseUrl(cfg),number=order.numero_pedido||id;
-  if(quoteId)await db.from("cotizaciones").update({estado:"ACEPTADA",updated_at:nowIso()}).eq("id",quoteId).in("estado",["BORRADOR","ENVIADA","ACEPTADA"]);
+  if(quoteId){
+    // Persistir la relación inversa para que el cPanel la retire inmediatamente del selector.
+    // La migración R9.18.32 agrega pedido_id; mantenemos fallback para despliegues escalonados.
+    const qu=await db.from("cotizaciones").update({estado:"ACEPTADA",pedido_id:id,cotizacion_consumida_en:nowIso(),updated_at:nowIso()}).eq("id",quoteId).in("estado",["BORRADOR","ENVIADA","ACEPTADA"]);
+    if(qu.error){const fb=await db.from("cotizaciones").update({estado:"ACEPTADA",updated_at:nowIso()}).eq("id",quoteId).in("estado",["BORRADOR","ENVIADA","ACEPTADA"]);if(fb.error)throw fb.error;}
+  }
   deferTask(appendOrderHistory(id,"PEDIDO_CREADO_CPANEL",String(order.estado||"PENDIENTE"),pedido.estado_pago,quoteId?"Pedido creado desde cotización en cPanel":"Pedido creado manualmente desde cPanel",String(ctx.user.id||"")||null));
   deferTask(audit(req,ctx,"CREAR_CPANEL","PEDIDO",id,{numero_pedido:number,medio_pago:medio,cotizacion_id:quoteId,total}));
   return{ok:true,order:{...order,medio_pago:medio,estado_pago:pedido.estado_pago,cotizacion_id:quoteId},payment_link_required:medio==="TRANSBANK",tracking_url:`${base}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(trackingToken)}`};
@@ -1483,7 +1832,8 @@ async function publicOrderCheckout(d:Dict){
   else if(!o.checkout_token_hash||(await sha256Hex(token))!==String(o.checkout_token_hash))throw new Error("TOKEN_CHECKOUT_INVALIDO");
   const customer=await hydrateCheckoutCustomer(o);
   const items=await loadOrderItems(o);
-  return{ok:true,order_id:o.id,payment_link_id:linkId||null,checkout_token:token,order:{id:o.id,numero_pedido:o.numero_pedido||o.id,nombre:customer.nombre,rut:customer.rut,telefono:customer.telefono,email:customer.email,direccion:customer.direccion,comuna:customer.comuna,metodo_entrega:o.metodo_entrega,observaciones:o.observaciones,total:o.total,subtotal:o.subtotal,despacho:o.despacho,estado:o.estado,estado_pago:o.estado_pago,medio_pago:o.medio_pago},items};
+  const paymentMethod=await resolveOrderPaymentMethod(o);
+  return{ok:true,order_id:o.id,payment_link_id:linkId||null,checkout_token:token,order:{id:o.id,numero_pedido:o.numero_pedido||o.id,nombre:customer.nombre,rut:customer.rut,telefono:customer.telefono,email:customer.email,direccion:customer.direccion,comuna:customer.comuna,metodo_entrega:o.metodo_entrega,observaciones:o.observaciones,total:o.total,subtotal:o.subtotal,despacho:o.despacho,estado:o.estado,estado_pago:o.estado_pago,medio_pago:paymentMethod||o.medio_pago||""},items};
 }
 function b64Bytes(v:unknown):Uint8Array{let s=String(v??"");const bin=atob(s);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
 async function uploadTransferProof(req:Request,d:Dict){
@@ -1492,7 +1842,7 @@ async function uploadTransferProof(req:Request,d:Dict){
   if(!o.tracking_token_hash||(await sha256Hex(trackingToken))!==String(o.tracking_token_hash))throw new Error("TOKEN_SEGUIMIENTO_INVALIDO");if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");if((await resolveOrderPaymentMethod(o))!=="TRANSFERENCIA")throw new Error("PEDIDO_NO_ES_TRANSFERENCIA");
   const m=dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/i);if(!m)throw new Error("COMPROBANTE_IMAGEN_INVALIDA");const bytes=b64Bytes(m[2]);if(bytes.length>8_000_000)throw new Error("COMPROBANTE_DEMASIADO_GRANDE");const ext=m[1].toLowerCase().includes("png")?"png":m[1].toLowerCase().includes("webp")?"webp":"jpg";const path=`pedidos/comprobantes/${sanitizeFileName(o.numero_pedido||orderId)}-${Date.now()}.${ext}`;
   const up=await db.storage.from(BUCKET).upload(path,bytes,{contentType:m[1],upsert:false});if(up.error)throw up.error;const url=db.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-  const upd=await db.from("pedidos").update({comprobante_pago_url:url,comprobante_pago_path:path,comprobante_pago_estado:"PENDIENTE_REVISION",comprobante_pago_fecha:nowIso(),estado_pago:"INICIADO",updated_at:nowIso()}).eq("id",orderId);if(upd.error)throw upd.error;
+  const upd=await db.from("pedidos").update({medio_pago:"TRANSFERENCIA",comprobante_pago_url:url,comprobante_pago_path:path,comprobante_pago_estado:"PENDIENTE_REVISION",comprobante_pago_fecha:nowIso(),estado_pago:"INICIADO",updated_at:nowIso()}).eq("id",orderId);if(upd.error)throw upd.error;
   deferTask(appendOrderHistory(orderId,"COMPROBANTE_TRANSFERENCIA","",String(o.estado_pago||"INICIADO"),"Cliente adjuntó comprobante de transferencia para revisión",null));deferTask(audit(req,null,"COMPROBANTE_TRANSFERENCIA","PEDIDO",orderId,{path}));return{ok:true,url,status:"PENDIENTE_REVISION"};
 }
 
@@ -1512,7 +1862,19 @@ async function adminOrderPaymentLink(ctx:SessionCtx,d:Dict){
 }
 
 
-async function adminVerifyTransfer(req:Request,ctx:SessionCtx,d:Dict){requirePermission(ctx,"orders","write");const id=clean(d.id||d.order_id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");const q=await db.from("pedidos").select("*").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");const o:any=q.data;if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");if((await resolveOrderPaymentMethod(o))!=="TRANSFERENCIA")throw new Error("PEDIDO_NO_ES_TRANSFERENCIA");if(!o.comprobante_pago_url)throw new Error("COMPROBANTE_NO_DISPONIBLE");const u=await db.from("pedidos").update({estado_pago:"PAGADO",estado:"CONFIRMADO",fecha_pago:nowIso(),comprobante_pago_estado:"APROBADO",comprobante_pago_revisado_por:ctx.user.id,comprobante_pago_revisado_en:nowIso(),updated_at:nowIso()}).eq("id",id);if(u.error)throw u.error;deferTask(appendOrderHistory(id,"PAGO_TRANSFERENCIA_APROBADO","CONFIRMADO","PAGADO","Comprobante verificado y pago aprobado",String(ctx.user.id)));deferTask(refreshOrderPdfSnapshot(id));await audit(req,ctx,"APROBAR_TRANSFERENCIA","PEDIDO",id,{});return{ok:true,estado:"CONFIRMADO",estado_pago:"PAGADO"};}
+async function closeRequestForPaidOrder(orderId:string){
+  if(!orderId)return;
+  const oq=await db.from("pedidos").select("id,solicitud_id,cotizacion_id,estado_pago").eq("id",orderId).maybeSingle();
+  if(oq.error||!oq.data)return;
+  if(String((oq.data as any).estado_pago||"").toUpperCase()!=="PAGADO")return;
+  let requestId=clean((oq.data as any).solicitud_id,100);
+  if(!requestId&&(oq.data as any).cotizacion_id){const cq=await db.from("cotizaciones").select("solicitud_id").eq("id",String((oq.data as any).cotizacion_id)).maybeSingle();if(!cq.error&&cq.data)requestId=clean((cq.data as any).solicitud_id,100);}
+  if(!requestId)return;
+  const rq=await db.from("solicitudes").select("id,estado").eq("id",requestId).maybeSingle();if(rq.error||!rq.data)return;
+  if(String((rq.data as any).estado||"").toUpperCase()==="CERRADA")return;
+  const u=await db.from("solicitudes").update({estado:"CERRADA"}).eq("id",requestId);if(u.error)throw u.error;
+}
+async function adminVerifyTransfer(req:Request,ctx:SessionCtx,d:Dict){requirePermission(ctx,"orders","write");const id=clean(d.id||d.order_id,100);if(!id)throw new Error("PEDIDO_REQUERIDO");const q=await db.from("pedidos").select("*").eq("id",id).maybeSingle();if(q.error)throw q.error;if(!q.data)throw new Error("PEDIDO_NO_ENCONTRADO");const o:any=q.data;if(orderStatusFinal(o.estado))throw new Error("PEDIDO_ESTADO_FINAL");if((await resolveOrderPaymentMethod(o))!=="TRANSFERENCIA")throw new Error("PEDIDO_NO_ES_TRANSFERENCIA");if(!o.comprobante_pago_url)throw new Error("COMPROBANTE_NO_DISPONIBLE");const u=await db.from("pedidos").update({medio_pago:"TRANSFERENCIA",estado_pago:"PAGADO",estado:"CONFIRMADO",fecha_pago:nowIso(),comprobante_pago_estado:"APROBADO",comprobante_pago_revisado_por:ctx.user.id,comprobante_pago_revisado_en:nowIso(),updated_at:nowIso()}).eq("id",id);if(u.error)throw u.error;await closeRequestForPaidOrder(id);deferTask(appendOrderHistory(id,"PAGO_TRANSFERENCIA_APROBADO","CONFIRMADO","PAGADO","Comprobante verificado y pago aprobado",String(ctx.user.id)));deferTask(refreshOrderPdfSnapshot(id));await audit(req,ctx,"APROBAR_TRANSFERENCIA","PEDIDO",id,{});return{ok:true,estado:"CONFIRMADO",estado_pago:"PAGADO"};}
 
 async function createPublicOrder(req: Request, d: Dict) {
   const nombre=clean(d.nombre,180), telefono=clean(d.telefono,80);
@@ -1520,6 +1882,8 @@ async function createPublicOrder(req: Request, d: Dict) {
   if(!telefono) throw new Error("TELEFONO_REQUERIDO");
   const rutData=requireValidRut(d.rut,"RUT_PEDIDO_INVALIDO");
   const id=requestedPublicId(d.id,"PED");
+  const medio=canonicalPaymentMethod(d.medio_pago||d.metodo_pago||d.payment_method)||"TRANSFERENCIA";
+  if(!["EFECTIVO","TRANSFERENCIA","TRANSBANK"].includes(medio))throw new Error("MEDIO_PAGO_INVALIDO");
   const rawDetail=Array.isArray(d.detalle)?d.detalle.slice(0,200):[];
   if(!rawDetail.length) throw new Error("DETALLE_PEDIDO_INVALIDO");
   const productIds=[...new Set(rawDetail.map((x:any)=>clean(x?.id,100)).filter(Boolean))];
@@ -1547,14 +1911,19 @@ async function createPublicOrder(req: Request, d: Dict) {
   const pedido={
     id,cliente_id:customer?.id||null,nombre,rut:rutData.rut,rut_normalizado:rutData.normalized,telefono,email:clean(d.email,250),direccion:clean(d.direccion,500),comuna:clean(d.comuna,180),
     metodo_entrega:clean(d.metodo_entrega,120),subtotal,despacho,total,observaciones:clean(d.observaciones,3000),
+    origen:"WEB",medio_pago:medio,estado_pago:medio==="EFECTIVO"?"PENDIENTE":"INICIADO",
     created_ip:clientIp(req),user_agent:clean(req.headers.get("user-agent"),1000)
   };
   const rpc=await db.rpc("ale_crear_pedido_completo",{p_pedido:pedido,p_items:detail});
   if(rpc.error)throw rpc.error;
   const result:any=rpc.data||{};
-  const orderQ=await db.from("pedidos").select("*").eq("id",id).single();if(orderQ.error)throw orderQ.error;
-  const order:any=orderQ.data;
+  let orderQ=await db.from("pedidos").select("*").eq("id",id).single();if(orderQ.error)throw orderQ.error;
+  let order:any=orderQ.data;
   if(result.duplicated){const sameRut=normalizeRut(order.rut||order.rut_normalizado)===rutData.normalized;const samePhone=normalizePhone(order.telefono)===normalizePhone(telefono);if(!sameRut||!samePhone)throw new Error("PEDIDO_ID_EN_CONFLICTO");}
+  if(!result.duplicated||!canonicalPaymentMethod(order.medio_pago)){
+    const persist=await db.from("pedidos").update({origen:"WEB",medio_pago:medio,estado_pago:clean(order.estado_pago,40)||pedido.estado_pago,updated_at:nowIso()}).eq("id",id);if(persist.error)throw persist.error;
+    orderQ=await db.from("pedidos").select("*").eq("id",id).single();if(orderQ.error)throw orderQ.error;order=orderQ.data;
+  }
   const checkoutToken=randomToken(32);
   const checkoutTokenHash=await sha256Hex(checkoutToken);
   const trackingToken=await trackingTokenForOrder(id);
@@ -1573,7 +1942,7 @@ async function createPublicOrder(req: Request, d: Dict) {
   }
   if(customer?.id)deferTask(refreshCustomerStats(String(customer.id)));
   deferTask(appendOrderHistory(id,"PEDIDO_CREADO",String(order.estado||"PENDIENTE"),String(order.estado_pago||"PENDIENTE"),"Pedido recibido desde la Web",null));
-  deferTask(audit(req,null,"CREAR","PEDIDO",id,{nombre,rut:rutData.rut,publico:true,numero_pedido:order.numero_pedido||result.numero_pedido||"",cliente_id:customer?.id||null,items:detail.length,pdf:!!pdfUrl}));
+  deferTask(audit(req,null,"CREAR","PEDIDO",id,{nombre,rut:rutData.rut,publico:true,numero_pedido:order.numero_pedido||result.numero_pedido||"",cliente_id:customer?.id||null,items:detail.length,pdf:!!pdfUrl,medio_pago:medio}));
   const cfg=await configMap();const number=order.numero_pedido||result.numero_pedido||id;
   return {ok:true,id,numero_pedido:number,duplicated:!!result.duplicated,persisted:true,cliente_id:customer?.id||null,pdf_url:pdfUrl,pdf_pending:pdfPending,pdf_error:pdfError||undefined,total,checkout_token:checkoutToken,tracking_token:trackingToken,tracking_url:`${trackingBaseUrl(cfg)}#seguimiento/${encodeURIComponent(number)}?t=${encodeURIComponent(trackingToken)}`};
 }
@@ -1605,6 +1974,7 @@ async function transbankCreatePayment(req:Request,d:Dict){
       if(alreadyPaid){
         await db.from("pagos_transbank").update({estado:"PAGADO",response_code:prev.response_code??null,authorization_code:clean(prev.authorization_code,120)||null,payment_type_code:clean(prev.payment_type_code,40)||null,installments_number:Number(prev.installments_number||0)||0,card_last4:clean(prev.card_detail?.card_number,20)||null,accounting_date:clean(prev.accounting_date,20)||null,transaction_date:prev.transaction_date||null,respuesta_json:prev,error_detalle:null,updated_at:nowIso(),committed_at:nowIso()}).eq("id",previous.id);
         await db.from("pedidos").update({estado_pago:"PAGADO",medio_pago:"TRANSBANK",fecha_pago:prev.transaction_date||nowIso(),updated_at:nowIso()}).eq("id",orderId);
+        await closeRequestForPaidOrder(orderId);
         deferTask(appendOrderHistory(orderId,"PAGO_CONFIRMADO","","PAGADO","Pago confirmado por Transbank",null));
         deferTask(refreshOrderPdfSnapshot(orderId));
         deferTask(audit(req,null,"TRANSBANK_REINTENTO_BLOQUEADO_PAGO_EXISTENTE","PAGO",String(previous.id),{pedido_id:orderId,buy_order:previous.buy_order,response_code:prev.response_code,status:prev.status}));
@@ -1704,7 +2074,7 @@ async function transbankFinalizePayment(req:Request,payment:any,token:string):Pr
   await db.from("pagos_transbank").update(update).eq("id",payment.id);
   const orderState=finalStatus==="PAGADO"?"PAGADO":finalStatus==="RECHAZADO"?"RECHAZADO":finalStatus==="INICIADO"?"INICIADO":"VERIFICACION_PENDIENTE";
   await db.from("pedidos").update({estado_pago:orderState,medio_pago:"TRANSBANK",fecha_pago:paid?(resp.transaction_date||nowIso()):null,updated_at:nowIso()}).eq("id",payment.pedido_id);
-  if(paid){deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_CONFIRMADO","",orderState,"Pago confirmado por Transbank",null));deferTask(refreshOrderPdfSnapshot(String(payment.pedido_id)));}
+  if(paid){await closeRequestForPaidOrder(String(payment.pedido_id));deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_CONFIRMADO","",orderState,"Pago confirmado por Transbank",null));deferTask(refreshOrderPdfSnapshot(String(payment.pedido_id)));}
   else if(finalStatus==="RECHAZADO")deferTask(appendOrderHistory(String(payment.pedido_id),"PAGO_RECHAZADO","",orderState,"Pago rechazado por Transbank",null));
   deferTask(audit(req,null,paid?"TRANSBANK_PAGADO":finalStatus==="RECHAZADO"?"TRANSBANK_RECHAZADO":"TRANSBANK_VERIFICACION","PAGO",String(payment.id),{pedido_id:payment.pedido_id,buy_order:payment.buy_order,response_code:resp.response_code,status:resp.status,validOrder,validSession,validAmount}));
   return{status:finalStatus,resp,paid};
@@ -1824,6 +2194,7 @@ Deno.serve(async (req: Request) => {
   try {
     const requestUrl=new URL(req.url);
     if(requestUrl.searchParams.get("tbk_return")==="1") return await transbankReturn(req);
+    if(requestUrl.searchParams.get("pdf")==="1") return await publicOrderPdfResponse(req);
     const body: Dict = req.method === "GET" ? Object.fromEntries(new URL(req.url).searchParams.entries()) : await req.json().catch(()=>({}));
     const action=clean(body.action,80).toLowerCase();
     const data:Dict=body.data&&typeof body.data==="object"?body.data:body;
@@ -1831,13 +2202,14 @@ Deno.serve(async (req: Request) => {
     // Acciones públicas: no requieren sesión.
     if(action==="ping") return json(req,{
       ok:true,service:"ALE_ATENCIO_API",version:VERSION,api_contract:2,
-      capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"],
+      capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","order_tracking","sales_analytics","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync","payment_secret_manager","protected_order_pdf","request_paid_close_lock","commercial_table_filters","client_management","client_rut_lookup","request_client_edit","document_formats","document_trace_qr"],
       jwt:false,supabaseAuth:false,auth:"TABLA_USUARIOS",session:"TABLA_SESIONES",singleTs:true,server_time:nowIso()
     });
     if(action==="bootstrap") return json(req,{ok:true,...await publicBootstrap()});
     if(action==="trackorder") return json(req,await publicTrackOrder(data));
     if(action==="publicquote") return json(req,await publicQuoteView(data));
     if(action==="publicrequest") return json(req,await publicRequestView(data));
+    if(action==="publictrace") return json(req,await publicTraceView(data));
     if(action==="publicorderpdf") return json(req,await publicGenerateOrderPdf(req,data));
     if(action==="createorder") return json(req,await createPublicOrder(req,data));
     if(action==="publicordercheckout") return json(req,await publicOrderCheckout(data));
@@ -1854,7 +2226,7 @@ Deno.serve(async (req: Request) => {
     const ctx=await requireSession(req,body);
     if(action==="session"||action==="adminsession") return json(req,{
       ok:true,user:safeUser(ctx.user),permissions:ctx.permissions,expires_at:ctx.session.expira_en,
-      version:VERSION,api_contract:2,capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","salesreport","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync"]
+      version:VERSION,api_contract:2,capabilities:["adminmodule","bulkdeleteentities","verifydeleteentities","storage_images","sliding_session","orderdetail","order_pdf","rut_cl","transbank_webpay_plus","salesreport","cpanel_order_create","transfer_proof","public_share_links","notification_read_sync","protected_order_pdf","request_paid_close_lock","commercial_table_filters","client_management","client_rut_lookup","request_client_edit","document_formats","document_trace_qr"]
     });
     if(action==="logout"||action==="adminlogout") return json(req,await logout(req,ctx));
     if(action==="adminbootstrap") return json(req,{ok:true,...await adminBootstrap(ctx,data)});
@@ -1865,6 +2237,7 @@ Deno.serve(async (req: Request) => {
     if(action==="adminorderpaymentlink") return json(req,await adminOrderPaymentLink(ctx,data));
     if(action==="cancelorder") return json(req,await cancelOrder(req,ctx,data));
     if(action==="generateorderpdf") return json(req,await generateOrderPdf(req,ctx,data));
+    if(action==="orderpdflink") return json(req,await adminOrderPdfLink(ctx,data));
     if(action==="ordertrackinglink") return json(req,await adminOrderTrackingLink(ctx,data));
     if(action==="quotesharelink") return json(req,await adminQuoteShareLink(ctx,data));
     if(action==="requestsharelink") return json(req,await adminRequestShareLink(ctx,data));
@@ -1873,11 +2246,17 @@ Deno.serve(async (req: Request) => {
     if(action==="notificationreadall") return json(req,await notificationReadAll(req,ctx,data));
     if(action==="salesreport") return json(req,await salesReport(ctx,data));
     if(action==="saveproduct") return json(req,await saveProduct(req,ctx,data));
+    if(action==="saveclient") return json(req,await saveClient(req,ctx,data));
+    if(action==="clientbyrut") return json(req,await clientByRut(ctx,data));
+    if(action==="updaterequestclient") return json(req,await updateRequestClient(req,ctx,data));
     if(action==="bulkimportproducts") return json(req,await bulkImportProducts(req,ctx,data));
     if(action==="saveprice") return json(req,await savePrice(req,ctx,data));
     if(action==="savecategory") return json(req,await saveCategory(req,ctx,data));
     if(action==="savebanner") return json(req,await saveBanner(req,ctx,data));
     if(action==="saveconfig") return json(req,await saveConfig(req,ctx,data));
+    if(action==="paymentsecretslist") return json(req,await paymentSecretsList(ctx));
+    if(action==="paymentsecretsset") return json(req,await paymentSecretsSet(req,ctx,data));
+    if(action==="paymentsecretsdelete") return json(req,await paymentSecretsDelete(req,ctx,data));
     if(action==="transbankhealth") return json(req,await transbankHealth(ctx));
     if(action==="savequote") return json(req,await saveQuote(req,ctx,data));
     if(action==="uploadquotepdf") return json(req,await uploadQuotePdf(req,ctx,data));
