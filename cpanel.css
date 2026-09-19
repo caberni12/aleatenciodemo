@@ -2369,3 +2369,16 @@ body.client-editor-open{overflow:hidden}body.client-editor-open::before{content:
 .client-summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:18px}.client-summary-strip>div{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;gap:3px}.client-summary-strip small{color:var(--muted)}.client-summary-strip strong{font-size:18px;color:#4f392f}
 #clientEditor .editor-actions{position:sticky;bottom:-22px;background:linear-gradient(180deg,rgba(255,250,248,.65),#fffaf8 35%);padding:16px 0 4px;z-index:2}
 @media(max-width:720px){.client-form-grid{grid-template-columns:1fr}.client-form-grid .span-2{grid-column:auto}.client-summary-strip{grid-template-columns:repeat(2,minmax(0,1fr))}#clientEditor:not(.hidden){width:calc(100vw - 16px);max-height:94vh;padding:16px;border-radius:18px}.client-toolbar{align-items:stretch}.client-search-shell{min-width:100%}}
+
+/* R9.18.40 · cliente por RUT */
+.client-rut-lookup-state{display:block;margin-top:6px;min-height:18px;font-size:.78rem;color:#7b6d68;line-height:1.35}
+.client-rut-lookup-state.is-loading{color:#8b6d35}
+.client-rut-lookup-state.is-found{color:#2f7a4d;font-weight:700}
+.client-rut-lookup-state.is-new{color:#8b6d35}
+.client-rut-lookup-state.is-error{color:#a33a3a;font-weight:700}
+.request-client-editor{width:min(720px,calc(100vw - 28px));max-height:90vh;overflow:auto}
+.request-client-state{display:none;margin:0 0 14px;padding:10px 12px;border-radius:12px;background:#fff5df;color:#7a5717;font-size:.9rem}
+.request-client-state.is-visible{display:block}
+.request-row-client-clickable{cursor:pointer}
+.request-row-client-clickable:hover td{background:rgba(170,134,81,.07)}
+.request-row-client-clickable:focus{outline:2px solid rgba(170,134,81,.42);outline-offset:-2px}
