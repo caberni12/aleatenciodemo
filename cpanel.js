@@ -829,7 +829,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260918-r91834-payment-secret-manager";
+const CPANEL_MEDIA_VERSION="20260918-r91835-pdf-protegido-payment-secret-manager";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1062,10 +1062,13 @@ function renderOrders(){
     <td class="money-column"><strong>${money(o.total||0)}</strong></td>
     <td class="order-payment-cell"><span class="payment-status-badge ${paymentClass}">${esc(paymentState)}</span><small>${esc(orderPaymentMethodLabel(o.medio_pago))}</small></td>
     <td class="order-status-cell">${statusHtml}</td>
-    <td class="order-pdf-cell">${o.pdf_url?`<a class="pdf-link" href="${esc(o.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:'<span class="muted-text">Pendiente</span>'}</td>
+    <td class="order-pdf-cell">${(o.pdf_url||o.pdf_path)?`<button class="pdf-link order-pdf-secure-btn" type="button" data-order-pdf="${esc(o.id)}"><i class="bi bi-file-earmark-pdf"></i> PDF</button>`:'<span class="muted-text">Pendiente</span>'}</td>
     <td class="order-actions-cell"><div class="row-actions"><button type="button" onclick="openOrderDetail('${o.id}')"><i class="bi bi-eye"></i> Ver pedido</button>${cancelAction}</div></td>
   </tr>`}).join(""));
 }
+async function secureOrderPdfUrl(orderId){const out=await AleAPI.post("orderpdflink",{id:String(orderId||"")},token);if(!out?.pdf_url)throw new Error("PDF_PEDIDO_NO_DISPONIBLE");return clientPublicUrl(out.pdf_url)}
+async function openSecureOrderPdf(orderId,button=null){let tab=null;try{tab=window.open("about:blank","_blank");if(tab)tab.document.write('<title>Ale Atencio · PDF</title><body style="font-family:Arial,sans-serif;padding:24px">Cargando PDF seguro…</body>');const url=await secureOrderPdfUrl(orderId);if(tab)tab.location.replace(url);else window.location.href=url}catch(err){try{tab?.close()}catch(_){}console.warn("secureOrderPdf",err);toast("✕ No fue posible abrir el PDF seguro")}}
+$("#ordersTable")?.addEventListener("click",e=>{const b=e.target.closest("[data-order-pdf]");if(b)openSecureOrderPdf(b.dataset.orderPdf,b)});
 window.changeStatus=async(kind,id,status)=>{
   if(kind==="order"){const o=data.orders.find(x=>String(x.id)===String(id));if(o&&isFinalOrder(o)){toast(`✕ ${orderFinalMessage(o.estado)}. No se puede modificar.`);renderOrders();return}if(orderState(status)==="CANCELADO"){window.openOrderCancel(id);renderOrders();return}}
   try{await AleAPI.post("updatestatus",{kind,id,status},token);const list=kind==="order"?data.orders:data.requests;const ix=list.findIndex(x=>String(x.id)===String(id));if(ix>=0)list[ix]={...list[ix],estado:status,updated_at:new Date().toISOString()};if(kind==="order"){renderOrders();reportAnalytics=null;if($("#view-reports")?.classList.contains("active"))loadReports(true).catch(()=>{})}else renderRequests();toast(orderState(status)==="ENTREGADO"?"✓ Pedido marcado como ENTREGADO. El estado quedó bloqueado.":"✓ Estado actualizado")}catch(err){console.warn("changeStatus",err);const code=String(err?.message||err||"").toUpperCase();toast(code.includes("PEDIDO_ESTADO_FINAL")?"✕ El pedido está finalizado y no admite cambios.":"No fue posible actualizar el estado");try{await loadAdminModules({modules:[kind==="order"?"orders":"requests"],retry:true})}catch(_){}}};
@@ -1083,7 +1086,7 @@ function renderOrderDetail(order,items,history=[]){
   $("#orderDetailItems").innerHTML=(items||[]).length?(items||[]).map(i=>`<div class="order-detail-line"><span><strong>${esc(i.producto_nombre||i.nombre||"Producto")}</strong><small>${esc(i.producto_id||i.id||"")}</small></span><span>${Number(i.cantidad||1)}</span><span>${money(i.precio_unitario??i.precio)}</span><span><strong>${money(i.subtotal??(Number(i.cantidad||1)*Number(i.precio_unitario??i.precio??0)))}</strong></span></div>`).join(""):'<div class="empty-card">Este pedido histórico no tiene líneas de producto recuperables.</div>';
   $("#orderDetailTotals").innerHTML=`<div><span>Subtotal</span><strong>${money(order.subtotal)}</strong></div><div><span>Despacho</span><strong>${money(order.despacho)}</strong></div><div class="grand"><span>Total</span><strong>${money(order.total)}</strong></div>${order.observaciones?`<p><b>Observaciones:</b> ${esc(order.observaciones)}</p>`:""}`;
   const hh=$("#orderDetailHistory");if(hh)hh.innerHTML=(history||[]).length?(history||[]).map(h=>`<div class="order-history-row"><span class="order-history-dot"></span><div><strong>${esc(h.descripcion||h.evento||"Actualización")}</strong><small>${esc(formatDate(h.creado_en||h.fecha))}${h.estado_pago?` · Pago: ${esc(h.estado_pago)}`:""}${h.estado_pedido?` · Pedido: ${esc(h.estado_pedido)}`:""}</small></div></div>`).join(""):'<div class="muted-text">La trazabilidad se registrará desde esta versión.</div>';
-  const link=$("#orderDetailPdfLink");if(order.pdf_url){link.href=order.pdf_url;link.classList.remove("hidden")}else{link.href="#";link.classList.add("hidden")}
+  const link=$("#orderDetailPdfLink");if(order.pdf_url||order.pdf_path){link.href="#";link.dataset.orderPdfId=String(order.id||"");link.classList.remove("hidden")}else{link.href="#";delete link.dataset.orderPdfId;link.classList.add("hidden")}
 }
 window.openOrderDetail=async id=>{
   const local=data.orders.find(x=>String(x.id)===String(id));if(!local)return toast("Pedido no encontrado");
@@ -1091,6 +1094,7 @@ window.openOrderDetail=async id=>{
   try{const out=await AleAPI.post("orderdetail",{id},token);if(out?.order){renderOrderDetail(out.order,out.items||[],out.history||[]);const ix=data.orders.findIndex(x=>String(x.id)===String(id));if(ix>=0){data.orders[ix]={...data.orders[ix],...out.order};renderOrders()}}}catch(err){console.warn("orderdetail",err);toast("El pedido se abrió con los datos disponibles; no se pudo actualizar el detalle completo")}
 };
 $("#closeOrderDetailX")?.addEventListener("click",closeOrderDetail);$("#closeOrderDetail")?.addEventListener("click",closeOrderDetail);
+$("#orderDetailPdfLink")?.addEventListener("click",e=>{e.preventDefault();const id=e.currentTarget.dataset.orderPdfId||currentOrderDetailId;if(id)openSecureOrderPdf(id,e.currentTarget)});
 $("#regenerateOrderPdf")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{if(!currentOrderDetailId)return;try{const out=await AleAPI.post("generateorderpdf",{id:currentOrderDetailId},token);if(out?.order){renderOrderDetail(out.order,out.items||[],out.history||[]);const ix=data.orders.findIndex(x=>String(x.id)===String(currentOrderDetailId));if(ix>=0)data.orders[ix]={...data.orders[ix],...out.order};renderOrders()}toast("PDF del pedido generado correctamente")}catch(err){console.warn(err);toast(`No fue posible generar el PDF del pedido: ${String(err?.message||"ERROR")}`)}}));
 
 async function secureOrderTrackingUrl(order){const out=await AleAPI.post("ordertrackinglink",{id:order.id},token);if(!out?.tracking_url)throw new Error("SEGUIMIENTO_NO_DISPONIBLE");return clientPublicUrl(out.tracking_url)}
