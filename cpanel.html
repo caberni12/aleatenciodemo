@@ -339,10 +339,25 @@ Torta chocolate | 1 | 25000"></textarea></label>
     </section>
 
     <section class="admin-view" id="view-clients">
-      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Base comercial</span><h2>Clientes</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportClientsXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button><button class="btn btn-light" id="exportClientsPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF</button></div></div>
-        <div class="admin-toolbar client-toolbar"><input id="clientSearch" placeholder="Buscar por cliente, RUT, teléfono o correo..."><button class="btn btn-light" id="clearClientSearch" type="button">Ver todos</button></div>
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Base comercial</span><h2>Clientes</h2></div><div class="card-head-actions"><button class="btn btn-primary" id="createClient" type="button"><i class="bi bi-person-plus"></i> Crear cliente</button><button class="btn btn-light" id="exportClientsXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button><button class="btn btn-light" id="exportClientsPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> PDF</button></div></div>
+        <div class="admin-toolbar client-toolbar"><div class="client-search-shell"><i class="bi bi-search"></i><input id="clientSearch" placeholder="Buscar por nombre, RUT, teléfono, correo, dirección o transporte..."></div><button class="btn btn-light" id="clearClientSearch" type="button"><i class="bi bi-x-circle"></i> Limpiar</button></div>
         <div class="product-results-meta" id="clientResultsMeta">Base de clientes</div>
         <div class="table-wrap" id="clientsTable"></div>
+        <div class="editor hidden client-editor" id="clientEditor" role="dialog" aria-modal="true" aria-labelledby="clientEditorTitle">
+          <div class="editor-modal-head"><div><span class="eyebrow">Ficha comercial</span><h3 id="clientEditorTitle">Cliente</h3><small id="clientEditorNumber">Cliente nuevo</small></div><button type="button" class="editor-close-x" id="closeClientEditorX" aria-label="Cerrar">×</button></div>
+          <input type="hidden" id="clientId">
+          <div class="form-grid client-form-grid">
+            <label>RUT<input id="clientRut" inputmode="text" autocomplete="off" placeholder="12.345.678-5" required></label>
+            <label>Nombre<input id="clientName" autocomplete="name" placeholder="Nombre del cliente" required></label>
+            <label>Teléfono<input id="clientPhone" inputmode="tel" autocomplete="tel" placeholder="+56 9 ..."></label>
+            <label>Correo<input id="clientEmail" type="email" autocomplete="email" placeholder="cliente@correo.cl"></label>
+            <label class="span-2">Dirección<input id="clientAddress" autocomplete="street-address" placeholder="Calle, número, depto."></label>
+            <label>Comuna<input id="clientCommune" placeholder="Comuna"></label>
+            <label>Tipo de transporte / entrega<select id="clientTransport"><option value="POR DEFINIR">Por definir</option><option value="RETIRO">Retiro</option><option value="DESPACHO">Despacho</option><option value="OTRO">Otro</option></select></label>
+          </div>
+          <div class="client-summary-strip"><div><small>Solicitudes</small><strong id="clientStatRequests">0</strong></div><div><small>Pedidos</small><strong id="clientStatOrders">0</strong></div><div><small>Cotizaciones</small><strong id="clientStatQuotes">0</strong></div><div><small>Total comprado</small><strong id="clientStatTotal">$0</strong></div></div>
+          <div class="editor-actions"><button class="btn btn-primary" id="saveClient" type="button"><i class="bi bi-floppy"></i> Guardar cliente</button><button class="btn btn-light" id="cancelClientEditor" type="button">Cancelar</button></div>
+        </div>
       </div>
     </section>
 
