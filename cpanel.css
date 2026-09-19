@@ -2171,3 +2171,147 @@ body.order-cancel-open:before{content:"";position:fixed;inset:0;background:rgba(
   font:inherit;
 }
 .order-pdf-secure-btn:hover{text-decoration:underline}
+
+
+/* =========================================================
+   R9.18.36 · TABLAS SIN DESBORDE / TEXTOS LARGOS
+   - No reduce tipografía para "hacer caber" contenido.
+   - Mantiene cada valor dentro de su celda.
+   - Los selectores conservan ancho útil y la tabla desplaza
+     horizontalmente cuando el viewport no alcanza.
+   ========================================================= */
+
+/* Base defensiva para todas las tablas del cPanel */
+.table-wrap{
+  max-width:100%!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  overscroll-behavior-inline:contain;
+  scrollbar-gutter:stable;
+}
+.admin-table,
+.admin-table th,
+.admin-table td,
+.admin-table td > *{
+  box-sizing:border-box;
+}
+.admin-table td{
+  min-width:0;
+  overflow:hidden;
+}
+.admin-table td strong,
+.admin-table td span,
+.admin-table td small,
+.admin-table td a{
+  max-width:100%;
+}
+.admin-table td input,
+.admin-table td select,
+.admin-table td textarea{
+  box-sizing:border-box!important;
+  max-width:100%!important;
+}
+
+/* Pedidos: anchos estables; ningún campo invade la celda vecina. */
+#ordersTable .admin-table{
+  min-width:1360px!important;
+  table-layout:fixed!important;
+}
+#ordersTable .admin-table th:nth-child(1),#ordersTable .admin-table td:nth-child(1){width:110px!important}
+#ordersTable .admin-table th:nth-child(2),#ordersTable .admin-table td:nth-child(2){width:125px!important}
+#ordersTable .admin-table th:nth-child(3),#ordersTable .admin-table td:nth-child(3){width:145px!important}
+#ordersTable .admin-table th:nth-child(4),#ordersTable .admin-table td:nth-child(4){width:160px!important}
+#ordersTable .admin-table th:nth-child(5),#ordersTable .admin-table td:nth-child(5){width:175px!important}
+#ordersTable .admin-table th:nth-child(6),#ordersTable .admin-table td:nth-child(6){width:105px!important}
+#ordersTable .admin-table th:nth-child(7),#ordersTable .admin-table td:nth-child(7){width:140px!important}
+#ordersTable .admin-table th:nth-child(8),#ordersTable .admin-table td:nth-child(8){width:155px!important}
+#ordersTable .admin-table th:nth-child(9),#ordersTable .admin-table td:nth-child(9){width:85px!important}
+#ordersTable .admin-table th:nth-child(10),#ordersTable .admin-table td:nth-child(10){width:160px!important}
+
+/* Medio de pago: permite 2 líneas (ej. TARJETA · TRANSBANK) sin salirse. */
+#ordersTable .order-payment-cell{
+  overflow:hidden!important;
+}
+#ordersTable .order-payment-cell .payment-status-badge{
+  display:inline-flex!important;
+  width:max-content!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#ordersTable .order-payment-cell small{
+  display:block!important;
+  width:100%!important;
+  max-width:100%!important;
+  white-space:normal!important;
+  overflow-wrap:break-word!important;
+  word-break:normal!important;
+  line-height:1.25!important;
+  text-overflow:clip!important;
+}
+
+/* Estados: el select nunca rebasa su columna. */
+#ordersTable .order-status-cell{
+  overflow:visible!important;
+}
+#ordersTable .status-select{
+  display:block!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:100%!important;
+  min-height:40px!important;
+  padding:8px 30px 8px 10px!important;
+  box-sizing:border-box!important;
+  font-size:12px!important;
+  line-height:1.2!important;
+}
+
+/* Datos largos: truncado visual solo donde conviene, con title en HTML. */
+#ordersTable .order-client-cell strong,
+#ordersTable .order-contact-cell span,
+#ordersTable .order-contact-cell small,
+#ordersTable .order-delivery-cell span,
+#ordersTable .order-delivery-cell small{
+  width:100%!important;
+  max-width:100%!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+#ordersTable .order-client-cell strong,
+#ordersTable .order-contact-cell span,
+#ordersTable .order-delivery-cell span{
+  display:block!important;
+  white-space:nowrap!important;
+}
+#ordersTable .order-contact-cell small,
+#ordersTable .order-delivery-cell small{
+  display:-webkit-box!important;
+  -webkit-line-clamp:2!important;
+  -webkit-box-orient:vertical!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+
+/* Badges/acciones largas de otras tablas también quedan contenidos. */
+.quote-used-badge,
+.request-used-badge,
+.order-final-chip,
+.payment-status-badge{
+  max-width:100%!important;
+  box-sizing:border-box!important;
+}
+.quote-used-badge,
+.request-used-badge{
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
+
+/* En pantallas pequeñas se conserva tamaño legible: se desplaza la tabla,
+   no se comprime el contenido hasta hacerlo ilegible. */
+@media(max-width:1180px){
+  #ordersTable .admin-table{min-width:1360px!important}
+  #ordersTable .status-select{font-size:12px!important}
+}
+@media(max-width:760px){
+  #ordersTable .admin-table{min-width:1360px!important}
+}

@@ -829,7 +829,7 @@ const moneyColumnObserver=new MutationObserver(mutations=>{
 if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})},{once:true});
 else{decorateMoneyColumns(document);moneyColumnObserver.observe(document.body,{childList:true,subtree:true})}
 
-const CPANEL_MEDIA_VERSION="20260918-r91835-pdf-protegido-payment-secret-manager";
+const CPANEL_MEDIA_VERSION="20260918-r91836-tablas-sin-desborde";
 function resolveMediaUrl(value){
   const u=String(value||"").trim();
   if(!u||/^(?:https?:|data:|blob:)/i.test(u))return u;
@@ -1048,7 +1048,7 @@ function renderOrders(){
   const normalStates=["PENDIENTE","CONFIRMADO","EN PREPARACION","LISTO","ENTREGADO"];
   host.innerHTML=table(["N.º pedido","Fecha","Cliente / RUT","Contacto","Entrega","Total","Pago","Estado","PDF","Acciones"],data.orders.map(o=>{
     const final=isFinalOrder(o),st=orderState(o.estado);
-    const statusHtml=final?`<select class="status-select is-final" disabled title="${esc(orderFinalMessage(st))}"><option selected>${esc(st)}</option></select>`:`<select class="status-select" onchange="changeStatus('order','${o.id}',this.value)">${normalStates.map(x=>`<option ${st===x?"selected":""}>${x}</option>`).join("")}</select>`;
+    const statusHtml=final?`<select class="status-select is-final" disabled title="${esc(orderFinalMessage(st))}"><option selected>${esc(st)}</option></select>`:`<select class="status-select" title="${esc(st)}" onchange="this.title=this.value;changeStatus('order','${o.id}',this.value)">${normalStates.map(x=>`<option ${st===x?"selected":""}>${x}</option>`).join("")}</select>`;
     const cancelAction=final?`<span class="order-final-chip ${st==="CANCELADO"?"cancelled":""}"><i class="bi ${st==="CANCELADO"?"bi-x-octagon":"bi-check2-circle"}"></i>${st}</span>`:`<button type="button" class="cancel-order-row" onclick="openOrderCancel('${o.id}')"><i class="bi bi-x-octagon"></i> Anular</button>`;
     const paymentState=String(o.estado_pago||"PENDIENTE").trim().toUpperCase();
     const paymentClass=paymentState==="PAGADO"?"payment-pagado":(["RECHAZADO","CANCELADO"].includes(paymentState)?"payment-rechazado":"payment-pendiente");
@@ -1056,11 +1056,11 @@ function renderOrders(){
     return `<tr>
     <td class="order-number-cell"><strong>${esc(o.numero_pedido||o.id)}</strong></td>
     <td class="order-date-cell"><span>${esc(dateMain)}</span>${dateTime?`<small>${esc(dateTime)}</small>`:""}</td>
-    <td class="order-client-cell"><strong>${esc(o.nombre||"")}</strong><small>${esc(o.rut?formatRutChile(o.rut):"")}</small></td>
-    <td class="order-contact-cell"><span>${esc(o.telefono||"")}</span><small title="${esc(o.email||"")}">${esc(o.email||"")}</small></td>
-    <td class="order-delivery-cell"><span>${esc(o.metodo_entrega||"")}</span><small>${esc([o.direccion,o.comuna].filter(Boolean).join(" · "))}</small></td>
+    <td class="order-client-cell"><strong title="${esc(o.nombre||"")}">${esc(o.nombre||"")}</strong><small>${esc(o.rut?formatRutChile(o.rut):"")}</small></td>
+    <td class="order-contact-cell"><span title="${esc(o.telefono||"")}">${esc(o.telefono||"")}</span><small title="${esc(o.email||"")}">${esc(o.email||"")}</small></td>
+    <td class="order-delivery-cell"><span title="${esc(o.metodo_entrega||"")}">${esc(o.metodo_entrega||"")}</span><small title="${esc([o.direccion,o.comuna].filter(Boolean).join(" · ")||"")}">${esc([o.direccion,o.comuna].filter(Boolean).join(" · "))}</small></td>
     <td class="money-column"><strong>${money(o.total||0)}</strong></td>
-    <td class="order-payment-cell"><span class="payment-status-badge ${paymentClass}">${esc(paymentState)}</span><small>${esc(orderPaymentMethodLabel(o.medio_pago))}</small></td>
+    <td class="order-payment-cell"><span class="payment-status-badge ${paymentClass}" title="${esc(paymentState)}">${esc(paymentState)}</span><small title="${esc(orderPaymentMethodLabel(o.medio_pago))}">${esc(orderPaymentMethodLabel(o.medio_pago))}</small></td>
     <td class="order-status-cell">${statusHtml}</td>
     <td class="order-pdf-cell">${(o.pdf_url||o.pdf_path)?`<button class="pdf-link order-pdf-secure-btn" type="button" data-order-pdf="${esc(o.id)}"><i class="bi bi-file-earmark-pdf"></i> PDF</button>`:'<span class="muted-text">Pendiente</span>'}</td>
     <td class="order-actions-cell"><div class="row-actions"><button type="button" onclick="openOrderDetail('${o.id}')"><i class="bi bi-eye"></i> Ver pedido</button>${cancelAction}</div></td>
