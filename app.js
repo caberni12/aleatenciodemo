@@ -2,7 +2,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const money = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
 const moneyClp = n => `CLP ${money(Math.round(Number(n||0)))}`;
-const priceLabel = p => Number(p?.precio||0)>0 ? money(p.precio) : "Consultar";
+const priceLabel = p => {const z=productSizes(p)[0],v=Number(z?.precio??p?.precio??0);return v>0?money(v):"Consultar";};
 const esc = s => String(s ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
 const normalizeText = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("es-CL").trim();
 const productSearchText = p => normalizeText([p?.nombre,p?.descripcion,p?.categoria_nombre||p?.categoria,p?.ocasion].filter(Boolean).join(" "));
@@ -12,7 +12,7 @@ const isProductActive = p => {
   const v=String(p.activo??"SI").trim().toUpperCase();
   return !["NO","FALSE","0","INACTIVO"].includes(v);
 };
-const MEDIA_VERSION = "20260917-r91830-payment-method-proof";
+const MEDIA_VERSION = "20260922-r91854-operacion-completa";
 const mediaUrl = value => {
   const u=String(value||"").trim();
   if(!u || /^(?:https?:|data:|blob:)/i.test(u)) return u;
@@ -29,8 +29,11 @@ const clientPublicUrl=value=>{try{const u=new URL(String(value||""),publicBaseUr
 const seed = {"config":{"empresa":"Ale Atencio","empresa_rut":"","whatsapp":"","instagram":"","facebook":"","tiktok":"","direccion":"","email":"","valor_despacho":"0","logo_url":"logo-ale-atencio.png","transbank_enabled":"NO","transbank_return_url":"","transbank_runtime_ready":"NO","transbank_environment":"INTEGRATION","transbank_button_label":"Pagar con Transbank"},"categories":[{"id":"C001","nombre":"Tortas","descripcion":"Tortas artesanales para celebraciones","drive_file_id":"","image_url":"producto-004-torta-pina-crema-y-cerezas.jpg","orden":1,"activo":"SI"},{"id":"C002","nombre":"Galletas","descripcion":"Galletas, alfajores y masas artesanales","drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","orden":2,"activo":"SI"},{"id":"C003","nombre":"Dulcería","descripcion":"Calugas, vasitos y dulces especiales","drive_file_id":"","image_url":"producto-008-galletas-vienesas-banadas.jpg","orden":3,"activo":"SI"},{"id":"C004","nombre":"Postres","descripcion":"Cheesecakes, pies, tartas y postres","drive_file_id":"","image_url":"producto-026-tarta-nuez-espolvoreada.jpg","orden":4,"activo":"SI"},{"id":"C005","nombre":"Regalos","descripcion":"Selecciones personalizadas y detalles para regalar","drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","orden":5,"activo":"SI"}],"banners":[{"id":"B001","titulo":"Dulces momentos hechos para celebrar","subtitulo":"Descubre nuestro catálogo artesanal Ale Atencio.","cta_texto":"Ver catálogo","enlace":"#productos/todos","drive_file_id":"","image_url":"producto-001-torta-chocolate-ganache.jpg","activo":"SI","orden":1},{"id":"B002","titulo":"Tortas que hacen especial cada celebración","subtitulo":"Diseños y sabores preparados con dedicación para cada ocasión.","cta_texto":"Ver tortas","enlace":"#productos/tortas","drive_file_id":"","image_url":"producto-004-torta-pina-crema-y-cerezas.jpg","activo":"SI","orden":2},{"id":"B003","titulo":"Detalles dulces para compartir y regalar","subtitulo":"Galletas, surtidos y preparaciones artesanales para sorprender.","cta_texto":"Ver productos","enlace":"#productos/todos","drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","activo":"SI","orden":3}],"products":[{"id":"P001","nombre":"Torta Chocolate Ganache","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-019-torta-chocolate-ganache.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":1,"fecha_actualizacion":""},{"id":"P002","nombre":"Torta Hojarasca Manjar","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-038-torta-hojarasca-manjar.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":2,"fecha_actualizacion":""},{"id":"P003","nombre":"Torta Café Praliné","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-003-torta-cafe-praline.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":3,"fecha_actualizacion":""},{"id":"P004","nombre":"Torta Piña, Crema y Cerezas","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-052-torta-pina-crema-y-cerezas.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":4,"fecha_actualizacion":""},{"id":"P005","nombre":"Torta Hojarasca Frambuesa","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-007-torta-hojarasca-frambuesa.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":5,"fecha_actualizacion":""},{"id":"P006","nombre":"Surtido de Masas Secas","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","destacado":"SI","activo":"SI","ocasion":"Regalos","orden":6,"fecha_actualizacion":""},{"id":"P008","nombre":"Galletas Vienesas Bañadas","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-008-galletas-vienesas-banadas.jpg","destacado":"SI","activo":"SI","ocasion":"Todo momento","orden":8,"fecha_actualizacion":""},{"id":"P009","nombre":"Pie de Manzana Tradicional","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-009-pie-de-manzana-tradicional.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":9,"fecha_actualizacion":""},{"id":"P010","nombre":"Galletas Vienesas Mix","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-010-galletas-vienesas-mix.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":10,"fecha_actualizacion":""},{"id":"P011","nombre":"Torta Merengue Nuez","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-011-torta-merengue-nuez.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":11,"fecha_actualizacion":""},{"id":"P012","nombre":"Cheesecake Frutilla Rústico","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-012-cheesecake-frutilla-rustico.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":12,"fecha_actualizacion":""},{"id":"P013","nombre":"Merenguitos Artesanales","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-013-merenguitos-artesanales.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":13,"fecha_actualizacion":""},{"id":"P014","nombre":"Pie de Limón Merengado","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-014-pie-de-limon-merengado.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":14,"fecha_actualizacion":""},{"id":"P015","nombre":"Calugas de Rosa","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-015-calugas-de-rosa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":15,"fecha_actualizacion":""},{"id":"P016","nombre":"Calugas Pistacho","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-016-calugas-pistacho.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":16,"fecha_actualizacion":""},{"id":"P017","nombre":"Brazo de Reina Frambuesa","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-017-brazo-de-reina-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":17,"fecha_actualizacion":""},{"id":"P018","nombre":"Surtido de Galletas Finas","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-018-surtido-de-galletas-finas.jpg","destacado":"NO","activo":"SI","ocasion":"Regalos","orden":18,"fecha_actualizacion":""},{"id":"P020","nombre":"Cuadrado Frambuesa Crumble","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-020-cuadrado-frambuesa-crumble.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":20,"fecha_actualizacion":""},{"id":"P021","nombre":"Canastitas Gourmet Frutos Secos","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-021-canastitas-gourmet-frutos-secos.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":21,"fecha_actualizacion":""},{"id":"P022","nombre":"Milhojas Crocante Manjar","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-022-milhojas-crocante-manjar.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":22,"fecha_actualizacion":""},{"id":"P023","nombre":"Alfajores y Trufas Surtidas","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-023-alfajores-y-trufas-surtidas.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":23,"fecha_actualizacion":""},{"id":"P025","nombre":"Alfajores Maicena Artesanales","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-025-alfajores-maicena-artesanales.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":25,"fecha_actualizacion":""},{"id":"P026","nombre":"Tarta Nuez Espolvoreada","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-026-tarta-nuez-espolvoreada.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":26,"fecha_actualizacion":""},{"id":"P027","nombre":"Torta Durazno Chantilly","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-027-torta-durazno-chantilly.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":27,"fecha_actualizacion":""},{"id":"P028","nombre":"Canastitas Dulces Gourmet","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-028-canastitas-dulces-gourmet.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":28,"fecha_actualizacion":""},{"id":"P029","nombre":"Vasitos Mousse Maracuyá Frambuesa","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-029-vasitos-mousse-maracuya-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":29,"fecha_actualizacion":""},{"id":"P030","nombre":"Vasitos Postre Maracuyá Frambuesa","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-030-vasitos-postre-maracuya-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":30,"fecha_actualizacion":""},{"id":"P031","nombre":"Torta Rosas Blancas","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-001-torta-chocolate-ganache.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":31,"fecha_actualizacion":""},{"id":"P032","nombre":"Rollos de Canela Glaseados","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-032-rollos-de-canela-glaseados.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":32,"fecha_actualizacion":""},{"id":"P033","nombre":"Rectángulo Hojarasca Manjar","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-033-rectangulo-hojarasca-manjar.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":33,"fecha_actualizacion":""},{"id":"P034","nombre":"Galletas Navideñas Decoradas","descripcion":"Preparación artesanal Ale Atencio, ideal para compartir y regalar en temporada navideña.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-034-galletas-navidenas-decoradas.jpg","destacado":"NO","activo":"SI","ocasion":"Navidad","orden":34,"fecha_actualizacion":""},{"id":"P035","nombre":"Torta Frambuesa Crocante","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-035-torta-frambuesa-crocante.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":35,"fecha_actualizacion":""},{"id":"P036","nombre":"Torta Chocolate Premium","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-036-torta-chocolate-premium.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":36,"fecha_actualizacion":""},{"id":"P039","nombre":"Empanaditas Dulces Surtidas","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-039-empanaditas-dulces-surtidas.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":39,"fecha_actualizacion":""},{"id":"P040","nombre":"Torta Rosas y Chocolate","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-040-torta-rosas-y-chocolate.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":40,"fecha_actualizacion":""},{"id":"P041","nombre":"Galleta Reno Decorada","descripcion":"Preparación artesanal Ale Atencio, ideal para compartir y regalar en temporada navideña.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-041-galleta-reno-decorada.jpg","destacado":"NO","activo":"SI","ocasion":"Navidad","orden":41,"fecha_actualizacion":""},{"id":"P042","nombre":"Torta Merengue Frambuesa","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-069-torta-merengue-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":42,"fecha_actualizacion":""},{"id":"P043","nombre":"Surtido Ale Atencio","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","destacado":"SI","activo":"SI","ocasion":"Regalos","orden":43,"fecha_actualizacion":""},{"id":"P045","nombre":"Empanada de Manzana Individual","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-045-empanada-de-manzana-individual.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":45,"fecha_actualizacion":""},{"id":"P046","nombre":"Triángulo Hojarasca Manjar","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-046-triangulo-hojarasca-manjar.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":46,"fecha_actualizacion":""},{"id":"P047","nombre":"Calugas Artesanales Pistacho","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-008-galletas-vienesas-banadas.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":47,"fecha_actualizacion":""},{"id":"P048","nombre":"Brazo de Reina Merengado","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-048-brazo-de-reina-merengado.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":48,"fecha_actualizacion":""},{"id":"P050","nombre":"Cheesecake Frutilla","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-050-cheesecake-frutilla.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":50,"fecha_actualizacion":""},{"id":"P051","nombre":"Cheesecake Maracuyá","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-051-cheesecake-maracuya.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":51,"fecha_actualizacion":""},{"id":"P053","nombre":"Croissants de Mantequilla","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-053-croissants-de-mantequilla.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":53,"fecha_actualizacion":""},{"id":"P054","nombre":"Alfajores y Trufas Finas","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-054-alfajores-y-trufas-finas.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":54,"fecha_actualizacion":""},{"id":"P055","nombre":"Galletas Navideñas Envoltorio","descripcion":"Preparación artesanal Ale Atencio, ideal para compartir y regalar en temporada navideña.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-055-galletas-navidenas-envoltorio.jpg","destacado":"NO","activo":"SI","ocasion":"Navidad","orden":55,"fecha_actualizacion":""},{"id":"P056","nombre":"Surtido de Galletas Finas Ale Atencio","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-056-surtido-de-galletas-finas-ale-atencio.jpg","destacado":"NO","activo":"SI","ocasion":"Regalos","orden":56,"fecha_actualizacion":""},{"id":"P057","nombre":"Torta Hojarasca Manjar Redonda","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-057-torta-hojarasca-manjar-redonda.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":57,"fecha_actualizacion":""},{"id":"P058","nombre":"Torta Merengue Frambuesa Redonda","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-058-torta-merengue-frambuesa-redonda.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":58,"fecha_actualizacion":""},{"id":"P059","nombre":"Rollos de Canela Caseros","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-059-rollos-de-canela-caseros.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":59,"fecha_actualizacion":""},{"id":"P060","nombre":"Alfajores Premium","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-060-alfajores-premium.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":60,"fecha_actualizacion":""},{"id":"P062","nombre":"Trufas y Alfajores Surtidos","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-062-trufas-y-alfajores-surtidos.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":62,"fecha_actualizacion":""},{"id":"P063","nombre":"Cheesecake Frambuesa","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-063-cheesecake-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":63,"fecha_actualizacion":""},{"id":"P064","nombre":"Vasitos Mousse Gourmet","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-064-vasitos-mousse-gourmet.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":64,"fecha_actualizacion":""},{"id":"P065","nombre":"Mini Tartaletas y Alfajores","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-065-mini-tartaletas-y-alfajores.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":65,"fecha_actualizacion":""},{"id":"P066","nombre":"Croissants Artesanales","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-066-croissants-artesanales.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":66,"fecha_actualizacion":""},{"id":"P067","nombre":"Galletas Personalizadas Novios","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-006-surtido-de-masas-secas.jpg","destacado":"NO","activo":"SI","ocasion":"Matrimonios","orden":67,"fecha_actualizacion":""},{"id":"P068","nombre":"Torta Chocolate Oro","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-068-torta-chocolate-oro.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":68,"fecha_actualizacion":""},{"id":"P070","nombre":"Strudel de Manzana","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-070-strudel-de-manzana.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":70,"fecha_actualizacion":""},{"id":"P071","nombre":"Galletas Peineta Artesanales","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-071-galletas-peineta-artesanales.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":71,"fecha_actualizacion":""},{"id":"P073","nombre":"Alfajores Nevados","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-073-alfajores-nevados.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":73,"fecha_actualizacion":""},{"id":"P075","nombre":"Tarta Corazones de Manjar","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-075-tarta-corazones-de-manjar.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":75,"fecha_actualizacion":""},{"id":"P076","nombre":"Torta Merengada Alta","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-076-torta-merengada-alta.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":76,"fecha_actualizacion":""},{"id":"P077","nombre":"Torta Hojarasca Manjar Chocodots","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-077-torta-hojarasca-manjar-chocodots.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":77,"fecha_actualizacion":""},{"id":"P078","nombre":"Macarons Surtidos Box","descripcion":"Selección Ale Atencio pensada para regalar, compartir o personalizar.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-078-macarons-surtidos-box.jpg","destacado":"NO","activo":"SI","ocasion":"Regalos","orden":78,"fecha_actualizacion":""},{"id":"P079","nombre":"Palmeritas de Hojaldre","descripcion":"Elaboración artesanal Ale Atencio, ideal para compartir, acompañar o regalar.","precio":0,"categoria_nombre":"Galletas","stock":0,"drive_file_id":"","image_url":"producto-079-palmeritas-de-hojaldre.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":79,"fecha_actualizacion":""},{"id":"P082","nombre":"Torta Naked Frambuesa","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-082-torta-naked-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":82,"fecha_actualizacion":""},{"id":"P083","nombre":"Tarta Decorada Premium","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-083-tarta-decorada-premium.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":83,"fecha_actualizacion":""},{"id":"P084","nombre":"Rectángulo Hojarasca Manjar Dorado","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-084-rectangulo-hojarasca-manjar-dorado.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":84,"fecha_actualizacion":""},{"id":"P085","nombre":"Galletas Navideñas Surtidas","descripcion":"Preparación artesanal Ale Atencio, ideal para compartir y regalar en temporada navideña.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-085-galletas-navidenas-surtidas.jpg","destacado":"NO","activo":"SI","ocasion":"Navidad","orden":85,"fecha_actualizacion":""},{"id":"P086","nombre":"Cuadrados Frambuesa Crumble","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-086-cuadrados-frambuesa-crumble.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":86,"fecha_actualizacion":""},{"id":"P087","nombre":"Torta Hojarasca Manjar Alta","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-087-torta-hojarasca-manjar-alta.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":87,"fecha_actualizacion":""},{"id":"P088","nombre":"Galleta Corporativa Personalizada","descripcion":"Preparación personalizada Ale Atencio para empresas, eventos y ocasiones especiales.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-088-galleta-corporativa-personalizada.jpg","destacado":"NO","activo":"SI","ocasion":"Empresas","orden":88,"fecha_actualizacion":""},{"id":"P089","nombre":"Cheesecake Frutos Rojos","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-026-tarta-nuez-espolvoreada.jpg","destacado":"SI","activo":"SI","ocasion":"Todo momento","orden":89,"fecha_actualizacion":""},{"id":"P091","nombre":"Torta Hojarasca Manjar Clásica","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-091-torta-hojarasca-manjar-clasica.jpg","destacado":"NO","activo":"SI","ocasion":"Celebraciones","orden":91,"fecha_actualizacion":""},{"id":"P092","nombre":"Muffin Gourmet Frutos Secos","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-092-muffin-gourmet-frutos-secos.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":92,"fecha_actualizacion":""},{"id":"P093","nombre":"Galletas Corporativas Personalizadas","descripcion":"Preparación personalizada Ale Atencio para empresas, eventos y ocasiones especiales.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-093-galletas-corporativas-personalizadas.jpg","destacado":"NO","activo":"SI","ocasion":"Empresas","orden":93,"fecha_actualizacion":""},{"id":"P094","nombre":"Strudel de Manzana y Nuez","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-094-strudel-de-manzana-y-nuez.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":94,"fecha_actualizacion":""},{"id":"P095","nombre":"Berlines con Azúcar","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-095-berlines-con-azucar.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":95,"fecha_actualizacion":""},{"id":"P096","nombre":"Rectángulo Hojarasca Frambuesa","descripcion":"Dulce artesanal Ale Atencio, elaborado con dedicación para disfrutar y compartir.","precio":0,"categoria_nombre":"Dulcería","stock":0,"drive_file_id":"","image_url":"producto-096-rectangulo-hojarasca-frambuesa.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":96,"fecha_actualizacion":""},{"id":"P097","nombre":"Galletas Corporativas Envoltorio","descripcion":"Preparación personalizada Ale Atencio para empresas, eventos y ocasiones especiales.","precio":0,"categoria_nombre":"Regalos","stock":0,"drive_file_id":"","image_url":"producto-097-galletas-corporativas-envoltorio.jpg","destacado":"NO","activo":"SI","ocasion":"Empresas","orden":97,"fecha_actualizacion":""},{"id":"P098","nombre":"Croissants Dorados","descripcion":"Postre artesanal Ale Atencio con presentación cuidada y sabor casero.","precio":0,"categoria_nombre":"Postres","stock":0,"drive_file_id":"","image_url":"producto-098-croissants-dorados.jpg","destacado":"NO","activo":"SI","ocasion":"Todo momento","orden":98,"fecha_actualizacion":""},{"id":"P100","nombre":"Torta Vainilla Manjar","descripcion":"Torta artesanal Ale Atencio, preparada con presentación cuidada para celebraciones y momentos especiales.","precio":0,"categoria_nombre":"Tortas","stock":0,"drive_file_id":"","image_url":"producto-100-torta-vainilla-manjar.jpg","destacado":"SI","activo":"SI","ocasion":"Celebraciones","orden":100,"fecha_actualizacion":""}]};
 
 let state = JSON.parse(JSON.stringify(seed));
+state.gallery = Array.isArray(state.gallery)?state.gallery:[];
 let cart = JSON.parse(localStorage.getItem("aleAtencioCart") || "[]");
 let currentSlide = 0, slideTimer = null;
+let lastCatalogRefreshAt=0;
+window.addEventListener("focus",()=>{if(!AleAPI?.configured?.())return;const now=Date.now();if(now-lastCatalogRefreshAt<2000)return;lastCatalogRefreshAt=now;refreshCatalogAvailability().catch(()=>{})});
 
 function beginButtonLoader(btn){if(!btn)return;btn.dataset.busy="1";btn.classList.add("is-loading");btn.disabled=true}
 function endButtonLoader(btn){if(!btn)return;delete btn.dataset.busy;btn.classList.remove("is-loading");btn.disabled=false}
@@ -43,6 +46,7 @@ async function loadStore(){
       state.config = {...state.config,...(data.config||{})};
       if(Array.isArray(data.categories)) state.categories = data.categories;
       if(Array.isArray(data.banners)) state.banners = data.banners;
+      if(Array.isArray(data.gallery)) state.gallery = data.gallery;
       state.products = Array.isArray(data.products) ? data.products.filter(isProductActive) : [];
     }catch(e){
       console.warn("Catálogo remoto no disponible", e);
@@ -73,6 +77,12 @@ function buildCategoryMenu(){
 function slug(s){return String(s||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g,"-")}
 function categoryFallback(i){return ["🍰","🍪","🍬","🍮","🎁","🧁"][i%6]}
 function productFallback(p){return ({Tortas:"🍰",Galletas:"🍪","Dulcería":"🍫",Postres:"🧁",Regalos:"🎁"})[p.categoria_nombre]||"🍰"}
+function productSizes(p){return (Array.isArray(p?.tamanos)?p.tamanos:[]).filter(x=>isProductActive(x)).slice().sort((a,b)=>Number(a.orden||0)-Number(b.orden||0)||String(a.nombre||"").localeCompare(String(b.nombre||""),"es"))}
+function productSize(p,sizeId=""){const list=productSizes(p);if(sizeId)return list.find(x=>String(x.id)===String(sizeId))||null;return list[0]||null}
+function productSortPrice(p){const values=productSizes(p).map(x=>Number(x.precio||0)).filter(x=>x>0);return values.length?Math.min(...values):Number(p?.precio||0)}
+function cartLineSize(p,i){const list=productSizes(p);if(!list.length)return null;const byId=i?.tamano_id?list.find(x=>String(x.id)===String(i.tamano_id)):null;if(byId)return byId;const byName=i?.tamano_nombre?list.find(x=>normalizeText(x.nombre)===normalizeText(i.tamano_nombre)):null;return byName||(!i?.tamano_id&&!i?.tamano_nombre?list[0]:null)}
+function cartLinePrice(i,p){const z=cartLineSize(p,i);return Number(z?.precio??i?.precio??p?.precio??0)}
+function cartLineKey(id,sizeId=""){return `${String(id)}::${String(sizeId||"")}`}
 
 function heroView(){
   const banners = state.banners.slice().sort((a,b)=>Number(a.orden||0)-Number(b.orden||0));
@@ -106,9 +116,10 @@ function categoryCard(c,i){
 
 function productCard(p){
   if(!isProductActive(p)) return "";
-  const priced=Number(p.precio||0)>0;
-  const action=priced ? `addToCart('${esc(p.id)}')` : `location.hash='solicitud'`;
-  return `<article class="product-card">
+  const sizes=productSizes(p),selected=sizes[0]||null;
+  const selectedPrice=Number(selected?.precio??p.precio??0),priced=selectedPrice>0;
+  const sizeMeta=sizes.length?`${sizes.length} ${sizes.length===1?"tamaño":"tamaños"}`:"Presentación única";
+  return `<article class="product-card product-card-compact" data-product-id="${esc(p.id)}" role="button" tabindex="0" aria-label="Ver ${esc(p.nombre)}" onclick="openProductDetail('${esc(p.id)}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductDetail('${esc(p.id)}')}">
     <div class="product-image">
       ${p.image_url?`<img src="${esc(mediaUrl(p.image_url))}" alt="${esc(p.nombre)}" loading="lazy">`:`<span>${productFallback(p)}</span>`}
       ${String(p.destacado).toUpperCase()==="SI"?'<span class="product-badge">Destacado</span>':""}
@@ -117,10 +128,70 @@ function productCard(p){
       <small>${esc(p.categoria_nombre||p.categoria||"")}</small>
       <h3>${esc(p.nombre)}</h3>
       <p>${esc(p.descripcion||"")}</p>
-      <div class="product-bottom"><span class="price">${priceLabel(p)}</span><button class="add-button" onclick="${action}">${priced?"Agregar":"Consultar"}</button></div>
+      <div class="product-compact-meta"><span>${esc(sizeMeta)}</span><strong>${priced?`${sizes.length>1?"Desde ":""}${money(selectedPrice)}`:"Consultar"}</strong></div>
     </div>
+    <button class="product-card-plus" type="button" aria-label="Ver opciones de ${esc(p.nombre)}" onclick="event.stopPropagation();openProductDetail('${esc(p.id)}')"><i class="bi bi-plus-lg"></i></button>
   </article>`;
 }
+
+let productDetailState={id:"",sizeId:"",qty:1,note:""};
+function productDetailProduct(){return state.products.find(x=>String(x.id)===String(productDetailState.id))||null}
+function productDetailMoney(value){return Number(value||0)>0?money(value):"Consultar"}
+function renderProductDetail(){
+  const p=productDetailProduct(),host=$("#productDetailContent");if(!p||!host)return;
+  const sizes=productSizes(p),selected=productSize(p,productDetailState.sizeId)||sizes[0]||null;
+  if(selected)productDetailState.sizeId=String(selected.id||"");
+  const unitPrice=Number(selected?.precio??p.precio??0),qty=Math.max(1,Number(productDetailState.qty||1)),priced=unitPrice>0;
+  const note=String(productDetailState.note||"");
+  const sizeOptions=sizes.length?`<div class="product-detail-section"><div class="product-detail-section-head"><div><div class="product-detail-label">Tamaño ${esc((p.nombre||"").toLowerCase())}</div><div class="product-detail-hint">Selecciona al menos 1</div></div><span class="product-detail-required">Obligatorio</span></div><div class="product-detail-sizes">${sizes.map(z=>`<button type="button" class="product-detail-size ${String(z.id)===String(selected?.id)?"active":""}" onclick="selectProductDetailSize('${esc(z.id)}')"><span class="product-detail-size-copy"><span class="product-detail-size-name">${esc(z.nombre)}</span><small>${productDetailMoney(z.precio)}</small></span><span class="product-detail-size-check" aria-hidden="true"></span></button>`).join("")}</div></div>`:"";
+  host.innerHTML=`
+    <div class="product-detail-layout">
+      <div class="product-detail-media">${p.image_url?`<img src="${esc(mediaUrl(p.image_url))}" alt="${esc(p.nombre)}">`:`<span>${productFallback(p)}</span>`}</div>
+      <div class="product-detail-side">
+        <div class="product-detail-side-scroll">
+          <small>${esc(p.categoria_nombre||p.categoria||"")}</small>
+          <h2>${esc(p.nombre)}</h2>
+          <p>${esc(p.descripcion||"")}</p>
+          ${sizeOptions}
+          <div class="product-detail-section">
+            <div class="product-detail-label product-detail-label-lg">Instrucciones especiales</div>
+            <textarea class="product-detail-note" placeholder="Incluye una nota" oninput="updateProductDetailNote(this.value)">${esc(note)}</textarea>
+          </div>
+        </div>
+        <div class="product-detail-footer">
+          <div class="product-detail-qty" aria-label="Cantidad"><button type="button" onclick="changeProductDetailQty(-1)" aria-label="Disminuir cantidad"><i class="bi bi-dash"></i></button><strong>${qty}</strong><button type="button" onclick="changeProductDetailQty(1)" aria-label="Aumentar cantidad"><i class="bi bi-plus"></i></button></div>
+          <button type="button" class="product-detail-add" onclick="addProductDetailToCart()"><span>${priced?"Agregar":"Consultar"}</span><strong>${priced?money(unitPrice*qty):"$0"}</strong></button>
+        </div>
+      </div>
+    </div>`;
+}
+window.openProductDetail=(productId)=>{
+  const p=state.products.find(x=>String(x.id)===String(productId));if(!p||!isProductActive(p))return;
+  const first=productSizes(p)[0]||null;productDetailState={id:String(productId),sizeId:String(first?.id||""),qty:1,note:""};renderProductDetail();openModal("#productDetailModal");
+};
+window.selectProductDetailSize=(sizeId)=>{productDetailState.sizeId=String(sizeId||"");renderProductDetail()};
+window.changeProductDetailQty=(delta)=>{productDetailState.qty=Math.max(1,Math.min(99,Number(productDetailState.qty||1)+Number(delta||0)));renderProductDetail()};
+window.updateProductDetailNote=(value)=>{productDetailState.note=String(value||"")};
+window.addProductDetailToCart=async()=>{
+  const p=productDetailProduct();if(!p)return;
+  const selected=productSize(p,productDetailState.sizeId),price=Number(selected?.precio??p.precio??0);
+  if(price<=0){closeModal();location.hash='solicitud';return}
+  const ok=await addToCart(p.id,selected?.id||"",productDetailState.qty);if(ok!==false)closeModal();
+};
+window.selectProductSize=async(productId,sizeId,source)=>{
+  const card=source?.closest?.('.product-card');if(!card)return;
+  let p=state.products.find(x=>String(x.id)===String(productId)),z=productSize(p,sizeId);if(!p||!z)return;
+  const apply=(size)=>{if(!size)return;card.dataset.selectedSize=String(size.id||"");card.querySelectorAll('.product-size-chip').forEach(b=>b.classList.toggle('active',String(b.dataset.sizeId)===String(size.id)));const price=card.querySelector('.price'),caption=card.querySelector('.product-size-caption'),add=card.querySelector('.add-button');if(price)price.textContent=Number(size.precio||0)>0?money(size.precio):"Consultar";if(caption)caption.innerHTML=`Tamaño seleccionado: <strong>${esc(size.nombre)}</strong>`;if(add)add.textContent=Number(size.precio||0)>0?"Agregar":"Consultar";};
+  apply(z);
+  if(!AleAPI?.configured?.())return;
+  try{
+    const live=await AleAPI.get("checkproduct",{id:String(productId),tamano_id:String(sizeId)});
+    if(!live?.exists||!live?.active||!live?.tamano){toast("Este tamaño ya no está disponible.","error");await refreshCatalogAvailability();return;}
+    if(Array.isArray(live.tamanos)){p={...p,tamanos:live.tamanos};const idx=state.products.findIndex(x=>String(x.id)===String(productId));if(idx>=0)state.products[idx]=p;}
+    z=live.tamano;apply(z);
+  }catch(err){console.warn("No se pudo refrescar precio del tamaño",err);}
+};
+window.addSelectedProductToCart=(productId,source)=>{const card=source?.closest?.('.product-card'),sizeId=card?.dataset?.selectedSize||"",p=state.products.find(x=>String(x.id)===String(productId)),z=productSize(p,sizeId),price=Number(z?.precio??p?.precio??0);if(price<=0){location.hash='solicitud';return}addToCart(productId,z?.id||"")};
 
 function catalogFilterInfo(filter){
   const key=slug(filter||"todos");
@@ -173,6 +244,12 @@ function delicaciesSection(){
     </div>
   </section>`;
 }
+
+function galleryView(){
+  const items=(state.gallery||[]).filter(x=>String(x.activo??"SI").toUpperCase()!=="NO"&&String(x.visible_publico??"SI").toUpperCase()!=="NO");
+  return `<section class="view-hero"><div class="view-hero-inner"><span class="eyebrow">Galería</span><h1>Trabajos y celebraciones</h1><p>Una selección de preparaciones y eventos realizados por Ale Atencio.</p></div></section><section class="section"><div class="public-gallery-grid">${items.length?items.map(x=>`<article class="public-gallery-card"><img src="${esc(mediaUrl(x.image_url||""))}" alt="${esc(x.titulo||"Trabajo Ale Atencio")}" loading="lazy"><div><small>${esc(x.categoria||"Ale Atencio")}</small><h3>${esc(x.titulo||"")}</h3>${x.descripcion?`<p>${esc(x.descripcion)}</p>`:""}</div></article>`).join(""):'<div class="empty-card">Pronto publicaremos nuevos trabajos.</div>'}</div></section>${footer()}`;
+}
+function galleryHomeSection(){const items=(state.gallery||[]).filter(x=>String(x.activo??"SI").toUpperCase()!=="NO"&&String(x.visible_publico??"SI").toUpperCase()!=="NO"&&x.image_url).slice(0,6);if(!items.length)return"";return `<section class="section"><div class="section-head compact-head"><div><span class="eyebrow">Galería</span><h2>Trabajos realizados</h2></div><a class="editorial-link" href="#galeria">Ver galería</a></div><div class="public-gallery-grid public-gallery-preview">${items.map(x=>`<a class="public-gallery-card" href="#galeria"><img src="${esc(mediaUrl(x.image_url))}" alt="${esc(x.titulo||"Ale Atencio")}" loading="lazy"><div><small>${esc(x.categoria||"Ale Atencio")}</small><h3>${esc(x.titulo||"")}</h3></div></a>`).join("")}</div></section>`}
 
 function homeView(){
   const cats = state.categories.slice().sort((a,b)=>Number(a.orden||0)-Number(b.orden||0));
@@ -254,18 +331,7 @@ function homeView(){
       <div><span class="eyebrow">Selección especial</span><h2>Ofertas y favoritos</h2></div>
       <a class="editorial-link" href="#ofertas">Ver promociones</a>
     </div>
-    <div class="offer-image-grid">${offers.map((p,i)=>`
-      <article class="offer-image-card">
-        <div class="offer-media">
-          ${p.image_url?`<img src="${esc(mediaUrl(p.image_url))}" alt="${esc(p.nombre)}">`:`<div class="offer-fallback">${productFallback(p)}</div>`}
-        </div>
-        <div class="offer-info">
-          <small>${esc(p.categoria_nombre||p.categoria||"")}</small>
-          <h3>${esc(p.nombre)}</h3>
-          <div><strong>${priceLabel(p)}</strong><button onclick="${Number(p.precio||0)>0?`addToCart('${esc(p.id)}')`:`location.hash='solicitud'`}"><i class="bi bi-plus-lg"></i></button></div>
-        </div>
-      </article>`).join("")}
-    </div>
+    <div class="products-grid products-home-grid">${offers.map(productCard).join("")}</div>
   </section>
 
   <section class="testimonials-band">
@@ -281,6 +347,8 @@ function homeView(){
       </div>
     </div>
   </section>
+
+  ${galleryHomeSection()}
 
   <section class="section">
     <div class="section-head compact-head">
@@ -424,7 +492,7 @@ async function loadAssistedCheckout(){
   if(!out)throw lastErr||new Error("PEDIDO_CHECKOUT_SIN_RESPUESTA");
   const resolvedOid=out.order_id||out.order?.id||oid,resolvedToken=out.checkout_token||pt||ct,resolvedLink=out.payment_link_id||pl||"";
   assistedCheckout={...out,order_id:resolvedOid,checkout_token:resolvedToken,payment_link_id:resolvedLink};
-  cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${resolvedOid}`;if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:Number(i.precio_unitario||i.precio||0),activo:true,image_url:"",categoria_nombre:"Pedido"});return{id,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout;
+  cart=(out.items||[]).map((i,n)=>{let id=i.producto_id||i.id||`assist-${n}-${resolvedOid}`,sizeId=i.tamano_id||"",sizeName=i.tamano_nombre||"",linePrice=Number(i.precio_unitario||i.precio||0);if(!state.products.some(p=>String(p.id)===String(id)))state.products.push({id,nombre:i.producto_nombre||i.nombre||"Producto",precio:linePrice,activo:true,image_url:"",categoria_nombre:"Pedido",tamanos:sizeName?[{id:sizeId||`assist-size-${n}`,nombre:sizeName,precio:linePrice,activo:"SI",orden:1}]:[]});return{id,tamano_id:sizeId,tamano_nombre:sizeName,precio:linePrice,qty:Number(i.cantidad||1),assisted:true}});saveCart();return assistedCheckout;
 }
 function fillAssistedCheckoutForm(order={}){
   const setValue=(selector,value)=>{const el=$(selector);if(el)el.value=String(value??"")};
@@ -565,7 +633,7 @@ function publicViewFocusTarget(hash=""){
   if(route==="solicitud")return $("#solicitud-formulario");
   if(route.startsWith("seguimiento"))return $(".tracking-section");
   if(route.startsWith("solicitud/")||route.startsWith("cotizacion/"))return $("#app > .section");
-  if(route.startsWith("productos/")||route==="ofertas"||route==="nosotros"||route==="politicas")return $("#app > .section");
+  if(route.startsWith("productos/")||route==="ofertas"||route==="nosotros"||route==="galeria"||route==="politicas")return $("#app > .section");
   return null;
 }
 function showPublicViewFocus(hash="",behavior="auto"){
@@ -592,6 +660,7 @@ function render(){
   else if(hash.startsWith("solicitud/")) $("#app").innerHTML=sharedRequestView();
   else if(hash.startsWith("cotizacion/")) $("#app").innerHTML=sharedQuoteView();
   else if(hash.startsWith("seguimiento")) $("#app").innerHTML=trackingView();
+  else if(hash==="galeria") $("#app").innerHTML=galleryView();
   else if(hash==="politicas") $("#app").innerHTML=policiesView();
   else $("#app").innerHTML=homeView();
   showPublicViewFocus(hash,"auto");
@@ -647,7 +716,7 @@ function wireCatalog(){
   const input=$("#catalogSearch"), sort=$("#catalogSort"); if(!input)return;
   const filter=location.hash.replace("#productos/","")||"todos";
   const base=state.products.filter(p=>catalogMatches(p,filter));
-  const redraw=()=>{const q=normalizeText(input.value);let list=base.filter(p=>productSearchText(p).includes(q));if(sort.value==="low")list.sort((a,b)=>a.precio-b.precio);if(sort.value==="high")list.sort((a,b)=>b.precio-a.precio);$("#catalogGrid").innerHTML=list.length?list.map(productCard).join(""):'<div class="empty-card">No encontramos productos.</div>'}
+  const redraw=()=>{const q=normalizeText(input.value);let list=base.filter(p=>productSearchText(p).includes(q));if(sort.value==="low")list.sort((a,b)=>productSortPrice(a)-productSortPrice(b));if(sort.value==="high")list.sort((a,b)=>productSortPrice(b)-productSortPrice(a));$("#catalogGrid").innerHTML=list.length?list.map(productCard).join(""):'<div class="empty-card">No encontramos productos.</div>'}
   input.addEventListener("input",redraw);sort.addEventListener("change",redraw);
 }
 
@@ -721,46 +790,48 @@ function wireRequest(){
 }
 
 function sanitizeCartAgainstCatalog(){
-  const allowed=new Set(state.products.filter(isProductActive).map(p=>String(p.id)));
-  const next=cart.filter(i=>allowed.has(String(i.id)));
-  if(next.length!==cart.length){cart=next;localStorage.setItem("aleAtencioCart",JSON.stringify(cart));}
+  let changed=false;const next=[];
+  for(const raw of Array.isArray(cart)?cart:[]){
+    const p=state.products.find(x=>String(x.id)===String(raw.id));if(!p||!isProductActive(p)){changed=true;continue}
+    const sizes=productSizes(p),z=sizes.length?cartLineSize(p,raw):null;const line={...raw,qty:Math.max(1,Number(raw.qty||1))};
+    if(sizes.length&&!z){changed=true;continue}
+    if(z){if(String(line.tamano_id||"")!==String(z.id)){line.tamano_id=z.id;changed=true}if(String(line.tamano_nombre||"")!==String(z.nombre||"")){line.tamano_nombre=z.nombre||"";changed=true}if(Number(line.precio)!==Number(z.precio||0)){line.precio=Number(z.precio||0);changed=true}}
+    else if(Number(line.precio)!==Number(p.precio||0)){line.precio=Number(p.precio||0);changed=true}
+    next.push(line)
+  }
+  if(changed||next.length!==cart.length){cart=next;localStorage.setItem("aleAtencioCart",JSON.stringify(cart));}
 }
 async function refreshCatalogAvailability(){
   if(!AleAPI.configured()) return;
   try{
     const fresh=await AleAPI.get("bootstrap");
     state.products=Array.isArray(fresh.products)?fresh.products.filter(isProductActive):[];
-    if(fresh.config)state.config={...state.config,...fresh.config};
+    if(fresh.config)state.config={...state.config,...fresh.config};if(Array.isArray(fresh.gallery))state.gallery=fresh.gallery;
   }catch(e){console.warn("No se pudo refrescar disponibilidad",e);state.products=[];}
   sanitizeCartAgainstCatalog();
   render();updateCartUI();
 }
-window.addToCart=async id=>{
+window.addToCart=async (id,sizeId="",qty=1)=>{
   let p=state.products.find(x=>String(x.id)===String(id));
-  if(!p||!isProductActive(p)){toast("Este producto ya no está disponible para la venta.","error");return}
+  if(!p||!isProductActive(p)){toast("Este producto ya no está disponible para la venta.","error");return false}
+  let selected=productSize(p,sizeId);if(productSizes(p).length&&!selected){toast("Selecciona un tamaño.","error");return false}
   if(AleAPI.configured()){
     try{
-      const live=await AleAPI.get("checkproduct",{id:String(id)});
+      const live=await AleAPI.get("checkproduct",{id:String(id),tamano_id:selected?.id||""});
       if(!live?.exists||!live?.active){
-        state.products=state.products.filter(x=>String(x.id)!==String(id));
-        cart=cart.filter(x=>String(x.id)!==String(id));
-        localStorage.setItem("aleAtencioCart",JSON.stringify(cart));
-        render();updateCartUI();
-        toast("Este producto fue desactivado y ya no está disponible para la venta.","error");
-        return;
+        if(selected)cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==cartLineKey(id,selected.id));else cart=cart.filter(x=>String(x.id)!==String(id));
+        localStorage.setItem("aleAtencioCart",JSON.stringify(cart));render();updateCartUI();toast("Este producto o tamaño ya no está disponible para la venta.","error");return false;
       }
-      p={...p,precio:Number(live.precio??p.precio),nombre:live.nombre||p.nombre};
-      const idx=state.products.findIndex(x=>String(x.id)===String(id));
-      if(idx>=0)state.products[idx]=p;
-    }catch(e){
-      console.warn("No se pudo verificar disponibilidad",e);
-      toast("No fue posible confirmar la disponibilidad del producto. Intenta nuevamente.","error");
-      return;
-    }
+      if(Array.isArray(live.tamanos))p={...p,tamanos:live.tamanos};
+      selected=productSize(p,live.tamano?.id||selected?.id||"");
+      p={...p,precio:Number(live.precio??selected?.precio??p.precio),nombre:live.nombre||p.nombre};
+      const idx=state.products.findIndex(x=>String(x.id)===String(id));if(idx>=0)state.products[idx]=p;
+    }catch(e){console.warn("No se pudo verificar disponibilidad",e);toast("No fue posible confirmar la disponibilidad del producto. Intenta nuevamente.","error");return false;}
   }
-  const item=cart.find(x=>String(x.id)===String(id));
-  if(item)item.qty++;else cart.push({id:p.id,qty:1});
-  saveCart();toast("Producto agregado")
+  const key=cartLineKey(p.id,selected?.id||""),item=cart.find(x=>cartLineKey(x.id,x.tamano_id)===key),linePrice=Number(selected?.precio??p.precio??0);
+  const amount=Math.max(1,Math.min(99,Number(qty||1)));
+  if(item){item.qty+=amount;item.precio=linePrice;item.tamano_nombre=selected?.nombre||""}else cart.push({id:p.id,tamano_id:selected?.id||"",tamano_nombre:selected?.nombre||"",precio:linePrice,qty:amount});
+  saveCart();toast(selected?.nombre?`${amount>1?amount+" productos agregados":"Producto agregado"} · ${selected.nombre}`:(amount>1?`${amount} productos agregados`:"Producto agregado"));return true
 }
 function saveCart(){localStorage.setItem("aleAtencioCart",JSON.stringify(cart));updateCartUI()}
 function clearCartAfterCompletedPurchase(){
@@ -769,8 +840,8 @@ function clearCartAfterCompletedPurchase(){
   updateCartUI();
   closeCart();
 }
-window.changeQty=(id,d)=>{const p=state.products.find(x=>String(x.id)===String(id));if(!p||!isProductActive(p)){cart=cart.filter(x=>String(x.id)!==String(id));saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>x.id===id);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>x.id!==id);saveCart()}
-window.removeItem=id=>{cart=cart.filter(x=>x.id!==id);saveCart()}
+window.changeQty=(id,sizeId,d)=>{const p=state.products.find(x=>String(x.id)===String(id)),key=cartLineKey(id,sizeId);if(!p||!isProductActive(p)){cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>cartLineKey(x.id,x.tamano_id)===key);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart()}
+window.removeItem=(id,sizeId="")=>{const key=cartLineKey(id,sizeId);cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart()}
 
 let checkoutPaymentIntent="";
 function configYes(value){return ["SI","SÍ","TRUE","1","YES","ON"].includes(String(value||"").trim().toUpperCase())}
@@ -831,14 +902,14 @@ function openCheckout(provider=""){
   setCheckoutPaymentIntent(provider);$("#orderSuccessPanel")?.classList.add("hidden");if($("#orderSuccessPdfPending"))$("#orderSuccessPdfPending").hidden=true;$("#submitOrderBtn")?.classList.remove("hidden");openModal("#checkoutModal");
 }
 function totals(method=""){
-  const subtotal=cart.reduce((s,i)=>{const p=state.products.find(x=>x.id===i.id);return s+(p?Number(p.precio)*i.qty:0)},0);
+  const subtotal=cart.reduce((s,i)=>{const p=state.products.find(x=>String(x.id)===String(i.id));return s+(p?cartLinePrice(i,p)*i.qty:0)},0);
   const delivery=(subtotal && method==="Despacho")?Number(state.config.valor_despacho||0):0;
   return{subtotal,delivery,total:subtotal+delivery}
 }
 function updateCartUI(){
   sanitizeCartAgainstCatalog();
   const count=cart.reduce((s,i)=>s+i.qty,0);$("#cartCount").textContent=count;
-  $("#cartItems").innerHTML=count?cart.map(i=>{const p=state.products.find(x=>x.id===i.id);if(!p)return"";return `<div class="cart-item"><div class="cart-thumb">${productFallback(p)}</div><div><strong>${esc(p.nombre)}</strong><small>${money(p.precio)}</small><div class="qty"><button onclick="changeQty('${p.id}',-1)">−</button><span>${i.qty}</span><button onclick="changeQty('${p.id}',1)">+</button></div></div><button class="remove-item" onclick="removeItem('${p.id}')"><i class="bi bi-x-lg"></i></button></div>`}).join(""):'<div class="empty-card">Tu carrito está vacío.</div>';
+  $("#cartItems").innerHTML=count?cart.map(i=>{const p=state.products.find(x=>String(x.id)===String(i.id));if(!p)return"";const z=cartLineSize(p,i),price=cartLinePrice(i,p),sid=z?.id||i.tamano_id||"";return `<div class="cart-item"><div class="cart-thumb">${productFallback(p)}</div><div><strong>${esc(p.nombre)}</strong>${z||i.tamano_nombre?`<span class="cart-size">Tamaño: ${esc(z?.nombre||i.tamano_nombre||"")}</span>`:""}<small>${money(price)}</small><div class="qty"><button onclick="changeQty('${p.id}','${esc(sid)}',-1)">−</button><span>${i.qty}</span><button onclick="changeQty('${p.id}','${esc(sid)}',1)">+</button></div></div><button class="remove-item" onclick="removeItem('${p.id}','${esc(sid)}')"><i class="bi bi-x-lg"></i></button></div>`}).join(""):'<div class="empty-card">Tu carrito está vacío.</div>';
   const t=totals();$("#cartSubtotal").textContent=money(t.subtotal);$("#cartDelivery").textContent="Por confirmar";$("#cartTotal").textContent=money(t.subtotal);syncPaymentUI();
 }
 
@@ -852,7 +923,7 @@ async function submitOrder(){
   if(!isValidRut(rut)){toast("Ingresa un RUT chileno válido.","error");$("#coRut").focus();return}
   beginButtonLoader(btn);
   const metodo=$("#coMethod").value;const t=totals(metodo);
-  const detail=cart.map(i=>{const p=state.products.find(x=>x.id===i.id);return{id:p.id,nombre:p.nombre,cantidad:i.qty,precio:Number(p.precio)}});
+  const detail=cart.map(i=>{const p=state.products.find(x=>String(x.id)===String(i.id)),z=cartLineSize(p,i);return{id:p.id,nombre:p.nombre,tamano_id:z?.id||i.tamano_id||"",tamano_nombre:z?.nombre||i.tamano_nombre||"",cantidad:i.qty,precio:cartLinePrice(i,p)}});
   const addressRaw=$("#coAddress").value.trim();
   const communeRaw=$("#coCommune")?.value.trim()||"";
   if(metodo==="Despacho"&&!communeRaw){toast("Ingresa la comuna para el despacho.","error");$("#coCommune")?.focus();endButtonLoader(btn);return}
@@ -866,15 +937,15 @@ async function submitOrder(){
   }catch(e){
     console.warn(e);
     const code=String(e?.message||e||"").toUpperCase();
-    if(code.includes("PRODUCTO_NO_DISPONIBLE")||code.includes("DETALLE_PEDIDO_INVALIDO")){
+    if(code.includes("PRODUCTO_NO_DISPONIBLE")||code.includes("PRODUCTO_TAMANO_REQUERIDO")||code.includes("DETALLE_PEDIDO_INVALIDO")){
       await refreshCatalogAvailability();
-      toast("Uno de los productos fue desactivado y ya no está disponible para la venta. Actualizamos tu carrito.","error");
+      toast("Uno de los productos o tamaños ya no está disponible. Actualizamos tu carrito.","error");
       endButtonLoader(btn);return;
     }
     if(code.includes("RUT_")){toast("El RUT ingresado no es válido.","error");endButtonLoader(btn);return;}
   }
   const orderId=result?.numero_pedido||result?.id||data.id;
-  const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre} - ${money(x.precio*x.cantidad)}`).join("\n");
+  const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre}${x.tamano_nombre?` · ${x.tamano_nombre}`:""} - ${money(x.precio*x.cantidad)}`).join("\n");
   if(saved){
     const payWithTransbank=checkoutPaymentIntent==="TRANSBANK"&&transbankAvailable();
     // Un pedido Transbank aún no es una compra finalizada: conservamos el carrito
@@ -915,13 +986,13 @@ function normalizePhone(v){return String(v||"").replace(/\D/g,"")}
 window.openWhatsApp=(custom="")=>{const phone=normalizePhone(state.config.whatsapp);if(!phone){toast("WhatsApp aún no está configurado en el cPanel.");return false}const msg=custom||"Hola Ale Atencio, quisiera información sobre sus productos.";window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,"_blank","noopener");return true}
 
 function openCart(){$("#cartDrawer").classList.add("open");$("#overlay").classList.add("show")}function closeCart(){$("#cartDrawer").classList.remove("open");$("#overlay").classList.remove("show")}
-function openModal(id){$(id).classList.add("show")}function closeModal(){$$(".modal").forEach(x=>x.classList.remove("show"))}
+function openModal(id){const m=$(id);if(!m)return;m.classList.add("show");if(id==="#productDetailModal")document.body.classList.add("product-modal-open")}function closeModal(){$$(".modal").forEach(x=>x.classList.remove("show"));document.body.classList.remove("product-modal-open")}
 $("#cartBtn").addEventListener("click",openCart);$("#closeCart").addEventListener("click",closeCart);$("#overlay").addEventListener("click",closeCart);$("#clearCart").addEventListener("click",()=>{cart=[];saveCart()});
 $("#orderSuccessPdfGenerate")?.addEventListener("click",async e=>{const b=e.currentTarget,orderId=b.dataset.orderId,trackingToken=b.dataset.trackingToken;if(!orderId||!trackingToken)return;beginButtonLoader(b);try{const out=await AleAPI.postPublic("publicorderpdf",{order_id:orderId,tracking_token:trackingToken});if(out?.pdf_url){const link=$("#orderSuccessPdf");link.href=out.pdf_url;link.hidden=false;b.hidden=true;$("#orderSuccessPdfPending").hidden=true;const cred=trackingCredential(out.numero_pedido)||trackingCredential(orderId);if(cred)rememberTracking(orderId,out.numero_pedido,trackingToken,cred.tracking_url,out.pdf_url);toast("PDF generado correctamente","success")}}catch(err){console.warn(err);toast("No fue posible generar el PDF ahora","error")}finally{endButtonLoader(b)}});
 $("#checkoutBtn").addEventListener("click",()=>openCheckout(""));$("#transbankCartBtn")?.addEventListener("click",()=>{if(!transbankAvailable())return toast("Transbank aún no está listo. Verifica URL y credenciales del servidor.","error");openCheckout("TRANSBANK")});$("#orderSuccessTransbank")?.addEventListener("click",async e=>{const b=e.currentTarget,p=getPendingTransbank();if(!p)return toast("No hay un pago Transbank pendiente.","error");beginButtonLoader(b);try{await startTransbankForOrder(p)}catch(err){console.warn(err);toast("No fue posible iniciar Transbank. Revisa la configuración del servidor.","error");endButtonLoader(b)}});$("#submitOrderBtn").addEventListener("click",submitOrder);wireRutField("#coRut");$("#orderSuccessClose")?.addEventListener("click",()=>{closeModal();setCheckoutPaymentIntent("");$("#orderSuccessPanel")?.classList.add("hidden");$("#submitOrderBtn")?.classList.remove("hidden")});$("#whatsappFloat").addEventListener("click",e=>{e.preventDefault();openWhatsApp()});
 $("#searchBtn").addEventListener("click",()=>openModal("#searchModal"));$$("[data-close-modal]").forEach(b=>b.addEventListener("click",closeModal));$$(".modal").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)closeModal()}));
 $("#searchAction").addEventListener("click",doSearch);$("#searchInput").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch()});
-function doSearch(){const q=normalizeText($("#searchInput").value);const list=state.products.filter(p=>isProductActive(p)&&productSearchText(p).includes(q)).slice(0,8);$("#searchResults").innerHTML=list.length?list.map(p=>`<div class="search-result"><div><strong>${esc(p.nombre)}</strong><br><small>${esc(p.categoria_nombre||"")}</small></div><button class="add-button" onclick="addToCart('${p.id}')">Agregar</button></div>`).join(""):'<div class="empty-card">No encontramos coincidencias.</div>'}
+function doSearch(){const q=normalizeText($("#searchInput").value);const list=state.products.filter(p=>isProductActive(p)&&productSearchText(p).includes(q)).slice(0,8);$("#searchResults").innerHTML=list.length?list.map(p=>`<div class="search-result"><div><strong>${esc(p.nombre)}</strong><br><small>${esc(p.categoria_nombre||"")}</small></div><button class="add-button" onclick="closeModal();openProductDetail('${esc(p.id)}')">Ver opciones</button></div>`).join(""):'<div class="empty-card">No encontramos coincidencias.</div>'}
 $(".nav-trigger").addEventListener("click",e=>{e.stopPropagation();e.currentTarget.closest(".nav-group").classList.toggle("open")});document.addEventListener("click",()=>$(".nav-group").classList.remove("open"));
 $("#mobileToggle").addEventListener("click",()=>$("#mainNav").classList.toggle("show"));function closeMobile(){$("#mainNav").classList.remove("show");$(".nav-group").classList.remove("open")}
 document.addEventListener("click",e=>{
@@ -930,7 +1001,7 @@ document.addEventListener("click",e=>{
   const href=a.getAttribute("href")||"";
   if(!href||href==="#"||href!==location.hash)return;
   const route=href.replace(/^#/,"");
-  const isPublicView=route==="inicio"||route==="ofertas"||route==="nosotros"||route==="solicitud"||route==="seguimiento"||route==="politicas"||route.startsWith("productos/");
+  const isPublicView=route==="inicio"||route==="ofertas"||route==="nosotros"||route==="galeria"||route==="solicitud"||route==="seguimiento"||route==="politicas"||route.startsWith("productos/");
   if(!isPublicView)return;
   e.preventDefault();
   showPublicViewFocus(route,"auto");
