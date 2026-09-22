@@ -56,16 +56,78 @@ $('#whProducts').onclick=e=>{const card=e.target.closest('.wh-product-compact');
 function filteredOrders(){const q=$('#whOrderSearch').value.trim().toLowerCase(),st=$('#whOrderStatus').value,pay=$('#whOrderPaymentStatus').value,from=$('#whOrderFrom').value,to=$('#whOrderTo').value;return (state.orders||[]).filter(o=>`${o.numero_pedido||o.id} ${o.estado||''} ${o.estado_pago||''} ${o.medio_pago||''}`.toLowerCase().includes(q)&&(!st||String(o.estado||'')===st)&&(!pay||String(o.estado_pago||'')===pay)&&inDateRange(o.fecha||o.creado_en||o.created_at,from,to))}
 function renderOrders(){const rows=filteredOrders();$('#whOrders').innerHTML=`<table><thead><tr><th>Pedido</th><th>Fecha</th><th>Estado</th><th>Pago</th><th>Medio</th><th>Total</th><th>Acciones</th></tr></thead><tbody>${rows.map(o=>`<tr><td><strong>${esc(o.numero_pedido||o.id)}</strong></td><td>${esc(fmtDate(o.fecha||o.creado_en||Date.now()))}</td><td><span class="status-pill">${esc(o.estado||'')}</span></td><td><span class="status-pill">${esc(o.estado_pago||'')}</span></td><td>${esc(o.medio_pago||'')}</td><td><strong>${money(o.total)}</strong></td><td><div class="order-actions"><button data-order-view="${esc(o.id)}">Consultar</button><button data-order-pdf="${esc(o.id)}">PDF</button><button data-order-trace="${esc(o.id)}">Trazabilidad</button></div></td></tr>`).join('')}</tbody></table>`+(rows.length?'':'<div class="empty-state">No hay pedidos que coincidan con los filtros.</div>')}
 async function getOrderAccess(id){return await AleAPI.post('mayoristaorderaccess',{id},token)}
-async function openOrderDetail(id,sourceBtn){$('#whOrderModal').classList.add('open');$('#whOrderModal').setAttribute('aria-hidden','false');$('#whOrderDetail').innerHTML='<div class="loading-block">Cargando detalle…</div>';try{const out=await getOrderAccess(id),o=out.order||{},items=out.items||[],history=out.history||[];$('#whOrderModalTitle').textContent=o.numero_pedido||o.id||'Detalle';$('#whOrderDetail').innerHTML=`<div class="order-detail-grid"><div><span>Estado</span><strong>${esc(o.estado||'-')}</strong></div><div><span>Pago</span><strong>${esc(o.estado_pago||'-')}</strong></div><div><span>Medio</span><strong>${esc(o.medio_pago||'-')}</strong></div><div><span>Total</span><strong>${money(o.total)}</strong></div><div><span>Fecha</span><strong>${esc(fmtDate(o.fecha||o.creado_en))}</strong></div><div><span>Entrega</span><strong>${esc(o.metodo_entrega||'-')}</strong></div></div><h3>Productos</h3><div class="order-detail-items">${items.map(x=>`<div><span>${esc(x.producto_nombre||'Producto')} ${x.tamano_nombre?`· ${esc(x.tamano_nombre)}`:''}</span><span>${Number(x.cantidad||1)} × ${money(x.precio_unitario)}</span><strong>${money(x.subtotal)}</strong></div>`).join('')||'<p>Sin detalle disponible.</p>'}</div><div class="order-detail-links">${out.pdf_url?`<a href="${esc(out.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</a>`:''}${out.tracking_url?`<a href="${esc(out.tracking_url)}" target="_blank" rel="noopener"><i class="bi bi-search"></i> Consultar pedido</a>`:''}${out.trace_url?`<a href="${esc(out.trace_url)}" target="_blank" rel="noopener"><i class="bi bi-diagram-3"></i> Trazabilidad</a>`:''}</div><h3>Historial</h3><div class="timeline">${history.map(h=>`<div class="timeline-item"><i></i><div><strong>${esc(h.evento||'Actualización')}</strong><span>${esc(h.descripcion||`${h.estado_pedido||''} ${h.estado_pago||''}`)}</span><small>${esc(fmtDate(h.creado_en))}</small></div></div>`).join('')||'<p>Sin movimientos registrados.</p>'}</div>`}catch(err){console.warn(err);$('#whOrderDetail').innerHTML='<div class="empty-state">No fue posible cargar el pedido.</div>'}finally{if(sourceBtn)setBusy(sourceBtn,false)}}
+async function openOrderDetail(id,sourceBtn){$('#whOrderModal').classList.add('open');$('#whOrderModal').setAttribute('aria-hidden','false');$('#whOrderDetail').innerHTML='<div class="loading-block">Cargando detalle…</div>';try{const out=await getOrderAccess(id),o=out.order||{},items=out.items||[],history=out.history||[];$('#whOrderModalTitle').textContent=o.numero_pedido||o.id||'Detalle';$('#whOrderDetail').innerHTML=`<div class="order-detail-grid"><div><span>Estado</span><strong>${esc(o.estado||'-')}</strong></div><div><span>Pago</span><strong>${esc(o.estado_pago||'-')}</strong></div><div><span>Medio</span><strong>${esc(o.medio_pago||'-')}</strong></div><div><span>Total</span><strong>${money(o.total)}</strong></div><div><span>Fecha</span><strong>${esc(fmtDate(o.fecha||o.creado_en))}</strong></div><div><span>Entrega</span><strong>${esc(o.metodo_entrega||'-')}</strong></div></div><h3>Productos</h3><div class="order-detail-items">${items.map(x=>`<div><span>${esc(x.producto_nombre||'Producto')} ${x.tamano_nombre?`· ${esc(x.tamano_nombre)}`:''}</span><span>${Number(x.cantidad||1)} × ${money(x.precio_unitario)}</span><strong>${money(x.subtotal)}</strong></div>`).join('')||'<p>Sin detalle disponible.</p>'}</div><div class="order-detail-links">${out.pdf_url?`<a href="${esc(out.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> Descargar PDF</a>`:''}<button type="button" class="order-detail-action" onclick="openOrderTrace('${esc(o.id||id)}')"><i class="bi bi-diagram-3"></i> Ver trazabilidad</button></div><h3>Historial</h3><div class="timeline">${history.map(h=>`<div class="timeline-item"><i></i><div><strong>${esc(h.evento||'Actualización')}</strong><span>${esc(h.descripcion||`${h.estado_pedido||''} ${h.estado_pago||''}`)}</span><small>${esc(fmtDate(h.creado_en))}</small></div></div>`).join('')||'<p>Sin movimientos registrados.</p>'}</div>`}catch(err){console.warn(err);$('#whOrderDetail').innerHTML='<div class="empty-state">No fue posible cargar el pedido.</div>'}finally{if(sourceBtn)setBusy(sourceBtn,false)}}
+
+window.openOrderTrace=async function(id,sourceBtn){
+  $('#whOrderModal').classList.add('open');
+  $('#whOrderModal').setAttribute('aria-hidden','false');
+  $('#whOrderDetail').innerHTML='<div class="loading-block">Cargando trazabilidad…</div>';
+  try{
+    const out=await getOrderAccess(id),o=out.order||{},history=out.history||[];
+    $('#whOrderModalTitle').textContent=`Trazabilidad · ${o.numero_pedido||o.id||''}`;
+    $('#whOrderDetail').innerHTML=`
+      <div class="trace-summary">
+        <div><span>Estado actual</span><strong>${esc(o.estado||'-')}</strong></div>
+        <div><span>Estado de pago</span><strong>${esc(o.estado_pago||'-')}</strong></div>
+        <div><span>Última actualización</span><strong>${esc(fmtDate(o.actualizado_en||o.fecha||o.creado_en))}</strong></div>
+      </div>
+      <div class="trace-toolbar">
+        <button type="button" class="order-detail-action secondary" onclick="openOrderDetail('${esc(o.id||id)}')"><i class="bi bi-arrow-left"></i> Volver al detalle</button>
+        ${out.pdf_url?`<a href="${esc(out.pdf_url)}" target="_blank" rel="noopener"><i class="bi bi-file-earmark-pdf"></i> PDF</a>`:''}
+      </div>
+      <div class="trace-panel">
+        <div class="trace-title"><span>Línea de tiempo</span><strong>${history.length} movimiento${history.length===1?'':'s'}</strong></div>
+        <div class="timeline trace-timeline">${history.map((h,i)=>`<div class="timeline-item ${i===0?'latest':''}"><i></i><div><strong>${esc(h.evento||'Actualización')}</strong><span>${esc(h.descripcion||[h.estado_pedido,h.estado_pago].filter(Boolean).join(' · ')||'Movimiento del pedido')}</span><small>${esc(fmtDate(h.creado_en))}</small></div></div>`).join('')||'<div class="empty-state">Aún no hay movimientos registrados para este pedido.</div>'}</div>
+      </div>`;
+  }catch(err){
+    console.warn(err);
+    $('#whOrderDetail').innerHTML='<div class="empty-state">No fue posible cargar la trazabilidad del pedido.</div>';
+  }finally{if(sourceBtn)setBusy(sourceBtn,false)}
+}
 function closeOrderModal(){$('#whOrderModal').classList.remove('open');$('#whOrderModal').setAttribute('aria-hidden','true')}
-$('#whOrderClose').onclick=closeOrderModal;$('#whOrderModal').onclick=e=>{if(e.target===$('#whOrderModal'))closeOrderModal()};$('#whOrders').onclick=async e=>{const v=e.target.closest('[data-order-view]'),pdf=e.target.closest('[data-order-pdf]'),tr=e.target.closest('[data-order-trace]');const btn=v||pdf||tr;if(!btn)return;setBusy(btn,true,'');try{const id=btn.dataset.orderView||btn.dataset.orderPdf||btn.dataset.orderTrace;if(v){await openOrderDetail(id,btn);return}const out=await getOrderAccess(id),url=pdf?out.pdf_url:out.trace_url;if(url)window.open(url,'_blank','noopener');else toast(pdf?'PDF aún no disponible':'Trazabilidad no disponible')}catch(err){console.warn(err);toast('No fue posible abrir el pedido')}finally{if(!v)setBusy(btn,false)}};
+$('#whOrderClose').onclick=closeOrderModal;$('#whOrderModal').onclick=e=>{if(e.target===$('#whOrderModal'))closeOrderModal()};$('#whOrders').onclick=async e=>{const v=e.target.closest('[data-order-view]'),pdf=e.target.closest('[data-order-pdf]'),tr=e.target.closest('[data-order-trace]');const btn=v||pdf||tr;if(!btn)return;setBusy(btn,true,'');try{const id=btn.dataset.orderView||btn.dataset.orderPdf||btn.dataset.orderTrace;if(v){await openOrderDetail(id,btn);return}if(tr){await openOrderTrace(id,btn);return}const out=await getOrderAccess(id),url=out.pdf_url;if(url)window.open(url,'_blank','noopener');else toast('PDF aún no disponible')}catch(err){console.warn(err);toast('No fue posible abrir el pedido')}finally{if(pdf)setBusy(btn,false)}};
 
 function renderDocuments(){$('#whDocuments').innerHTML=(state.documents||[]).map(d=>`<div class="doc-item"><div><small>${esc(d.tipo||'DOCUMENTO')}</small><strong>${esc(d.nombre||'Documento')}</strong><div>${esc(fmtDay(d.creado_en||Date.now()))}</div></div>${d.url?`<a href="${esc(d.url)}" target="_blank" rel="noopener"><i class="bi bi-download"></i> Abrir</a>`:'<span>Protegido</span>'}</div>`).join('')||'<p>Aún no hay documentos.</p>'}
 function renderProfile(){const c=state.client||{},l=state.priceList||{};$('#whProfile').innerHTML=`<div><span>Razón social</span><strong>${esc(c.razon_social||c.nombre||'')}</strong></div><div><span>RUT</span><strong>${esc(c.rut||'')}</strong></div><div><span>Giro</span><strong>${esc(c.giro||'-')}</strong></div><div><span>Lista</span><strong>${esc(l.nombre||'-')}</strong></div><div><span>Correo</span><strong>${esc(c.email||'-')}</strong></div><div><span>Teléfono</span><strong>${esc(c.telefono||'-')}</strong></div>`}
-function renderNotifications(){const rows=state.notifications||[],unread=rows.filter(n=>!n.leida);$('#whBellCount').textContent=unread.length;$('#whBellCount').classList.toggle('hidden',!unread.length);const html=rows.map(n=>`<button class="notification ${n.leida?'':'unread'}" data-notification="${esc(n.id)}" data-entity="${esc(n.entidad_id||'')}"><strong>${esc(n.titulo||'Notificación')}</strong><span>${esc(n.mensaje||'')}</span><small>${esc(fmtDate(n.creado_en||Date.now()))}</small><em class="notification-action ${n.leida?'read':''}">${n.leida?'Leída':'Marcar como leída'}</em></button>`).join('')||'<p>Sin notificaciones.</p>';$('#whNotifications').innerHTML=html;$('#whBellList').innerHTML=html}
+function notificationVisual(n){
+  const text=`${n?.titulo||''} ${n?.mensaje||''}`.toLowerCase();
+  if(text.includes('pago'))return{icon:'bi-credit-card-2-front',cls:'payment'};
+  if(text.includes('pedido'))return{icon:'bi-bag-check',cls:'order'};
+  if(text.includes('document')||text.includes('factura')||text.includes('pdf'))return{icon:'bi-file-earmark-text',cls:'document'};
+  if(text.includes('habilitado')||text.includes('aprobado')||text.includes('perfil'))return{icon:'bi-person-check',cls:'profile'};
+  return{icon:'bi-bell',cls:'generic'};
+}
+function notificationItemHtml(n){
+  const v=notificationVisual(n),isRead=!!n.leida;
+  return `<button class="notification-item ${isRead?'':'unread'}" data-notification="${esc(n.id)}" data-entity="${esc(n.entidad_id||'')}" type="button">
+    <span class="notification-icon ${v.cls}"><i class="bi ${v.icon}"></i></span>
+    <span class="notification-copy">
+      <strong>${esc(n.titulo||'Notificación')}</strong>
+      <span class="notification-message">${esc(n.mensaje||'')}</span>
+      <span class="notification-meta">
+        <time>${esc(fmtDate(n.creado_en||Date.now()))}</time>
+        <span class="notification-read-label ${isRead?'read':''}">${isRead?'Leída':'Marcar como leída'}</span>
+      </span>
+    </span>
+    <span class="notification-dot ${isRead?'read':''}" aria-hidden="true"></span>
+  </button>`;
+}
+function renderNotifications(){
+  const rows=state.notifications||[],unread=rows.filter(n=>!n.leida);
+  $('#whBellCount').textContent=unread.length;
+  $('#whBellCount').classList.toggle('hidden',!unread.length);
+  const html=rows.map(notificationItemHtml).join('')||'<div class="notification-empty"><i class="bi bi-bell-slash"></i><strong>Sin notificaciones</strong><span>No tienes actividad nueva por revisar.</span></div>';
+  $('#whNotifications').innerHTML=html;
+  $('#whBellList').innerHTML=html;
+}
 async function markNotification(id,entity=''){try{await AleAPI.post('mayoristanotificationread',{id},token);const n=(state.notifications||[]).find(x=>String(x.id)===String(id));if(n)n.leida=true;renderNotifications();if(entity)await openOrderDetail(entity)}catch(err){console.warn(err)}}
 async function markAllNotifications(btn){await busy(btn,async()=>{try{await AleAPI.post('mayoristanotificationreadall',{},token);(state.notifications||[]).forEach(n=>n.leida=true);renderNotifications();toast('Notificaciones marcadas como leídas')}catch(err){console.warn(err);toast('No fue posible actualizar notificaciones')}},'')}
-$('#whBell').onclick=e=>{e.stopPropagation();$('#whBellPanel').classList.toggle('hidden')};document.addEventListener('click',e=>{if(!e.target.closest('.wh-notification-wrap'))$('#whBellPanel').classList.add('hidden')});for(const hostId of ['#whNotifications','#whBellList'])$(hostId).onclick=e=>{const n=e.target.closest('[data-notification]');if(n)markNotification(n.dataset.notification,n.dataset.entity)};$('#whMarkAll').onclick=e=>markAllNotifications(e.currentTarget);$('#whProfileMarkAll').onclick=e=>markAllNotifications(e.currentTarget);
+$('#whBell').onclick=e=>{e.stopPropagation();$('#whBellPanel').classList.toggle('hidden')};
+$('#whCloseNotifications').onclick=e=>{e.stopPropagation();$('#whBellPanel').classList.add('hidden')};
+document.addEventListener('click',e=>{if(!e.target.closest('.wh-notification-wrap'))$('#whBellPanel').classList.add('hidden')});
+for(const hostId of ['#whNotifications','#whBellList'])$(hostId).onclick=e=>{const n=e.target.closest('[data-notification]');if(n)markNotification(n.dataset.notification,n.dataset.entity)};
+$('#whMarkAll').onclick=e=>markAllNotifications(e.currentTarget);
+$('#whProfileMarkAll').onclick=e=>markAllNotifications(e.currentTarget);
 
 function renderCart(){const count=cart.reduce((a,x)=>a+x.cantidad,0),total=cart.reduce((a,x)=>a+x.precio*x.cantidad,0);$('#whCartCount').textContent=count;$('#whCartTotal').textContent=money(total);$('#whCartItems').innerHTML=cart.map(x=>`<div class="cart-line" data-key="${esc(x.key)}"><div><strong>${esc(x.nombre)}</strong><small>${esc(x.tamano_nombre)} · ${money(x.precio)}</small></div><div><input type="number" min="1" max="999" value="${x.cantidad}"><button data-remove><i class="bi bi-trash"></i></button></div></div>`).join('')||'<p>Tu carrito está vacío.</p>'}
 $('#whCartItems').onchange=e=>{const line=e.target.closest('.cart-line');if(!line||e.target.tagName!=='INPUT')return;const x=cart.find(v=>v.key===line.dataset.key);if(x)x.cantidad=Math.max(1,Number(e.target.value)||1);renderCart()};$('#whCartItems').onclick=e=>{const line=e.target.closest('.cart-line');if(line&&e.target.closest('[data-remove]')){cart=cart.filter(v=>v.key!==line.dataset.key);renderCart()}};function openCart(){$('#whCart').classList.add('open');$('#whOverlay').classList.add('open')}function closeCart(){$('#whCart').classList.remove('open');$('#whOverlay').classList.remove('open')}$('#whCartBtn').onclick=openCart;$('#whCartClose').onclick=closeCart;$('#whOverlay').onclick=closeCart;

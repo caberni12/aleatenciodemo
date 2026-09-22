@@ -2484,3 +2484,190 @@ body.client-editor-open{overflow:hidden}body.client-editor-open::before{content:
   }
 }
 .price-list-scroll-hint{font-weight:700;color:#7b4f45}
+
+/* =========================================================
+   R9.18.68 · PEDIDOS - PAGO / ESTADO / PDF / ACCIONES
+   Mejora de legibilidad, proporciones y scroll horizontal.
+   ========================================================= */
+#ordersTable{
+  overflow-x:auto!important;
+  overflow-y:visible!important;
+  padding-bottom:8px!important;
+  scrollbar-gutter:stable;
+}
+#ordersTable::-webkit-scrollbar{height:11px}
+#ordersTable::-webkit-scrollbar-track{background:#f3ebe6;border-radius:999px}
+#ordersTable::-webkit-scrollbar-thumb{background:#b79c90;border:2px solid #f3ebe6;border-radius:999px}
+#ordersTable::-webkit-scrollbar-thumb:hover{background:#8e7064}
+
+#ordersTable .admin-table{
+  min-width:1540px!important;
+  width:100%!important;
+  table-layout:auto!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+}
+
+/* Anchos reales para las 11 columnas actuales */
+#ordersTable .admin-table th:nth-child(1),#ordersTable .admin-table td:nth-child(1){width:145px!important;min-width:145px!important}
+#ordersTable .admin-table th:nth-child(2),#ordersTable .admin-table td:nth-child(2){width:120px!important;min-width:120px!important}
+#ordersTable .admin-table th:nth-child(3),#ordersTable .admin-table td:nth-child(3){width:135px!important;min-width:135px!important}
+#ordersTable .admin-table th:nth-child(4),#ordersTable .admin-table td:nth-child(4){width:220px!important;min-width:220px!important}
+#ordersTable .admin-table th:nth-child(5),#ordersTable .admin-table td:nth-child(5){width:190px!important;min-width:190px!important}
+#ordersTable .admin-table th:nth-child(6),#ordersTable .admin-table td:nth-child(6){width:190px!important;min-width:190px!important}
+#ordersTable .admin-table th:nth-child(7),#ordersTable .admin-table td:nth-child(7){width:120px!important;min-width:120px!important}
+#ordersTable .admin-table th:nth-child(8),#ordersTable .admin-table td:nth-child(8){width:155px!important;min-width:155px!important}
+#ordersTable .admin-table th:nth-child(9),#ordersTable .admin-table td:nth-child(9){width:170px!important;min-width:170px!important}
+#ordersTable .admin-table th:nth-child(10),#ordersTable .admin-table td:nth-child(10){width:120px!important;min-width:120px!important}
+#ordersTable .admin-table th:nth-child(11),#ordersTable .admin-table td:nth-child(11){width:190px!important;min-width:190px!important}
+
+#ordersTable .admin-table th{
+  padding:11px 10px!important;
+  background:#fffaf7!important;
+  color:#7b6257!important;
+  border-bottom:1px solid #eadbd3!important;
+}
+#ordersTable .admin-table td{
+  padding:13px 10px!important;
+  border-bottom:1px solid #eee2dc!important;
+  background:#fff!important;
+}
+#ordersTable .admin-table tbody tr:hover td{background:#fffaf7!important}
+
+#ordersTable .order-payment-cell,
+#ordersTable .order-status-cell,
+#ordersTable .order-pdf-cell,
+#ordersTable .order-actions-cell{
+  vertical-align:middle!important;
+}
+
+#ordersTable .order-payment-cell{
+  display:table-cell!important;
+  white-space:normal!important;
+}
+#ordersTable .order-payment-cell .status-select,
+#ordersTable .order-status-cell .status-select{
+  width:100%!important;
+  min-width:132px!important;
+  height:42px!important;
+  padding:0 34px 0 12px!important;
+  border:1px solid #d9c6bc!important;
+  border-radius:12px!important;
+  background-color:#fff!important;
+  color:#4d3830!important;
+  font-size:12.5px!important;
+  font-weight:700!important;
+  line-height:42px!important;
+  box-shadow:none!important;
+}
+#ordersTable .order-payment-cell .payment-cash-select.payment-pendiente{
+  background:#fff7e6!important;
+  border-color:#efcf88!important;
+  color:#8a6111!important;
+}
+#ordersTable .order-payment-cell .payment-cash-select.payment-pagado{
+  background:#edf8ef!important;
+  border-color:#b9dabf!important;
+  color:#35653d!important;
+}
+#ordersTable .order-status-cell .status-select:focus,
+#ordersTable .order-payment-cell .status-select:focus{
+  outline:none!important;
+  border-color:#8d6d61!important;
+  box-shadow:0 0 0 3px rgba(141,109,97,.12)!important;
+}
+#ordersTable .order-payment-cell small{
+  display:inline-flex!important;
+  align-items:center!important;
+  margin-top:7px!important;
+  min-height:24px!important;
+  padding:4px 8px!important;
+  border-radius:999px!important;
+  background:#f5efeb!important;
+  color:#745f56!important;
+  font-size:9.5px!important;
+  font-weight:800!important;
+  letter-spacing:.045em!important;
+}
+#ordersTable .payment-status-badge{
+  display:flex!important;
+  width:100%!important;
+  min-height:42px!important;
+  align-items:center!important;
+  justify-content:center!important;
+  border-radius:12px!important;
+  font-size:11.5px!important;
+  font-weight:800!important;
+}
+
+#ordersTable .order-pdf-cell .pdf-link,
+#ordersTable .order-pdf-secure-btn{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:6px!important;
+  min-width:88px!important;
+  height:38px!important;
+  padding:0 12px!important;
+  border:1px solid #dfcfc7!important;
+  border-radius:11px!important;
+  background:#fff!important;
+  color:#7b4f55!important;
+  font-weight:800!important;
+  text-decoration:none!important;
+}
+#ordersTable .order-pdf-secure-btn:hover{background:#fff5f6!important;border-color:#cfa9af!important}
+#ordersTable .order-pdf-cell .muted-text{
+  display:inline-flex!important;
+  min-height:38px!important;
+  align-items:center!important;
+  padding:0 10px!important;
+  border-radius:10px!important;
+  background:#f7f3f1!important;
+  color:#99867e!important;
+  white-space:nowrap!important;
+}
+
+#ordersTable .order-actions-cell{
+  position:sticky!important;
+  right:0!important;
+  z-index:3!important;
+  background:#fff!important;
+  box-shadow:-10px 0 18px -18px rgba(60,39,31,.65)!important;
+}
+#ordersTable .admin-table th:nth-child(11){
+  position:sticky!important;
+  right:0!important;
+  z-index:5!important;
+  background:#fffaf7!important;
+  box-shadow:-10px 0 18px -18px rgba(60,39,31,.65)!important;
+}
+#ordersTable .row-actions{
+  display:grid!important;
+  grid-template-columns:1fr!important;
+  gap:7px!important;
+}
+#ordersTable .row-actions button{
+  min-height:38px!important;
+  border-radius:10px!important;
+  font-size:11.5px!important;
+  font-weight:750!important;
+}
+#ordersTable .row-actions button:first-child{
+  background:#4f3932!important;
+  border-color:#4f3932!important;
+  color:#fff!important;
+}
+#ordersTable .row-actions .cancel-order-row{
+  background:#fff7f7!important;
+  color:#963b3b!important;
+  border-color:#e7c8c8!important;
+}
+
+@media(max-width:1180px){
+  #ordersTable .admin-table{min-width:1480px!important}
+}
+@media(max-width:760px){
+  #ordersTable .admin-table{min-width:1450px!important}
+  #ordersTable .order-actions-cell,#ordersTable .admin-table th:nth-child(11){position:static!important;box-shadow:none!important}
+}
