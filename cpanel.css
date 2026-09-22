@@ -2349,11 +2349,12 @@ body.order-cancel-open:before{content:"";position:fixed;inset:0;background:rgba(
 
 
 /* R9.18.38 · Buscador + calendario en Pedidos, Solicitudes y Cotizaciones */
-.module-filter-bar{display:grid;grid-template-columns:minmax(240px,1.6fr) minmax(150px,.72fr) minmax(150px,.72fr) auto auto;gap:10px;align-items:end;margin:14px 0 8px;padding:12px;border:1px solid #eaded8;border-radius:16px;background:linear-gradient(145deg,#fffaf8,#fff)}
+.module-filter-bar{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(150px,.72fr) minmax(145px,.68fr) minmax(145px,.68fr) auto auto;gap:10px;align-items:end;margin:14px 0 8px;padding:12px;border:1px solid #eaded8;border-radius:16px;background:linear-gradient(145deg,#fffaf8,#fff)}
 .module-search-box{height:46px;display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;min-width:0}
 .module-search-box:focus-within{border-color:#a67868;box-shadow:0 0 0 3px rgba(166,120,104,.10)}
 .module-search-box i{color:#977a70}.module-search-box input{border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;width:100%;min-width:0;height:42px;padding:0!important}
 .module-date-filter{display:grid;gap:5px}.module-date-filter>span{font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#80685f}.module-date-filter input{height:46px;width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 10px;color:#4d3931;cursor:pointer}
+.module-select-filter{display:grid;gap:5px}.module-select-filter>span{font-size:10px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#80685f}.module-select-filter select{height:46px;width:100%;min-width:0;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 10px;color:#4d3931}
 .module-filter-bar .btn{min-height:46px;white-space:nowrap}.module-filter-today.is-active{background:#6f4d41!important;color:#fff!important;border-color:#6f4d41!important}.module-filter-meta{min-height:26px;margin:0 2px 8px;color:#806e67;font-size:11px;font-weight:700;display:flex;align-items:center;gap:7px}.module-filter-meta:before{content:"";width:7px;height:7px;border-radius:50%;background:#a77b6b;flex:none}
 .request-closed-lock{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#eef3ec;color:#53704d;font-size:10px;font-weight:900;letter-spacing:.035em;white-space:nowrap}.status-select.is-request-closed{opacity:.84;cursor:not-allowed;background:#f2f6f0}.bulk-locked{display:inline-grid;place-items:center;width:22px;height:22px;color:#698064}.request-row-closed{background:rgba(239,246,236,.42)}
 @media(max-width:1120px){.module-filter-bar{grid-template-columns:1fr 1fr 1fr}.module-search-box{grid-column:1/-1}.module-filter-bar .btn{width:100%}}
@@ -2416,3 +2417,70 @@ body.client-editor-open{overflow:hidden}body.client-editor-open::before{content:
 /* R9.18.54 · Proveedores, Mercadería, Ingredientes y Galería */
 .product-ingredient-rows,.receipt-item-rows{display:grid;gap:10px;margin-top:10px}.product-ingredient-row,.receipt-item-row{display:grid;grid-template-columns:34px minmax(180px,2fr) minmax(105px,.7fr) minmax(150px,1.4fr) 34px;gap:10px;align-items:end;padding:12px;border:1px solid rgba(94,70,78,.12);border-radius:14px;background:#fff}.product-ingredient-row label,.receipt-item-row label{display:grid;gap:5px}.product-ingredient-row small,.receipt-item-row small{font-size:11px;color:#78636a}.ingredient-cost-total,.receipt-total{display:flex;justify-content:flex-end;gap:10px;margin-top:12px;padding:12px 14px;border-radius:12px;background:#f8f2f3}.ingredient-cost-total strong,.receipt-total strong{font-size:18px}.receipt-items-head{display:flex;align-items:center;justify-content:space-between;margin-top:18px}.receipt-item-row{grid-template-columns:minmax(180px,1.7fr) minmax(150px,1.4fr) 90px 105px 130px 34px}.gallery-admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}.gallery-admin-card{overflow:hidden;border:1px solid rgba(94,70,78,.12);border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(77,52,61,.06)}.gallery-admin-media{aspect-ratio:4/3;background:#f3ecee}.gallery-admin-media img{width:100%;height:100%;object-fit:cover;display:block}.gallery-admin-body{display:grid;gap:7px;padding:14px}.gallery-admin-body small,.gallery-admin-body span{color:#78636a}.gallery-admin-body .btn{justify-self:start}.inventory-receipt-editor{max-width:1100px}
 @media(max-width:900px){.product-ingredient-row,.receipt-item-row{grid-template-columns:1fr 1fr}.product-ingredient-row .product-size-order,.receipt-item-row .product-size-order{display:none}.product-ingredient-row .product-size-remove,.receipt-item-row .product-size-remove{grid-column:2;justify-self:end}}
+
+/* R9.18.63 · Solicitudes de alta Mayorista */
+.wholesale-request-editor{width:min(900px,94vw);max-height:90vh;overflow:auto}
+.wholesale-request-detail{margin:6px 0 18px;padding:14px;background:#fbf7f4;border:1px solid #eadfd9;border-radius:14px}
+.wholesale-request-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.wholesale-request-grid>div{display:grid;gap:3px;padding:10px 11px;background:#fff;border:1px solid #eee3de;border-radius:10px}
+.wholesale-request-grid>div.span-2{grid-column:1/-1}.wholesale-request-grid span{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#8c7e77}.wholesale-request-grid strong{font-size:13px;color:#413733;overflow-wrap:anywhere}
+@media(max-width:650px){.wholesale-request-grid{grid-template-columns:1fr}.wholesale-request-grid>div.span-2{grid-column:auto}}
+
+/* R9.18.65 · LISTAS DE PRECIOS COMPLETAS */
+.price-list-filterbar{display:grid;grid-template-columns:minmax(220px,1fr) minmax(190px,260px) auto;gap:10px;align-items:center;margin:12px 0}.price-list-filterbar input,.price-list-filterbar select{width:100%;border:1px solid var(--line,#eadfd5);border-radius:10px;padding:10px 12px;background:#fff}.price-list-summary{margin:0 0 8px;color:#7b6d66;font-size:12px}.price-list-items table{min-width:820px}.price-list-items .plItemPrice{min-width:140px}.price-list-items tr.pl-hidden{display:none}@media(max-width:760px){.price-list-filterbar{grid-template-columns:1fr}.price-list-filterbar .btn{width:100%}}
+
+
+/* R9.18.66 · Pedidos Mayoristas dentro del módulo Pedidos */
+.sale-type-badge{display:inline-flex;align-items:center;justify-content:center;padding:6px 9px;border-radius:999px;font-size:9px;font-weight:900;letter-spacing:.055em;white-space:nowrap;border:1px solid #dfd5cf;background:#f8f5f2;color:#68544c}.sale-type-badge.mayorista{background:#fff3d8;border-color:#e8c87d;color:#76551b}.sale-type-badge.minorista{background:#f4f0ee;color:#6f625c}.order-type-cell small{display:block;margin-top:4px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#8c7770}.order-row-clickable:has(.sale-type-badge.mayorista){box-shadow:inset 3px 0 0 #d4a840}
+
+/* =========================================================
+   R9.18.67 · LISTAS DE PRECIOS · SCROLL VISIBLE Y TABLA ALTA
+   Los registros ya estaban cargados; este ajuste evita que el
+   editor parezca mostrar solamente cuatro filas.
+   ========================================================= */
+#priceListEditor.price-list-editor{
+  max-width:1240px!important;
+}
+#priceListItemsEditor.price-list-items{
+  height:min(62vh,680px)!important;
+  max-height:min(62vh,680px)!important;
+  min-height:420px!important;
+  overflow-x:auto!important;
+  overflow-y:scroll!important;
+  scrollbar-gutter:stable both-edges;
+  overscroll-behavior:contain;
+  border:1px solid var(--line,#eadfd5);
+  border-radius:14px;
+  background:#fff;
+}
+#priceListItemsEditor .admin-table{
+  margin:0!important;
+}
+#priceListItemsEditor .admin-table thead th{
+  position:sticky;
+  top:0;
+  z-index:4;
+  background:#fff8f7;
+  box-shadow:0 1px 0 var(--line,#eadfd5);
+}
+#priceListItemsEditor::-webkit-scrollbar{width:14px;height:12px}
+#priceListItemsEditor::-webkit-scrollbar-track{background:#f5ece8;border-radius:999px}
+#priceListItemsEditor::-webkit-scrollbar-thumb{background:#a77b70;border:3px solid #f5ece8;border-radius:999px}
+#priceListItemsEditor::-webkit-scrollbar-thumb:hover{background:#815b52}
+#priceListEditor .editor-actions{
+  position:sticky;
+  bottom:-22px;
+  z-index:5;
+  margin-left:-2px;
+  margin-right:-2px;
+  padding:14px 2px 4px;
+  background:linear-gradient(180deg,rgba(255,248,247,.72),#fff8f7 34%);
+}
+@media(max-width:760px){
+  #priceListItemsEditor.price-list-items{
+    height:58vh!important;
+    max-height:58vh!important;
+    min-height:360px!important;
+  }
+}
+.price-list-scroll-hint{font-weight:700;color:#7b4f45}

@@ -1,14 +1,163 @@
 <!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#8d5060"><title>Ale Atencio | Compras Mayoristas</title><link rel="icon" type="image/png" href="logo-ale-atencio.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"><link rel="stylesheet" href="mayoristas.css?v=20260922-r91862-mayorista-catalogo-web"></head>
-<body><div id="toast" class="toast"></div>
-<section class="auth-shell" id="authShell"><div class="auth-card"><a class="brand" href="index.html"><img src="logo-ale-atencio.png" alt="Ale Atencio"><div><span>Canal privado</span><strong>Compras Mayoristas</strong></div></a><form id="whLoginForm" class="auth-pane active" data-pane="login"><h1>Acceso mayorista</h1><p>Ingresa con las credenciales creadas por un administrador desde el cPanel de Ale Atencio.</p><div class="access-note"><i class="bi bi-shield-lock"></i><span>Las cuentas mayoristas no se registran desde esta página. El acceso es habilitado exclusivamente desde cPanel.</span></div><label>Usuario<input id="whUser" autocomplete="username" required></label><label>Contraseña<input id="whPassword" type="password" autocomplete="current-password" required></label><button type="submit">Ingresar</button><a href="index.html">Volver a la tienda</a><div class="status" id="loginStatus"></div></form></div></section>
-<section class="portal hidden" id="portal"><header class="portal-head"><a class="brand" href="index.html"><img src="logo-ale-atencio.png" alt="Ale Atencio"><div><span>Portal mayorista</span><strong id="whWelcome">Mayorista</strong></div></a><div class="head-actions"><span class="list-badge" id="whListBadge">Lista autorizada</span><button id="whRefresh" title="Actualizar"><i class="bi bi-arrow-clockwise"></i></button><button id="whCartBtn"><i class="bi bi-bag"></i><span id="whCartCount">0</span></button><button id="whLogout"><i class="bi bi-box-arrow-right"></i></button></div></header><div class="portal-layout"><aside class="portal-nav"><button class="active" data-view="catalog"><i class="bi bi-grid"></i>Catálogo</button><button data-view="orders"><i class="bi bi-receipt"></i>Mis pedidos</button><button data-view="documents"><i class="bi bi-file-earmark-text"></i>Documentos</button><button data-view="profile"><i class="bi bi-building"></i>Mi cuenta</button></aside><main class="portal-main"><section class="portal-view active" id="wh-view-catalog"><div class="hero"><div><span>Lista privada de precios</span><h1>Catálogo mayorista</h1><p>Los valores mostrados corresponden únicamente a la lista asignada a tu empresa.</p></div><input id="whSearch" placeholder="Buscar producto..."></div><div class="kpis"><article><span>Pedidos</span><strong id="kOrders">0</strong></article><article><span>Total comprado</span><strong id="kTotal">$0</strong></article><article><span>Pagados</span><strong id="kPaid">0</strong></article><article><span>Pendientes</span><strong id="kPending">0</strong></article></div><div class="products" id="whProducts"></div></section><section class="portal-view" id="wh-view-orders"><div class="section-head"><div><span>Historial</span><h2>Mis pedidos</h2></div></div><div class="table-wrap" id="whOrders"></div></section><section class="portal-view" id="wh-view-documents"><div class="section-head"><div><span>Privado</span><h2>Documentos y facturas</h2></div></div><div class="upload-card"><select id="whDocumentType"><option value="DOCUMENTO">Documento</option><option value="ORDEN_COMPRA">Orden de compra</option><option value="COMPROBANTE">Comprobante</option></select><input id="whDocumentName" placeholder="Nombre del archivo"><input id="whDocumentFile" type="file" accept=".pdf,image/*"><button id="whUploadDocument">Subir archivo</button></div><div class="documents" id="whDocuments"></div></section><section class="portal-view" id="wh-view-profile"><div class="section-head"><div><span>Cuenta</span><h2>Datos mayorista</h2></div></div><div class="profile-grid" id="whProfile"></div><h3>Notificaciones</h3><div class="notifications" id="whNotifications"></div></section></main></div></section>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#8d5060">
+  <title>Ale Atencio | Compras Mayoristas</title>
+  <link rel="icon" type="image/png" href="logo-ale-atencio.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="mayoristas.css?v=20260922-r91865-notificaciones-listas">
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<section class="auth-shell" id="authShell">
+  <div class="auth-card auth-card-wide">
+    <a class="brand" href="index.html"><img src="logo-ale-atencio.png" alt="Ale Atencio"><div><span>Canal privado</span><strong>Compras Mayoristas</strong></div></a>
+    <div class="auth-tabs" role="tablist">
+      <button class="active" type="button" data-auth-tab="login">Ingresar</button>
+      <button type="button" data-auth-tab="register">Registrar usuario</button>
+    </div>
+    <form id="whLoginForm" class="auth-pane active" data-pane="login">
+      <h1>Acceso mayorista</h1>
+      <p>Ingresa con tu usuario habilitado por administración.</p>
+      <label>Usuario<input id="whUser" autocomplete="username" required></label>
+      <label>Contraseña<input id="whPassword" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="async-btn"><span>Ingresar</span></button>
+      <a href="index.html">Volver a la tienda</a>
+      <div class="status" id="loginStatus"></div>
+    </form>
+    <form id="whRegisterForm" class="auth-pane" data-pane="register">
+      <h1>Solicitud de acceso Mayorista</h1>
+      <p>Completa tus datos. El administrador revisará la solicitud, asignará tu lista de precios y activará el acceso.</p>
+      <div class="register-grid">
+        <label>RUT empresa<input id="regRut" placeholder="12.345.678-5" required></label>
+        <label>Razón social<input id="regBusiness" required></label>
+        <label>Giro<input id="regBusinessActivity"></label>
+        <label>Nombre de contacto<input id="regContact" required></label>
+        <label>Teléfono<input id="regPhone" required></label>
+        <label>Correo<input id="regEmail" type="email" required></label>
+        <label class="span-2">Dirección<input id="regAddress"></label>
+        <label>Comuna<input id="regCommune"></label>
+        <label>Usuario deseado<input id="regUser" autocomplete="username" required></label>
+        <label>Contraseña<input id="regPassword" type="password" minlength="8" autocomplete="new-password" required></label>
+        <label>Repetir contraseña<input id="regPassword2" type="password" minlength="8" autocomplete="new-password" required></label>
+        <label class="span-2">Observaciones<textarea id="regNotes" rows="3" placeholder="Información adicional para administración"></textarea></label>
+      </div>
+      <div class="access-note"><i class="bi bi-hourglass-split"></i><span>El registro queda PENDIENTE. No podrás ingresar hasta que administración lo apruebe y asigne una lista activa.</span></div>
+      <button type="submit" class="async-btn"><span>Enviar solicitud</span></button>
+      <div class="status" id="registerStatus"></div>
+    </form>
+  </div>
+</section>
+
+<section class="portal hidden" id="portal">
+  <header class="portal-head">
+    <a class="brand" href="index.html"><img src="logo-ale-atencio.png" alt="Ale Atencio"><div><span>Portal mayorista</span><strong id="whWelcome">Mayorista</strong></div></a>
+    <div class="head-actions">
+      <span class="list-badge" id="whListBadge">Lista autorizada</span>
+      <div class="wh-notification-wrap">
+        <button id="whBell" class="icon-action" title="Notificaciones" aria-label="Notificaciones"><i class="bi bi-bell"></i><span class="notification-count hidden" id="whBellCount">0</span></button>
+        <div class="notification-popover hidden" id="whBellPanel">
+          <div class="notification-popover-head"><div><strong>Notificaciones</strong><small>Pedidos y documentos</small></div><button id="whMarkAll" type="button">Marcar todas</button></div>
+          <div id="whBellList" class="notification-popover-list"></div>
+        </div>
+      </div>
+      <button id="whRefresh" class="icon-action async-btn" title="Actualizar"><i class="bi bi-arrow-clockwise"></i></button>
+      <button id="whCartBtn" class="icon-action"><i class="bi bi-bag"></i><span id="whCartCount">0</span></button>
+      <button id="whLogout" class="icon-action" title="Salir" aria-label="Cerrar sesión"><i class="bi bi-box-arrow-right"></i></button>
+      <img id="whHeaderAvatar" class="wh-header-avatar" src="favicon.png" alt="Perfil">
+    </div>
+  </header>
+
+  <div class="portal-layout">
+    <aside class="portal-nav">
+      <button class="active" data-view="catalog"><i class="bi bi-grid"></i>Catálogo</button>
+      <button data-view="orders"><i class="bi bi-receipt"></i>Mis pedidos</button>
+      <button data-view="documents"><i class="bi bi-file-earmark-text"></i>Documentos</button>
+      <button data-view="profile"><i class="bi bi-person-circle"></i>Mi cuenta</button>
+    </aside>
+    <main class="portal-main">
+      <section class="portal-view active" id="wh-view-catalog">
+        <div class="hero"><div><span>Lista privada de precios</span><h1>Catálogo mayorista</h1><p>Los valores mostrados corresponden únicamente a la lista asignada a tu empresa.</p></div></div>
+        <div class="filter-bar catalog-filter-bar">
+          <label><span>Buscar</span><input id="whSearch" placeholder="Producto, descripción..."></label>
+          <label><span>Categoría</span><select id="whCategory"><option value="">Todas</option></select></label>
+          <label><span>Desde</span><input id="whCatalogFrom" type="date"></label>
+          <label><span>Hasta</span><input id="whCatalogTo" type="date"></label>
+          <button id="whCatalogToday" class="filter-btn" type="button">Hoy</button>
+          <button id="whCatalogClear" class="filter-btn" type="button">Limpiar</button>
+        </div>
+        <div class="kpis"><article><span>Pedidos</span><strong id="kOrders">0</strong></article><article><span>Total comprado</span><strong id="kTotal">$0</strong></article><article><span>Pagados</span><strong id="kPaid">0</strong></article><article><span>Pendientes</span><strong id="kPending">0</strong></article></div>
+        <div class="products" id="whProducts"></div>
+      </section>
+
+      <section class="portal-view" id="wh-view-orders">
+        <div class="section-head"><div><span>Historial</span><h2>Mis pedidos</h2><p>Consulta, descarga PDF y revisa la trazabilidad de cada pedido.</p></div></div>
+        <div class="filter-bar order-filter-bar">
+          <label><span>Buscar</span><input id="whOrderSearch" placeholder="N.º pedido, estado..."></label>
+          <label><span>Estado</span><select id="whOrderStatus"><option value="">Todos</option></select></label>
+          <label><span>Pago</span><select id="whOrderPaymentStatus"><option value="">Todos</option></select></label>
+          <label><span>Desde</span><input id="whOrderFrom" type="date"></label>
+          <label><span>Hasta</span><input id="whOrderTo" type="date"></label>
+          <button id="whOrdersToday" class="filter-btn" type="button">Hoy</button>
+          <button id="whOrdersClear" class="filter-btn" type="button">Limpiar</button>
+        </div>
+        <div class="table-wrap" id="whOrders"></div>
+      </section>
+
+      <section class="portal-view" id="wh-view-documents">
+        <div class="section-head"><div><span>Privado</span><h2>Documentos y facturas</h2></div></div>
+        <div class="upload-card"><select id="whDocumentType"><option value="DOCUMENTO">Documento</option><option value="ORDEN_COMPRA">Orden de compra</option><option value="COMPROBANTE">Comprobante</option></select><input id="whDocumentName" placeholder="Nombre del archivo"><input id="whDocumentFile" type="file" accept=".pdf,image/*"><button id="whUploadDocument" class="async-btn"><span>Subir archivo</span></button></div>
+        <div class="documents" id="whDocuments"></div>
+      </section>
+
+      <section class="portal-view" id="wh-view-profile">
+        <div class="section-head"><div><span>Cuenta</span><h2>Datos mayorista</h2></div></div>
+        <div class="profile-photo-card">
+          <img id="whProfilePhoto" src="favicon.png" alt="Foto de perfil">
+          <div><strong>Foto de perfil</strong><small>JPG, PNG o WEBP · máximo 5 MB</small><input id="whProfileFile" type="file" accept="image/jpeg,image/png,image/webp"><button id="whSaveProfilePhoto" class="async-btn" type="button"><span>Guardar foto</span></button></div>
+        </div>
+        <div class="profile-grid" id="whProfile"></div>
+        <div class="section-head profile-notification-head"><div><span>Centro de notificaciones</span><h3>Notificaciones</h3></div><button id="whProfileMarkAll" type="button">Marcar todas como leídas</button></div>
+        <div class="notifications" id="whNotifications"></div>
+      </section>
+    </main>
+  </div>
+</section>
 
 <div class="wh-product-modal" id="whProductModal" aria-hidden="true">
-  <div class="wh-product-card" role="dialog" aria-modal="true" aria-labelledby="whProductTitle">
-    <button class="wh-product-close" id="whProductClose" type="button" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
-    <div id="whProductContent"></div>
+  <div class="wh-product-card" role="dialog" aria-modal="true" aria-labelledby="whProductTitle"><button class="wh-product-close" id="whProductClose" type="button" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button><div id="whProductContent"></div></div>
+</div>
+
+<div class="wh-order-modal" id="whOrderModal" aria-hidden="true">
+  <div class="wh-order-card" role="dialog" aria-modal="true" aria-labelledby="whOrderModalTitle">
+    <button class="wh-order-close" id="whOrderClose" type="button" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+    <div class="wh-order-modal-head"><span>Pedido Mayorista</span><h2 id="whOrderModalTitle">Detalle</h2></div>
+    <div id="whOrderDetail" class="wh-order-detail"><div class="loading-block">Cargando…</div></div>
   </div>
 </div>
-<div class="overlay" id="whOverlay"></div><aside class="cart-panel" id="whCart"><div class="cart-head"><div><span>Pedido mayorista</span><h2>Carrito</h2></div><button id="whCartClose">×</button></div><div class="cart-items" id="whCartItems"></div><div class="checkout"><div class="total"><span>Total productos</span><strong id="whCartTotal">$0</strong></div><label>Medio de pago<select id="whPayment"><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option><option value="EFECTIVO">Efectivo</option></select></label><label>Entrega<select id="whDelivery"><option value="COORDINAR">Coordinar</option><option value="RETIRO">Retiro</option><option value="DESPACHO">Despacho</option></select></label><label>Dirección<input id="whAddress"></label><label>Comuna<input id="whCommune"></label><label>Observaciones<textarea id="whNotes"></textarea></label><button class="submit-order" id="whSubmitOrder">Crear pedido</button><div class="last-order hidden" id="whLastOrder"><strong id="whLastOrderNumber"></strong><div class="transfer-upload hidden" id="whTransferUpload"><input id="whProofFile" type="file" accept="image/*,.pdf"><button id="whUploadProof">Subir comprobante</button></div></div></div></aside>
-<script src="config.js?v=20260922-r91862-mayorista-catalogo-web"></script><script src="api.js?v=20260922-r91862-mayorista-catalogo-web"></script><script src="mayoristas.js?v=20260922-r91862-mayorista-catalogo-web"></script></body></html>
+
+<div class="overlay" id="whOverlay"></div>
+<aside class="cart-panel" id="whCart">
+  <div class="cart-head"><div><span>Pedido mayorista</span><h2>Carrito</h2></div><button id="whCartClose">×</button></div>
+  <div class="cart-items" id="whCartItems"></div>
+  <div class="checkout">
+    <div class="total"><span>Total productos</span><strong id="whCartTotal">$0</strong></div>
+    <label>Medio de pago<select id="whPayment"><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option><option value="EFECTIVO">Efectivo</option></select></label>
+    <label>Entrega<select id="whDelivery"><option value="COORDINAR">Coordinar</option><option value="RETIRO">Retiro</option><option value="DESPACHO">Despacho</option></select></label>
+    <label>Dirección<input id="whAddress"></label><label>Comuna<input id="whCommune"></label><label>Observaciones<textarea id="whNotes"></textarea></label>
+    <button class="submit-order async-btn" id="whSubmitOrder"><span>Crear pedido</span></button>
+    <div class="last-order hidden" id="whLastOrder"><strong id="whLastOrderNumber"></strong><div class="transfer-upload hidden" id="whTransferUpload"><input id="whProofFile" type="file" accept="image/*,.pdf"><button id="whUploadProof" class="async-btn"><span>Subir comprobante</span></button></div></div>
+  </div>
+</aside>
+
+<script src="config.js?v=20260922-r91865-notificaciones-listas"></script>
+<script src="api.js?v=20260922-r91865-notificaciones-listas"></script>
+<script src="mayoristas.js?v=20260922-r91865-notificaciones-listas"></script>
+</body>
+</html>
