@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="mayoristas.css?v=20260922-r91886-wholesale-credit">
+  <link rel="stylesheet" href="mayoristas.css?v=20260922-r91896-credit-increase-evaluation">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -63,7 +63,8 @@
     <a class="brand" href="index.html"><img src="logo-ale-atencio.png" alt="Ale Atencio"><div><span>Portal mayorista</span><strong id="whWelcome">Mayorista</strong></div></a>
     <div class="head-actions">
       <span class="list-badge" id="whListBadge">Lista autorizada</span>
-      <button id="whCreditHeader" class="credit-head-badge" type="button" title="Ver línea de crédito"><i class="bi bi-wallet2"></i><span><small>Saldo</small><strong id="whCreditHeaderAmount">$0</strong></span></button>
+      <span class="wholesale-tier-badge tier-general" id="whTierBadge" title="Mayorista General"><svg class="wholesale-crown-icon" viewBox="0 0 64 48" aria-hidden="true"><path class="crown-main" d="M9 36 14 17l13 11 5-16 5 16 13-11 5 19H9Z"/><path class="crown-base" d="M12 36h40v7H12z"/><circle class="crown-tip" cx="14" cy="16" r="2.5"/><circle class="crown-tip" cx="32" cy="11" r="2.5"/><circle class="crown-tip" cx="50" cy="16" r="2.5"/></svg><span>Mayorista General</span></span>
+      <button id="whCreditHeader" class="credit-head-badge hidden" type="button" title="Ver línea de crédito"><i class="bi bi-wallet2"></i><span><small>Saldo</small><strong id="whCreditHeaderAmount">$0</strong></span></button>
       <div class="wh-notification-wrap">
         <button id="whBell" class="icon-action" title="Notificaciones" aria-label="Notificaciones"><i class="bi bi-bell"></i><span class="notification-count hidden" id="whBellCount">0</span></button>
         <aside class="notification-popover hidden" id="whBellPanel" aria-label="Centro de notificaciones Mayorista">
@@ -88,7 +89,7 @@
     <aside class="portal-nav">
       <button class="active" data-view="catalog"><i class="bi bi-grid"></i>Catálogo</button>
       <button data-view="orders"><i class="bi bi-receipt"></i>Mis pedidos</button>
-      <button data-view="credit"><i class="bi bi-wallet2"></i>Créditos</button>
+      <button data-view="credit" class="hidden" id="whCreditNav"><i class="bi bi-wallet2"></i>Créditos</button>
       <button data-view="documents"><i class="bi bi-file-earmark-text"></i>Documentos</button>
       <button data-view="profile"><i class="bi bi-person-circle"></i>Mi cuenta</button>
     </aside>
@@ -122,15 +123,18 @@
       </section>
 
       <section class="portal-view" id="wh-view-credit">
-        <div class="section-head"><div><span>Financiamiento</span><h2>Mi línea de crédito</h2><p>Consulta tu límite, saldo disponible, deuda utilizada y fecha tope de pago.</p></div></div>
+        <div class="section-head"><div><span>Financiamiento</span><h2>Mi línea de crédito</h2><p>Consulta tu límite, saldo disponible, deuda utilizada, plazo por compra, recargo y estado de mora.</p></div></div>
         <div class="credit-overview" id="whCreditOverview">
           <article><span>Límite de crédito</span><strong id="whCreditLimit">$0</strong></article>
           <article><span>Saldo disponible</span><strong id="whCreditAvailable">$0</strong></article>
           <article><span>Crédito utilizado</span><strong id="whCreditUsed">$0</strong></article>
           <article><span>Fecha de asignación</span><strong id="whCreditAssigned">—</strong></article>
-          <article><span>Fecha tope de pago</span><strong id="whCreditDue">—</strong></article>
+          <article><span>Próximo vencimiento</span><strong id="whCreditDue">—</strong></article>
+          <article><span>Plazo por compra</span><strong id="whCreditTerm">30 días</strong></article>
+          <article><span>Recargo por uso</span><strong id="whCreditSurcharge">0%</strong></article>
         </div>
         <div class="credit-status-card" id="whCreditStatusCard"><i class="bi bi-info-circle"></i><div><strong id="whCreditStatusTitle">Sin línea asignada</strong><p id="whCreditStatusText">Administración debe asignar una línea de crédito para habilitar compras con este medio de pago.</p></div></div>
+        <div class="credit-rating-portal" id="whCreditRatingCard"><div><span>Historial crediticio</span><strong id="whCreditRatingStars">☆☆☆☆☆</strong></div><div><span>Evaluación</span><strong id="whCreditRatingLevel">Sin historial</strong></div><div><span>Puntualidad</span><strong id="whCreditRatingPunctuality">—</strong></div><div><span>Límite recomendado</span><strong id="whCreditRatingRecommended">—</strong></div><p id="whCreditRatingNote">El historial se construye con tus pagos de crédito.</p></div>
         <div class="section-head"><div><span>Trazabilidad</span><h3>Movimientos de crédito</h3></div></div>
         <div class="table-wrap" id="whCreditMovements"></div>
       </section>
@@ -182,8 +186,8 @@
   </div>
 </aside>
 
-<script src="config.js?v=20260922-r91886-wholesale-credit"></script>
-<script src="api.js?v=20260922-r91886-wholesale-credit"></script>
-<script src="mayoristas.js?v=20260922-r91886-wholesale-credit"></script>
+<script src="config.js?v=20260922-r91896-credit-increase-evaluation"></script>
+<script src="api.js?v=20260922-r91896-credit-increase-evaluation"></script>
+<script src="mayoristas.js?v=20260922-r91896-credit-increase-evaluation"></script>
 </body>
 </html>

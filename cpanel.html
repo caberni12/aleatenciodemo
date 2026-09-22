@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260922-r91886-wholesale-credit"><link rel="stylesheet" href="cpanel.css?v=20260922-r91886-wholesale-credit">
+  <link rel="stylesheet" href="styles.css?v=20260922-r91896-credit-increase-evaluation"><link rel="stylesheet" href="cpanel.css?v=20260922-r91896-credit-increase-evaluation">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -429,7 +429,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
     <section class="admin-view" id="view-wholesale">
       <div class="admin-card wholesale-admin-shell">
         <div class="card-head"><div><span class="eyebrow">Canal privado B2B</span><h2>Mayoristas y listas de precios</h2><p class="module-help">Administra aquí solicitudes de registro, perfiles aprobados, usuarios y listas autorizadas. El autoregistro desde el portal queda PENDIENTE hasta que un administrador lo apruebe, asigne una lista activa y habilite el acceso.</p></div><div class="card-head-actions"><button class="btn btn-primary" id="newWholesaleProfile" type="button"><i class="bi bi-person-plus"></i> Nuevo mayorista</button><a class="btn btn-light" href="mayoristas.html" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Portal mayorista</a><button class="btn btn-light" id="newPriceList" type="button"><i class="bi bi-plus-lg"></i> Nueva lista</button></div></div>
-        <div class="kpi-grid wholesale-kpis"><div class="kpi-card"><span>Listas activas</span><strong id="whKpiLists">0</strong></div><div class="kpi-card"><span>Mayoristas</span><strong id="whKpiClients">0</strong></div><div class="kpi-card"><span>Solicitudes pendientes</span><strong id="whKpiRequests">0</strong></div><div class="kpi-card"><span>Perfiles con acceso</span><strong id="whKpiProfiles">0</strong></div><div class="kpi-card"><span>Documentos</span><strong id="whKpiDocs">0</strong></div></div>
+        <div class="kpi-grid wholesale-kpis"><div class="kpi-card"><span>Listas activas</span><strong id="whKpiLists">0</strong></div><div class="kpi-card"><span>Mayoristas</span><strong id="whKpiClients">0</strong></div><div class="kpi-card"><span>Solicitudes pendientes</span><strong id="whKpiRequests">0</strong></div><div class="kpi-card"><span>Perfiles con acceso</span><strong id="whKpiProfiles">0</strong></div><div class="kpi-card"><span>Crédito habilitado</span><strong id="whKpiCreditEnabled">0</strong></div><div class="kpi-card"><span>Documentos</span><strong id="whKpiDocs">0</strong></div></div>
       </div>
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Tarifas</span><h3>Listas de precios</h3></div></div><div class="table-wrap" id="priceListsTable"></div></div>
       <div class="editor hidden price-list-editor" id="priceListEditor" role="dialog" aria-modal="true"><div class="editor-modal-head"><div><span class="eyebrow">Lista de precios</span><h3 id="priceListEditorTitle">Nueva lista</h3></div><button type="button" class="editor-close-x" id="closePriceListEditor">×</button></div><input type="hidden" id="plId"><div class="form-grid"><label>Nombre<input id="plName" placeholder="Mayorista General"></label><label>Código<input id="plCode" placeholder="MAY-GEN"></label><label class="span-2">Descripción<input id="plDescription" placeholder="Condiciones de esta lista"></label><label>Estado<select id="plActive"><option value="SI">Activa</option><option value="NO">Inactiva</option></select></label></div><div class="price-list-help">Cada lista incluye automáticamente todos los productos y tamaños activos del catálogo. Puedes modificar aquí el precio Mayorista de cada tamaño; si aún no fue personalizado, se propone el precio normal como valor inicial.</div><div class="price-list-filterbar"><input id="plSearch" type="search" placeholder="Buscar producto o tamaño"><select id="plCategory"><option value="">Todas las categorías</option></select><button class="btn btn-light btn-compact" type="button" id="plResetFilters">Limpiar</button></div><div class="price-list-summary" id="plSummary"></div><div class="table-wrap price-list-items" id="priceListItemsEditor"></div><div class="editor-actions"><button class="btn btn-primary" id="savePriceList">Guardar lista</button><button class="btn btn-light" id="cancelPriceList">Cancelar</button></div></div>
@@ -443,35 +443,64 @@ Torta chocolate | 1 | 25000"></textarea></label>
 
     <section class="admin-view" id="view-wholesale-credits">
       <div class="admin-card">
-        <div class="card-head"><div><span class="eyebrow">Línea de crédito B2B</span><h2>Créditos Mayoristas</h2><p class="module-help">Asigna y administra una línea de crédito por empresa Mayorista. El saldo disponible disminuye con cada compra a crédito y vuelve a liberarse cuando registras un abono. Si vence la fecha tope, el portal bloquea nuevas compras a crédito hasta regularizar.</p></div><div class="card-head-actions"><button class="btn btn-light" id="refreshWholesaleCredits" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
-        <div class="kpi-grid wholesale-credit-kpis"><div class="kpi-card"><span>Límite asignado</span><strong id="whCreditKpiLimit">$0</strong></div><div class="kpi-card"><span>Saldo disponible</span><strong id="whCreditKpiAvailable">$0</strong></div><div class="kpi-card"><span>Crédito utilizado</span><strong id="whCreditKpiUsed">$0</strong></div><div class="kpi-card"><span>Vencidos</span><strong id="whCreditKpiOverdue">0</strong></div></div>
+        <div class="card-head"><div><span class="eyebrow">Línea de crédito B2B</span><h2>Créditos Mayoristas</h2><p class="module-help">Asigna y administra una línea de crédito por empresa Mayorista. Define plazo por compra (15, 30, 45 días o personalizado), recargo porcentual por uso y política de mora. Cada pedido a crédito conserva su propio vencimiento y los abonos liberan saldo de forma trazable.</p></div><div class="card-head-actions"><button class="btn btn-light" id="refreshWholesaleCredits" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
+        <div class="kpi-grid wholesale-credit-kpis"><div class="kpi-card"><span>Límite asignado</span><strong id="whCreditKpiLimit">$0</strong></div><div class="kpi-card"><span>Saldo disponible</span><strong id="whCreditKpiAvailable">$0</strong></div><div class="kpi-card"><span>Crédito utilizado</span><strong id="whCreditKpiUsed">$0</strong></div><div class="kpi-card"><span>En mora</span><strong id="whCreditKpiOverdue">0</strong></div></div>
       </div>
-      <div class="credit-admin-grid">
-        <div class="admin-card">
-          <div class="card-head"><div><span class="eyebrow">Asignación</span><h3>Configurar línea de crédito</h3><p class="module-help">Selecciona un Mayorista, define el límite y su fecha tope de pago. El saldo disponible se calcula automáticamente considerando la deuda ya utilizada.</p></div></div>
-          <div class="form-grid">
-            <label class="span-2">Mayorista<select id="whCreditClient"><option value="">Seleccionar Mayorista</option></select></label>
-            <label>Límite de crédito<input id="whCreditLimit" inputmode="numeric" placeholder="$0"></label>
-            <label>Estado<select id="whCreditActive"><option value="SI">Activo</option><option value="NO">Suspendido</option></select></label>
-            <label>Fecha de asignación<input id="whCreditAssigned" type="date"></label>
-            <label>Fecha tope de pago<input id="whCreditDue" type="date" required></label>
-            <label class="span-2">Observaciones<textarea id="whCreditNotes" rows="3" placeholder="Condiciones internas de la línea de crédito"></textarea></label>
-          </div>
-          <div class="credit-live-summary" id="whCreditLiveSummary">Selecciona un Mayorista para ver su situación actual.</div>
-          <div class="editor-actions"><button class="btn btn-primary" id="saveWholesaleCredit" type="button"><i class="bi bi-floppy"></i> Guardar línea</button><button class="btn btn-light" id="clearWholesaleCredit" type="button">Limpiar</button></div>
+      <div class="admin-card wholesale-credit-actions-card">
+        <div class="card-head"><div><span class="eyebrow">Administración</span><h3>Acciones de crédito</h3><p class="module-help">Mantén el módulo limpio y abre solo la gestión que necesites. Cada botón despliega su propio modal.</p></div></div>
+        <div class="wholesale-credit-action-buttons">
+          <button class="credit-action-btn credit-action-config" id="openWholesaleCreditEditor" type="button"><span class="credit-action-icon"><i class="bi bi-wallet2"></i></span><span><strong>Configurar línea</strong><small>Asignar límite, plazo, recargo y política de mora.</small></span><i class="bi bi-chevron-right credit-action-arrow"></i></button>
+          <button class="credit-action-btn credit-action-payment" id="openWholesaleCreditPaymentEditor" type="button"><span class="credit-action-icon"><i class="bi bi-cash-coin"></i></span><span><strong>Registrar abono</strong><small>Disminuir deuda y liberar saldo disponible.</small></span><i class="bi bi-chevron-right credit-action-arrow"></i></button>
+          <button class="credit-action-btn credit-action-increase" id="openWholesaleCreditIncreaseEditor" type="button"><span class="credit-action-icon"><i class="bi bi-graph-up-arrow"></i></span><span><strong>Aumentar cupo</strong><small>Evaluar comportamiento y proponer un nuevo cupo antes de aplicarlo.</small></span><i class="bi bi-chevron-right credit-action-arrow"></i></button>
         </div>
-        <div class="admin-card">
-          <div class="card-head"><div><span class="eyebrow">Cobranza</span><h3>Registrar abono</h3><p class="module-help">Registra pagos recibidos para disminuir la deuda y liberar nuevamente saldo de la línea.</p></div></div>
-          <div class="form-grid">
-            <label class="span-2">Mayorista<select id="whCreditPaymentClient"><option value="">Seleccionar Mayorista</option></select></label>
-            <label>Monto abonado<input id="whCreditPaymentAmount" inputmode="numeric" placeholder="$0"></label>
-            <label>Referencia<input id="whCreditPaymentRef" placeholder="Transferencia, recibo, comprobante..."></label>
-          </div>
-          <div class="credit-live-summary" id="whCreditPaymentSummary">Selecciona un Mayorista con deuda pendiente.</div>
-          <div class="editor-actions"><button class="btn btn-primary" id="registerWholesaleCreditPayment" type="button"><i class="bi bi-cash-coin"></i> Registrar abono</button></div>
+      </div>
+
+      <div class="editor hidden wholesale-credit-modal" id="wholesaleCreditEditor" role="dialog" aria-modal="true" aria-labelledby="wholesaleCreditEditorTitle">
+        <div class="editor-modal-head"><div><span class="eyebrow">Asignación</span><h3 id="wholesaleCreditEditorTitle">Configurar línea de crédito</h3><small>Define límite, vigencia y estado para un Mayorista.</small></div><button type="button" class="editor-close-x" id="closeWholesaleCreditEditor" aria-label="Cerrar">×</button></div>
+        <div class="form-grid">
+          <label class="span-2">Mayorista<select id="whCreditClient"><option value="">Seleccionar Mayorista</option></select></label>
+          <label>Límite de crédito<input id="whCreditLimit" inputmode="numeric" placeholder="$0"></label>
+          <label>Estado<select id="whCreditActive"><option value="SI">Activo</option><option value="NO">Suspendido</option></select></label>
+          <label>Fecha de asignación<input id="whCreditAssigned" type="date"></label>
+          <label>Plazo de pago<select id="whCreditTermPreset"><option value="15">15 días</option><option value="30" selected>30 días</option><option value="45">45 días</option><option value="CUSTOM">Personalizado</option></select></label>
+          <label>Días de plazo<input id="whCreditTermDays" type="number" min="1" max="365" step="1" value="30" inputmode="numeric"><small>Cada compra calcula su propio vencimiento desde la fecha del pedido.</small></label>
+          <label>Recargo por uso (%)<input id="whCreditSurchargePct" type="number" min="0" max="100" step="0.01" value="0" inputmode="decimal"><small>Se suma al total solo cuando el Mayorista paga con Crédito.</small></label>
+          <label>Aviso automático de mora<select id="whCreditMoraNotice"><option value="SI">Sí, avisar</option><option value="NO">No avisar</option></select></label>
+          <label>Compras nuevas estando en mora<select id="whCreditMoraBlock"><option value="SI">Bloquear hasta regularizar</option><option value="NO">Permitir y solo alertar</option></select></label>
+          <label class="span-2">Observaciones<textarea id="whCreditNotes" rows="3" placeholder="Condiciones internas de la línea de crédito"></textarea></label>
         </div>
+        <div class="credit-live-summary" id="whCreditLiveSummary">Selecciona un Mayorista para ver su situación actual.</div>
+        <div class="editor-actions"><button class="btn btn-primary" id="saveWholesaleCredit" type="button"><i class="bi bi-floppy"></i> Guardar línea</button><button class="btn btn-light" id="clearWholesaleCredit" type="button"><i class="bi bi-eraser"></i> Limpiar</button><button class="btn btn-light" id="cancelWholesaleCreditEditor" type="button">Cancelar</button></div>
+      </div>
+
+      <div class="editor hidden wholesale-credit-modal" id="wholesaleCreditPaymentEditor" role="dialog" aria-modal="true" aria-labelledby="wholesaleCreditPaymentEditorTitle">
+        <div class="editor-modal-head"><div><span class="eyebrow">Cobranza</span><h3 id="wholesaleCreditPaymentEditorTitle">Registrar abono</h3><small>Registra un pago recibido y libera saldo de la línea.</small></div><button type="button" class="editor-close-x" id="closeWholesaleCreditPaymentEditor" aria-label="Cerrar">×</button></div>
+        <div class="form-grid">
+          <label class="span-2">Mayorista<select id="whCreditPaymentClient"><option value="">Seleccionar Mayorista</option></select></label>
+          <label>Monto abonado<input id="whCreditPaymentAmount" inputmode="numeric" placeholder="$0"></label>
+          <label>Referencia<input id="whCreditPaymentRef" placeholder="Transferencia, recibo, comprobante..."></label>
+        </div>
+        <div class="credit-live-summary" id="whCreditPaymentSummary">Selecciona un Mayorista con deuda pendiente.</div>
+        <div class="editor-actions"><button class="btn btn-primary" id="registerWholesaleCreditPayment" type="button"><i class="bi bi-cash-coin"></i> Registrar abono</button><button class="btn btn-light" id="cancelWholesaleCreditPaymentEditor" type="button">Cancelar</button></div>
+      </div>
+
+      <div class="editor hidden wholesale-credit-modal" id="wholesaleCreditIncreaseEditor" role="dialog" aria-modal="true" aria-labelledby="wholesaleCreditIncreaseEditorTitle">
+        <div class="editor-modal-head"><div><span class="eyebrow">Ampliación controlada</span><h3 id="wholesaleCreditIncreaseEditorTitle">Aumentar cupo de crédito</h3><small>Primero evalúa el comportamiento del Mayorista. El sistema sugerirá un monto; la aplicación final siempre requiere aprobación administrativa.</small></div><button type="button" class="editor-close-x" id="closeWholesaleCreditIncreaseEditor" aria-label="Cerrar">×</button></div>
+        <div class="form-grid">
+          <label class="span-2">Mayorista<select id="whCreditIncreaseClient"><option value="">Seleccionar Mayorista</option></select></label>
+          <div class="span-2 credit-increase-evaluate-strip">
+            <button class="btn credit-evaluate-btn" id="evaluateWholesaleCreditIncrease" type="button"><i class="bi bi-stars"></i> Evaluar aumento de cupo</button>
+            <small>Analiza pagos puntuales, mora, frecuencia de compras, historial y actividad reciente. No modifica el cupo por sí solo.</small>
+          </div>
+          <label>Monto del aumento<input id="whCreditIncreaseAmount" inputmode="numeric" placeholder="$0"><small>Se completa automáticamente cuando existe una recomendación.</small></label>
+          <label>Motivo / referencia<input id="whCreditIncreaseRef" placeholder="Evaluación de cupo, aumento aprobado..."></label>
+        </div>
+        <div class="credit-live-summary" id="whCreditIncreaseSummary">Selecciona un Mayorista con línea de crédito.</div>
+        <div class="credit-increase-evaluation is-empty" id="whCreditIncreaseEvaluation"><span class="credit-evaluation-placeholder">Pulsa “Evaluar aumento de cupo” para obtener una recomendación.</span></div>
+        <div class="editor-actions"><button class="btn btn-light" id="cancelWholesaleCreditIncreaseEditor" type="button">Cancelar</button><button class="btn btn-primary" id="increaseWholesaleCreditLimit" type="button"><i class="bi bi-arrow-up-circle"></i> Aplicar aumento de cupo</button></div>
       </div>
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Cuentas</span><h3>Estado de líneas de crédito</h3></div></div><div class="table-wrap" id="wholesaleCreditsTable"></div></div>
+      <div class="admin-card credit-rating-card"><div class="card-head"><div><span class="eyebrow">Evaluación crediticia</span><h3>Historial y recomendación de cupo</h3><p>Calificación base de 1 a 5 estrellas. Para decidir un aumento, usa “Evaluar aumento de cupo”: además incorpora frecuencia de compras y actividad comercial reciente antes de sugerir un valor.</p></div></div><div id="wholesaleCreditRatings" class="credit-rating-grid"></div></div>
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Trazabilidad</span><h3>Movimientos de crédito</h3></div></div><div class="table-wrap" id="wholesaleCreditMovementsTable"></div></div>
     </section>
 
@@ -672,5 +701,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260922-r91886-wholesale-credit"></script><script src="api.js?v=20260922-r91886-wholesale-credit"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91886-wholesale-credit"></script>
+<script src="config.js?v=20260922-r91896-credit-increase-evaluation"></script><script src="api.js?v=20260922-r91896-credit-increase-evaluation"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91896-credit-increase-evaluation"></script>
 </body></html>

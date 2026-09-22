@@ -1,0 +1,39 @@
+ALE ATENCIO · R9.18.96 · EVALUAR AUMENTO DE CUPO MAYORISTA
+
+Esta versión agrega dentro del módulo Aumentar cupo el botón “Evaluar aumento de cupo”.
+
+FLUJO
+1. Seleccionar un Mayorista con línea de crédito.
+2. Pulsar “Evaluar aumento de cupo”.
+3. El sistema analiza comportamiento crediticio y frecuencia comercial.
+4. Muestra puntaje, razones, cupo actual, aumento sugerido y nuevo cupo sugerido.
+5. Si existe recomendación, precarga el monto del aumento.
+6. El administrador decide si aplica, modifica o cancela el aumento.
+
+CRITERIOS DE LA EVALUACIÓN DE AUMENTO
+- 70% comportamiento crediticio actual: puntualidad, cumplimiento, mora, atrasos y experiencia.
+- 30% frecuencia de compras de los últimos 90 días.
+- Se informa además actividad de 180 días y promedio mensual reciente.
+
+REGLAS DE SEGURIDAD
+- No recomienda aumento con mora abierta.
+- Requiere mínimo 3 pagos completados.
+- Requiere 3 pagos nuevos desde el último ajuste de cupo.
+- Requiere mínimo 2 compras en los últimos 90 días.
+- Requiere puntualidad mínima de 80%.
+- La sugerencia nunca reduce el cupo actual.
+- El monto se limita por la demanda comercial reciente para evitar sobreasignaciones.
+- El sistema NO aumenta automáticamente: siempre requiere confirmación del administrador.
+
+ESCALA MÁXIMA DE AUMENTO
+- Perfil suficiente: hasta +10%.
+- Buen perfil: hasta +20%.
+- Muy buen perfil: hasta +30%.
+- Excelente perfil: hasta +50%.
+El valor final puede ser menor si la actividad comercial reciente no justifica el máximo.
+
+ACTUALIZACIÓN DESDE R9.18.95
+1. Ejecutar ALE_ATENCIO_SQL_R9_18_96_EVALUAR_AUMENTO_CUPO.sql.
+2. Desplegar ALE_ATENCIO_EDGE_INDEX_R9_18_96_ACUMULATIVO.ts.
+3. Publicar los archivos Web/cPanel R9.18.96.
+4. Hacer Ctrl+F5.

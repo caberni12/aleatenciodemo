@@ -545,7 +545,7 @@ function rememberTracking(orderId,orderNumber,trackingToken,trackingUrl,pdfUrl="
 function trackingCredential(ref){const store=trackingStore();return store[String(ref||"")]||null}
 function trackingHash(number){return `#seguimiento/${encodeURIComponent(String(number||""))}`}
 function statusLabel(v){const s=String(v||"").toUpperCase();return({PENDIENTE:"Pedido recibido",CONFIRMADO:"Pedido aceptado","EN PREPARACION":"En preparación",LISTO:"Listo para entrega",ENTREGADO:"Entregado",CANCELADO:"Cancelado"})[s]||s||"Pedido recibido"}
-function paymentLabel(v){const s=String(v||"PENDIENTE").toUpperCase();return({PENDIENTE:"Pendiente",INICIADO:"Pago iniciado",PAGADO:"Pagado",RECHAZADO:"Rechazado",CANCELADO:"Cancelado",VERIFICACION_PENDIENTE:"Verificación pendiente"})[s]||s}
+function paymentLabel(v){const s=String(v||"PENDIENTE").toUpperCase();return({PENDIENTE:"Pendiente",INICIADO:"Pago iniciado",PAGADO:"Pagado",RECHAZADO:"Rechazado",CANCELADO:"Cancelado",VERIFICACION_PENDIENTE:"Verificación pendiente",CREDITO_PENDIENTE:"Crédito pendiente"})[s]||s}
 function canonicalPaymentMethodClient(v){const s=String(v||"").trim().toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");if(!s)return"";if(s.includes("TRANSFER"))return"TRANSFERENCIA";if(s.includes("TRANSBANK")||s.includes("TARJETA")||s.includes("WEBPAY")||s.includes("CARD"))return"TRANSBANK";if(s.includes("EFECTIVO")||s.includes("CASH"))return"EFECTIVO";return s}
 function isTransferPayment(v){return canonicalPaymentMethodClient(v)==="TRANSFERENCIA"}
 function isFinalTrackingOrder(o){return ["ENTREGADO","CANCELADO"].includes(String(o?.estado||"").toUpperCase())}

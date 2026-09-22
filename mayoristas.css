@@ -497,3 +497,31 @@ body.wh-modal-open{overflow:hidden}
 #whCreditMovements table{min-width:760px}
 @media(max-width:900px){.credit-overview{grid-template-columns:repeat(2,minmax(140px,1fr))}.credit-head-badge{padding:7px 8px}.credit-head-badge small{display:none}}
 @media(max-width:560px){.credit-overview{grid-template-columns:1fr 1fr}.credit-overview article{padding:13px}.credit-overview strong{font-size:16px}.credit-head-badge{min-width:42px;justify-content:center}.credit-head-badge>span{display:none}}
+
+
+/* R9.18.88 · Coronas de categoría Mayorista */
+.wholesale-tier-badge{--tier-main:#a96f45;--tier-dark:#774829;--tier-soft:#fff4e9;--tier-border:#e3b994;--tier-gem:#f1c9a6;display:inline-flex;align-items:center;gap:7px;padding:6px 10px 6px 8px;border:1px solid var(--tier-border);border-radius:999px;background:linear-gradient(135deg,var(--tier-soft),#fff);color:var(--tier-dark);font-size:10px;font-weight:900;white-space:nowrap;box-shadow:0 5px 14px rgba(75,53,45,.065)}
+.wholesale-tier-badge .wholesale-crown-icon{width:28px;height:22px;flex:0 0 28px;overflow:visible;filter:drop-shadow(0 2px 2px rgba(75,53,45,.14))}
+.wholesale-tier-badge .crown-main,.wholesale-tier-badge .crown-base{fill:var(--tier-main);stroke:var(--tier-dark);stroke-width:1.5;stroke-linejoin:round}
+.wholesale-tier-badge .crown-rim{fill:none;stroke:rgba(255,255,255,.78);stroke-width:2;stroke-linecap:round}
+.wholesale-tier-badge .crown-tip,.wholesale-tier-badge .crown-gem{fill:var(--tier-gem);stroke:var(--tier-dark);stroke-width:1.1}
+.wholesale-tier-badge.tier-premium{--tier-main:#e0aa24;--tier-dark:#805c08;--tier-soft:#fff9dc;--tier-border:#e9cc72;--tier-gem:#fff1a3;box-shadow:0 6px 16px rgba(182,132,17,.14)}
+.wholesale-tier-badge.tier-superpremium{--tier-main:#dce7f1;--tier-dark:#506575;--tier-soft:#f5fbff;--tier-border:#b9cedd;--tier-gem:#74d8ee;box-shadow:0 7px 20px rgba(67,115,139,.17)}
+.wholesale-tier-badge.tier-superpremium .crown-gem-center{fill:#c88cff;stroke:#66507b}
+.portal-head #whTierBadge{min-height:42px;padding-top:7px;padding-bottom:7px}
+.wh-profile-tier{align-items:flex-start!important}.wh-profile-tier>.wholesale-tier-badge{margin-top:3px}
+@media(max-width:900px){.portal-head #whTierBadge>span{display:none}.portal-head #whTierBadge{padding:7px;width:42px;justify-content:center}.portal-head #whTierBadge .wholesale-crown-icon{width:29px;height:23px;flex-basis:29px}}
+@media(max-width:560px){.portal-head #whTierBadge{width:40px;min-width:40px;height:40px;min-height:40px}.wh-profile-tier>.wholesale-tier-badge>span{display:inline}}
+
+/* R9.18.95 · Historial crediticio Mayorista */
+.credit-rating-portal{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;padding:14px 15px;margin:-8px 0 22px;border:1px solid #eaded8;border-radius:16px;background:linear-gradient(180deg,#fff,#fffaf7);box-shadow:0 6px 18px rgba(63,43,36,.03)}
+.credit-rating-portal>div{min-width:0;padding:10px 11px;border-radius:12px;background:#faf7f5;border:1px solid #efe4df;display:grid;gap:5px}
+.credit-rating-portal span{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#937d74;font-weight:700}
+.credit-rating-portal strong{font-size:14px;line-height:1.35;color:#4d3931;overflow-wrap:anywhere}
+#whCreditRatingStars{color:#c79325;font-size:20px;letter-spacing:1px;white-space:nowrap}
+#whCreditRatingRecommended{color:#267047}
+.credit-rating-portal>p{grid-column:1/-1;margin:0;padding:2px 3px;color:#79665e;font-size:11px;line-height:1.5}
+.credit-rating-portal.hidden{display:none}
+@media(max-width:900px){.credit-rating-portal{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.credit-rating-portal{grid-template-columns:1fr;margin-top:0}.credit-rating-portal>p{grid-column:auto}}
+.profile-credit-stars{color:#c79325;letter-spacing:1px}
