@@ -1,3 +1,4 @@
+window.ALE_FRONT_BUILD="R9.18.76-API-ERROR-DETAIL";
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const money = n => new Intl.NumberFormat("es-CL",{style:"currency",currency:"CLP",maximumFractionDigits:0}).format(Number(n||0));
@@ -84,6 +85,10 @@ function cartLineSize(p,i){const list=productSizes(p);if(!list.length)return nul
 function cartLinePrice(i,p){const z=cartLineSize(p,i);return Number(z?.precio??i?.precio??p?.precio??0)}
 function cartLineKey(id,sizeId=""){return `${String(id)}::${String(sizeId||"")}`}
 
+function showStockToClients(){return ["SI","SÍ","TRUE","1","YES","ON"].includes(String(state?.config?.mostrar_stock_clientes||"").trim().toUpperCase())}
+function productAllowsNegativeStock(p){const v=p?.permite_stock_negativo;if(v===undefined||v===null||String(v).trim()==="")return true;return v===true||["SI","SÍ","TRUE","1","YES","ON"].includes(String(v).trim().toUpperCase())}
+function productGlobalStock(p){const sizes=productSizes(p);if(sizes.length)return sizes.reduce((sum,z)=>{const n=Number(z?.stock);return sum+(Number.isFinite(n)?n:0)},0);const n=Number(p?.stock);return Number.isFinite(n)?n:0}
+
 function heroView(){
   const banners = state.banners.slice().sort((a,b)=>Number(a.orden||0)-Number(b.orden||0));
   return `<section class="hero"><div class="hero-stage hero-preparing">
@@ -128,6 +133,7 @@ function productCard(p){
       <small>${esc(p.categoria_nombre||p.categoria||"")}</small>
       <h3>${esc(p.nombre)}</h3>
       <p>${esc(p.descripcion||"")}</p>
+      ${showStockToClients()?`<div class="product-stock-general" aria-label="Stock general del producto"><i class="bi bi-box-seam"></i><span>Stock general</span><strong>${productGlobalStock(p)} ${Math.abs(productGlobalStock(p))===1?"unidad":"unidades"}</strong></div>`:""}
       <div class="product-compact-meta"><span>${esc(sizeMeta)}</span><strong>${priced?`${sizes.length>1?"Desde ":""}${money(selectedPrice)}`:"Consultar"}</strong></div>
     </div>
     <button class="product-card-plus" type="button" aria-label="Ver opciones de ${esc(p.nombre)}" onclick="event.stopPropagation();openProductDetail('${esc(p.id)}')"><i class="bi bi-plus-lg"></i></button>
@@ -726,14 +732,17 @@ function clientRecordId(prefix){
 }
 
 async function sendAndConfirm(action, type, data){
-  // R9.3: el ID nace en el navegador y el backend es idempotente.
-  // Si el transporte se corta después del INSERT, verificamos por ID antes de
-  // declarar un error. Esto evita el falso "no fue posible" con registro guardado.
+  // R9.18.76: solo verificamos por ID cuando hubo un fallo realmente ambiguo de transporte.
+  // Si el servidor respondió con un error funcional/BD, se conserva ese error exacto y no
+  // se transforma en el mensaje genérico "registro no confirmado".
   let postError = null;
   try{
     const r=await AleAPI.postPublic(action,data);
     if(r?.ok!==false) return {ok:true,id:r?.id||data.id,numero_solicitud:r?.numero_solicitud||"",numero_pedido:r?.numero_pedido||"",pdf_url:r?.pdf_url||"",pdf_pending:!!r?.pdf_pending,total:r?.total,checkout_token:r?.checkout_token||"",tracking_token:r?.tracking_token||"",tracking_url:r?.tracking_url||"",source:"transport",persisted:r?.persisted!==false};
   }catch(err){ postError=err; }
+
+  const ambiguous=AleAPI.isAmbiguousTransportError?.(postError)===true;
+  if(!ambiguous) throw postError||new Error("REGISTRO_NO_CONFIRMADO");
 
   // Ante timeout/CORS/conexión ambigua, la escritura puede haber quedado confirmada.
   for(let i=0;i<7;i++){
@@ -747,14 +756,34 @@ async function sendAndConfirm(action, type, data){
         if(String(action||"").toLowerCase()==="createrequest"){
           try{const recovered=await AleAPI.postPublic(action,data);if(recovered?.tracking_url)return {ok:true,id:recovered?.id||data.id,numero_solicitud:recovered?.numero_solicitud||check?.numero_solicitud||"",tracking_token:recovered?.tracking_token||"",tracking_url:clientPublicUrl(recovered.tracking_url),source:"recovered-after-transport",persisted:true};}catch(_){ }
         }
-        return {ok:true,id:data.id,numero_solicitud:check?.numero_solicitud||"",numero_pedido:check?.numero_pedido||"",pdf_url:check?.pdf_url||"",source:"verified-after-transport"};
+        return {ok:true,id:data.id,numero_solicitud:check?.numero_solicitud||"",numero_pedido:check?.numero_pedido||"",pdf_url:check?.pdf_url||"",source:"verified-after-transport",persisted:true};
       }
     }catch(_){ }
   }
 
   const err=postError||new Error("REGISTRO_NO_CONFIRMADO");
-  err.ambiguous = AleAPI.isAmbiguousTransportError?.(err) !== false;
+  err.ambiguous = true;
   throw err;
+}
+
+
+function friendlyOrderCreateError(err){
+  const raw=AleAPI?.errorText ? AleAPI.errorText(err?.message||err?.payload?.error||err) : String(err?.message||err||"ERROR_SERVIDOR");
+  const code=String(raw||"ERROR_SERVIDOR").toUpperCase();
+  if(code.includes("STOCK_INSUFICIENTE")) return "Stock insuficiente para uno de los productos o tamaños seleccionados. Revisa el stock del tamaño en Productos.";
+  if(code.includes("PRODUCTO_NO_DISPONIBLE")) return "Uno de los productos ya no está disponible.";
+  if(code.includes("PRODUCTO_TAMANO_REQUERIDO")||code.includes("TAMANO_PRODUCTO_INVALIDO")||code.includes("TAMANO_NO_CORRESPONDE")) return "Uno de los tamaños seleccionados ya no está disponible. Actualiza el carrito.";
+  if(code.includes("DETALLE_PEDIDO_INVALIDO")||code.includes("PEDIDO_SIN_ITEMS")) return "El pedido no contiene productos válidos.";
+  if(code.includes("RUT_")) return "El RUT ingresado no es válido.";
+  if(code.includes("MEDIO_PAGO_INVALIDO")) return "El medio de pago seleccionado no es válido.";
+  if(code.includes("API_NO_CONFIGURADA")) return "La conexión con el servidor no está configurada.";
+  if(code.includes("API_TIMEOUT")||code.includes("API_CONEXION_FALLIDA")||code.includes("RESPUESTA_API_INVALIDA")) return "La conexión con el servidor se interrumpió mientras se confirmaba el pedido.";
+  if(code.includes("PGRST202")||(code.includes("ALE_CREAR_PEDIDO_COMPLETO")&&code.includes("NOT FOUND"))) return "La función de creación de pedidos no está disponible en la base de datos. Debes aplicar el SQL de compatibilidad incluido en esta versión.";
+  if(code.includes("42703")||(code.includes("COLUMN")&&code.includes("DOES NOT EXIST"))) return `La base de datos está desactualizada: ${raw}`;
+  if(code.includes("23502")) return `Falta un dato obligatorio en la base de datos: ${raw}`;
+  if(code.includes("23503")) return `Existe una referencia inválida al guardar el pedido: ${raw}`;
+  if(code.includes("23505")) return `El pedido ya existe o hay un dato duplicado: ${raw}`;
+  return `No fue posible registrar el pedido: ${raw}`;
 }
 
 function wireRequest(){
@@ -824,12 +853,18 @@ window.addToCart=async (id,sizeId="",qty=1)=>{
       }
       if(Array.isArray(live.tamanos))p={...p,tamanos:live.tamanos};
       selected=productSize(p,live.tamano?.id||selected?.id||"");
-      p={...p,precio:Number(live.precio??selected?.precio??p.precio),nombre:live.nombre||p.nombre};
+      p={...p,precio:Number(live.precio??selected?.precio??p.precio),nombre:live.nombre||p.nombre,permite_stock_negativo:live.permite_stock_negativo??p.permite_stock_negativo};
       const idx=state.products.findIndex(x=>String(x.id)===String(id));if(idx>=0)state.products[idx]=p;
     }catch(e){console.warn("No se pudo verificar disponibilidad",e);toast("No fue posible confirmar la disponibilidad del producto. Intenta nuevamente.","error");return false;}
   }
   const key=cartLineKey(p.id,selected?.id||""),item=cart.find(x=>cartLineKey(x.id,x.tamano_id)===key),linePrice=Number(selected?.precio??p.precio??0);
   const amount=Math.max(1,Math.min(99,Number(qty||1)));
+  const availableStock=Number(selected?.stock??p.stock);
+  const requestedQty=Number(item?.qty||0)+amount;
+  if(!productAllowsNegativeStock(p)&&Number.isFinite(availableStock)&&availableStock<requestedQty){
+    toast(`Stock disponible: ${Math.max(0,availableStock)}${selected?.nombre?` · ${selected.nombre}`:""}.`,"error");
+    return false;
+  }
   if(item){item.qty+=amount;item.precio=linePrice;item.tamano_nombre=selected?.nombre||""}else cart.push({id:p.id,tamano_id:selected?.id||"",tamano_nombre:selected?.nombre||"",precio:linePrice,qty:amount});
   saveCart();toast(selected?.nombre?`${amount>1?amount+" productos agregados":"Producto agregado"} · ${selected.nombre}`:(amount>1?`${amount} productos agregados`:"Producto agregado"));return true
 }
@@ -840,7 +875,7 @@ function clearCartAfterCompletedPurchase(){
   updateCartUI();
   closeCart();
 }
-window.changeQty=(id,sizeId,d)=>{const p=state.products.find(x=>String(x.id)===String(id)),key=cartLineKey(id,sizeId);if(!p||!isProductActive(p)){cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>cartLineKey(x.id,x.tamano_id)===key);if(!i)return;i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart()}
+window.changeQty=(id,sizeId,d)=>{const p=state.products.find(x=>String(x.id)===String(id)),key=cartLineKey(id,sizeId);if(!p||!isProductActive(p)){cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart();toast("El producto fue retirado de la venta.","error");return}const i=cart.find(x=>cartLineKey(x.id,x.tamano_id)===key);if(!i)return;if(d>0&&!productAllowsNegativeStock(p)){const z=cartLineSize(p,i),available=Number(z?.stock??p.stock);if(Number.isFinite(available)&&i.qty+d>available){toast(`Stock disponible: ${Math.max(0,available)}${z?.nombre?` · ${z.nombre}`:""}.`,"error");return}}i.qty+=d;if(i.qty<=0)cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart()}
 window.removeItem=(id,sizeId="")=>{const key=cartLineKey(id,sizeId);cart=cart.filter(x=>cartLineKey(x.id,x.tamano_id)!==key);saveCart()}
 
 let checkoutPaymentIntent="";
@@ -935,14 +970,17 @@ async function submitOrder(){
     if(!AleAPI.configured())throw new Error("API_NO_CONFIGURADA");
     result=await sendAndConfirm("createOrder","order",data);saved=true;
   }catch(e){
-    console.warn(e);
+    console.warn("CREATE_ORDER",e,e?.payload||"");
     const code=String(e?.message||e||"").toUpperCase();
-    if(code.includes("PRODUCTO_NO_DISPONIBLE")||code.includes("PRODUCTO_TAMANO_REQUERIDO")||code.includes("DETALLE_PEDIDO_INVALIDO")){
+    if(code.includes("PRODUCTO_NO_DISPONIBLE")||code.includes("PRODUCTO_TAMANO_REQUERIDO")||code.includes("TAMANO_PRODUCTO_INVALIDO")||code.includes("TAMANO_NO_CORRESPONDE")||code.includes("DETALLE_PEDIDO_INVALIDO")||code.includes("STOCK_INSUFICIENTE")){
       await refreshCatalogAvailability();
-      toast("Uno de los productos o tamaños ya no está disponible. Actualizamos tu carrito.","error");
-      endButtonLoader(btn);return;
     }
-    if(code.includes("RUT_")){toast("El RUT ingresado no es válido.","error");endButtonLoader(btn);return;}
+    if(AleAPI.isAmbiguousTransportError?.(e)||e?.ambiguous){
+      toast(`Pedido ${data.id}: la confirmación del servidor está demorando. No lo vuelvas a enviar hasta verificarlo.`,"info");
+    }else{
+      toast(friendlyOrderCreateError(e),"error");
+    }
+    endButtonLoader(btn);return;
   }
   const orderId=result?.numero_pedido||result?.id||data.id;
   const lines=detail.map(x=>`• ${x.cantidad} x ${x.nombre}${x.tamano_nombre?` · ${x.tamano_nombre}`:""} - ${money(x.precio*x.cantidad)}`).join("\n");
@@ -972,7 +1010,7 @@ async function submitOrder(){
       const customerTracking=result?.tracking_url?clientPublicUrl(result.tracking_url):"";if(normalizePhone(state.config.whatsapp)) openWhatsApp(`Hola Ale Atencio, quiero confirmar mi pedido ${orderId}.\n\n${lines}\n\nTotal: ${money(t.total)}\nNombre: ${nombre}\nRUT: ${rut}\nEntrega: ${data.metodo_entrega}\nDirección: ${data.direccion}\nObservaciones: ${data.observaciones}${customerTracking?`\nSeguimiento: ${customerTracking}`:""}`);
     }catch(uiErr){console.warn("Pedido registrado; WhatsApp no se pudo abrir",uiErr)}
   }else{
-    toast(normalizePhone(state.config.whatsapp)?"No se confirmó el pedido en la base de datos. No lo vuelvas a enviar hasta verificarlo.":"No fue posible registrar el pedido. Revisa la conexión del sistema.","error");
+    toast("No fue posible registrar el pedido.","error");
   }
   endButtonLoader(btn);
 }

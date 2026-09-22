@@ -41,11 +41,13 @@ function render(){const c=state.client||{},l=state.priceList||{},k=state.kpis||{
 function populateCatalogFilters(){const sel=$('#whCategory'),cur=sel.value,cats=[...new Set((state.products||[]).map(p=>String(p.categoria_nombre||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));sel.innerHTML='<option value="">Todas</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');if(cats.includes(cur))sel.value=cur}
 function populateOrderFilters(){for(const [id,key] of [['#whOrderStatus','estado'],['#whOrderPaymentStatus','estado_pago']]){const sel=$(id),cur=sel.value,vals=[...new Set((state.orders||[]).map(o=>String(o[key]||'').trim()).filter(Boolean))].sort();sel.innerHTML='<option value="">Todos</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(vals.includes(cur))sel.value=cur}}
 
+function whShowStockToClients(){return ["SI","SÍ","TRUE","1","YES","ON"].includes(String(state?.config?.mostrar_stock_clientes||"").trim().toUpperCase())}
 function whProductById(id){return (state.products||[]).find(x=>String(x.id)===String(id))||null}
+function whGlobalStock(p){const sizes=whProductSizes(p);if(sizes.length)return sizes.reduce((sum,z)=>{const n=Number(z?.stock);return sum+(Number.isFinite(n)?n:0)},0);const n=Number(p?.stock);return Number.isFinite(n)?n:0}
 function whProductSizes(p){return Array.isArray(p?.tamanos)?p.tamanos.filter(z=>Number(z?.precio||0)>0):[]}
 function whSelectedSize(p,sizeId){const rows=whProductSizes(p);return rows.find(z=>String(z.id)===String(sizeId))||rows[0]||null}
 function whPriceText(value){return Number(value||0)>0?money(value):'Consultar'}
-function renderProducts(){const q=$('#whSearch').value.trim().toLowerCase(),cat=$('#whCategory').value,from=$('#whCatalogFrom').value,to=$('#whCatalogTo').value;const rows=(state.products||[]).filter(p=>{const text=`${p.nombre} ${p.descripcion||''} ${p.categoria_nombre||''}`.toLowerCase();const dt=p.creado_en||p.created_at||p.updated_at||'';return text.includes(q)&&(!cat||String(p.categoria_nombre||'')===cat)&&inDateRange(dt,from,to)});$('#whProducts').innerHTML=rows.map(p=>{const sizes=whProductSizes(p),sel=sizes[0]||null,price=Number(sel?.precio||0),sizeMeta=sizes.length?`${sizes.length} ${sizes.length===1?'tamaño':'tamaños'}`:'Presentación única';return `<article class="wh-product-compact" data-product="${esc(p.id)}" role="button" tabindex="0" aria-label="Ver ${esc(p.nombre)}"><div class="wh-product-image"><img src="${esc(p.image_url||'logo-ale-atencio.png')}" alt="${esc(p.nombre)}" loading="lazy"></div><div class="wh-product-body"><small>${esc(p.categoria_nombre||'')}</small><h3>${esc(p.nombre)}</h3><p>${esc(p.descripcion||'')}</p><div class="wh-product-meta"><span>${esc(sizeMeta)}</span><strong>${price>0?`${sizes.length>1?'Desde ':''}${money(price)}`:'Consultar'}</strong></div></div><button class="wh-product-plus" type="button" data-open-product aria-label="Ver opciones"><i class="bi bi-plus-lg"></i></button></article>`}).join('')||'<div class="empty-state">No hay productos que coincidan con los filtros.</div>'}
+function renderProducts(){const q=$('#whSearch').value.trim().toLowerCase(),cat=$('#whCategory').value,from=$('#whCatalogFrom').value,to=$('#whCatalogTo').value;const rows=(state.products||[]).filter(p=>{const text=`${p.nombre} ${p.descripcion||''} ${p.categoria_nombre||''}`.toLowerCase();const dt=p.creado_en||p.created_at||p.updated_at||'';return text.includes(q)&&(!cat||String(p.categoria_nombre||'')===cat)&&inDateRange(dt,from,to)});$('#whProducts').innerHTML=rows.map(p=>{const sizes=whProductSizes(p),sel=sizes[0]||null,price=Number(sel?.precio||0),sizeMeta=sizes.length?`${sizes.length} ${sizes.length===1?'tamaño':'tamaños'}`:'Presentación única';return `<article class="wh-product-compact" data-product="${esc(p.id)}" role="button" tabindex="0" aria-label="Ver ${esc(p.nombre)}"><div class="wh-product-image"><img src="${esc(p.image_url||'logo-ale-atencio.png')}" alt="${esc(p.nombre)}" loading="lazy"></div><div class="wh-product-body"><small>${esc(p.categoria_nombre||'')}</small><h3>${esc(p.nombre)}</h3><p>${esc(p.descripcion||'')}</p>${whShowStockToClients()?`<div class="wh-stock-general"><i class="bi bi-box-seam"></i><span>Stock general</span><strong>${whGlobalStock(p)} ${Math.abs(whGlobalStock(p))===1?'unidad':'unidades'}</strong></div>`:''}<div class="wh-product-meta"><span>${esc(sizeMeta)}</span><strong>${price>0?`${sizes.length>1?'Desde ':''}${money(price)}`:'Consultar'}</strong></div></div><button class="wh-product-plus" type="button" data-open-product aria-label="Ver opciones"><i class="bi bi-plus-lg"></i></button></article>`}).join('')||'<div class="empty-state">No hay productos que coincidan con los filtros.</div>'}
 
 function renderWhProductModal(){const p=whProductById(whProductState.id),host=$('#whProductContent');if(!p||!host)return;const sizes=whProductSizes(p),selected=whSelectedSize(p,whProductState.sizeId);if(selected)whProductState.sizeId=String(selected.id||'');const unitPrice=Number(selected?.precio||0),qty=Math.max(1,Number(whProductState.qty||1)),note=String(whProductState.note||'');const sizeOptions=sizes.length?`<div class="wh-product-section"><div class="wh-product-section-head"><div><div class="wh-product-label">Tamaño ${esc((p.nombre||'').toLowerCase())}</div><div class="wh-product-hint">Selecciona al menos 1</div></div><span class="wh-product-required">Obligatorio</span></div><div class="wh-product-sizes">${sizes.map(z=>`<button type="button" class="wh-product-size ${String(z.id)===String(selected?.id)?'active':''}" data-wh-size="${esc(z.id)}"><span class="wh-product-size-copy"><span class="wh-product-size-name">${esc(z.nombre)}</span><small>${whPriceText(z.precio)}</small></span><span class="wh-product-size-check"></span></button>`).join('')}</div></div>`:'';host.innerHTML=`<div class="wh-product-layout"><div class="wh-product-media"><img src="${esc(p.image_url||'logo-ale-atencio.png')}" alt="${esc(p.nombre)}"></div><div class="wh-product-side"><div class="wh-product-scroll"><small>${esc(p.categoria_nombre||'')}</small><h2 id="whProductTitle">${esc(p.nombre)}</h2><p>${esc(p.descripcion||'')}</p>${sizeOptions}<div class="wh-product-section"><div class="wh-product-label wh-product-label-lg">Instrucciones especiales</div><textarea class="wh-product-note" id="whProductNote" placeholder="Incluye una nota">${esc(note)}</textarea></div></div><div class="wh-product-footer"><div class="wh-product-qty"><button type="button" data-wh-qty="-1"><i class="bi bi-dash"></i></button><strong>${qty}</strong><button type="button" data-wh-qty="1"><i class="bi bi-plus"></i></button></div><button type="button" class="wh-product-add" id="whProductAdd"><span>Agregar</span><strong>${money(unitPrice*qty)}</strong></button></div></div></div>`}
 function openWhProduct(id){const p=whProductById(id);if(!p)return;const first=whProductSizes(p)[0]||null;whProductState={id:String(id),sizeId:String(first?.id||''),qty:1,note:''};renderWhProductModal();$('#whProductModal').classList.add('open');$('#whProductModal').setAttribute('aria-hidden','false');document.body.classList.add('wh-modal-open')}
@@ -163,7 +165,48 @@ $('#whLogout').onclick=()=>{
   },220);
 };
 
-$('#whSubmitOrder').onclick=e=>busy(e.currentTarget,async()=>{if(!cart.length){toast('Agrega productos al pedido');return}try{const out=await AleAPI.post('mayoristacreateorder',{detalle:cart,medio_pago:$('#whPayment').value,metodo_entrega:$('#whDelivery').value,direccion:$('#whAddress').value,comuna:$('#whCommune').value,observaciones:$('#whNotes').value,despacho:0},token);lastOrder=out;$('#whLastOrder').classList.remove('hidden');$('#whLastOrderNumber').textContent=`Pedido ${out.numero_pedido} creado · ${money(out.total)}`;$('#whTransferUpload').classList.toggle('hidden',out.medio_pago!=='TRANSFERENCIA');cart=[];renderCart();toast('✓ Pedido Mayorista creado');if(out.medio_pago==='TRANSBANK'){const pay=await AleAPI.postPublic('transbankcreate',{order_id:out.id,checkout_token:out.checkout_token});const ws=pay?.token_ws||pay?.token;if(pay?.url&&ws){const f=document.createElement('form');f.method='POST';f.action=pay.url;const i=document.createElement('input');i.type='hidden';i.name='token_ws';i.value=ws;f.appendChild(i);document.body.appendChild(f);f.submit();return}}await bootstrap();openCart()}catch(err){console.warn(err);toast('No fue posible crear el pedido')}},'Creando…');
+$('#whSubmitOrder').onclick=e=>busy(e.currentTarget,async()=>{
+  if(!cart.length){toast('Agrega productos al pedido');return}
+  let out=null;
+  try{
+    out=await AleAPI.post('mayoristacreateorder',{detalle:cart,medio_pago:$('#whPayment').value,metodo_entrega:$('#whDelivery').value,direccion:$('#whAddress').value,comuna:$('#whCommune').value,observaciones:$('#whNotes').value,despacho:0},token);
+  }catch(err){
+    console.warn('MAYORISTA_CREATE_ORDER',err,err?.payload||'');
+    const code=String(err?.message||err||'').toUpperCase();
+    if(code.includes('STOCK_INSUFICIENTE'))toast('Stock insuficiente para uno de los productos o tamaños.');
+    else if(code.includes('PRECIO_MAYORISTA_NO_AUTORIZADO')||code.includes('LISTA_PRECIO_NO_DISPONIBLE'))toast('La lista de precios mayorista cambió. Actualiza el portal e intenta nuevamente.');
+    else if(code.includes('PRODUCTO_TAMANO_REQUERIDO'))toast('Uno de los tamaños ya no está disponible. Actualiza el pedido.');
+    else {
+      const raw=AleAPI?.errorText ? AleAPI.errorText(err?.message||err?.payload?.error||err) : String(err?.message||'ERROR_SERVIDOR');
+      toast(`No fue posible crear el pedido: ${raw}`);
+    }
+    return;
+  }
+
+  // Desde aquí el pedido ya existe. Un error posterior de Transbank nunca debe
+  // mostrarse como si la creación del pedido hubiese fallado.
+  lastOrder=out;
+  $('#whLastOrder').classList.remove('hidden');
+  $('#whLastOrderNumber').textContent=`Pedido ${out.numero_pedido} creado · ${money(out.total)}`;
+  $('#whTransferUpload').classList.toggle('hidden',out.medio_pago!=='TRANSFERENCIA');
+  cart=[];renderCart();toast('✓ Pedido Mayorista creado');
+
+  if(out.medio_pago==='TRANSBANK'){
+    try{
+      const pay=await AleAPI.postPublic('transbankcreate',{order_id:out.id,checkout_token:out.checkout_token});
+      const ws=pay?.token_ws||pay?.token;
+      if(!pay?.url||!ws)throw new Error('TRANSBANK_RESPUESTA_CREATE_INVALIDA');
+      const f=document.createElement('form');f.method='POST';f.action=pay.url;
+      const i=document.createElement('input');i.type='hidden';i.name='token_ws';i.value=ws;f.appendChild(i);
+      document.body.appendChild(f);f.submit();return;
+    }catch(err){
+      console.warn('MAYORISTA_TRANSBANK_CREATE',err,err?.payload||'');
+      toast(`Pedido ${out.numero_pedido} creado, pero Transbank no pudo iniciarse. El pedido no se duplicará.`);
+      await bootstrap();openCart();return;
+    }
+  }
+  await bootstrap();openCart();
+},'Creando…');
 $('#whUploadProof').onclick=e=>busy(e.currentTarget,async()=>{const f=$('#whProofFile').files?.[0];if(!f||!lastOrder){toast('Selecciona el comprobante');return}try{await AleAPI.postPublic('uploadtransferproof',{order_id:lastOrder.id,tracking_token:lastOrder.tracking_token,data_url:await fileDataUrl(f)});toast('✓ Comprobante enviado');$('#whTransferUpload').classList.add('hidden');await bootstrap()}catch(err){console.warn(err);toast('No fue posible subir el comprobante')}},'Subiendo…');
 $('#whUploadDocument').onclick=e=>busy(e.currentTarget,async()=>{const f=$('#whDocumentFile').files?.[0];if(!f){toast('Selecciona un archivo');return}try{await AleAPI.post('mayoristadocumentupload',{tipo:$('#whDocumentType').value,nombre:$('#whDocumentName').value.trim()||f.name,data_url:await fileDataUrl(f)},token);toast('✓ Documento cargado');$('#whDocumentFile').value='';$('#whDocumentName').value='';await bootstrap()}catch(err){console.warn(err);toast('No fue posible subir el documento')}},'Subiendo…');
 $('#whProfileFile').onchange=e=>{const f=e.target.files?.[0];if(f)$('#whProfilePhoto').src=URL.createObjectURL(f)};$('#whSaveProfilePhoto').onclick=e=>busy(e.currentTarget,async()=>{const f=$('#whProfileFile').files?.[0];if(!f){toast('Selecciona una imagen');return}if(f.size>5*1024*1024){toast('La imagen supera 5 MB');return}try{const out=await AleAPI.post('mayoristaprofilephoto',{data_url:await fileDataUrl(f)},token);state.user={...(state.user||{}),...(out.user||{}),profile_url:out.profile_url||out.user?.profile_url};$('#whHeaderAvatar').src=state.user.profile_url||'favicon.png';$('#whProfilePhoto').src=state.user.profile_url||'favicon.png';$('#whProfileFile').value='';toast('✓ Foto de perfil actualizada')}catch(err){console.warn(err);toast('No fue posible guardar la foto')}},'Guardando…');

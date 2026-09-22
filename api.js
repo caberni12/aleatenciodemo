@@ -8,10 +8,31 @@
 
   function sleep(ms){ return new Promise(resolve => setTimeout(resolve, ms)); }
 
+  function errorText(value) {
+    if (value == null || value === "") return "";
+    if (typeof value === "string") return value;
+    if (value instanceof Error) return value.message || value.name || "API_ERROR";
+    if (Array.isArray(value)) return value.map(errorText).filter(Boolean).join(" · ");
+    if (typeof value === "object") {
+      const parts = [
+        value.code,
+        value.message,
+        value.details || value.detail,
+        value.hint,
+        value.error_description
+      ].map(x => String(x ?? "").trim()).filter(Boolean);
+      if (parts.length) return [...new Set(parts)].join(" · ");
+      try { return JSON.stringify(value); } catch (_) { return "API_ERROR_OBJETO"; }
+    }
+    return String(value);
+  }
+
   function makeError(message, status = 0, payload = null) {
-    const err = new Error(String(message || "API_ERROR"));
+    const err = new Error(errorText(message) || errorText(payload?.error) || "API_ERROR");
     err.status = status;
     err.payload = payload;
+    err.code = String(payload?.error_code || payload?.code || "").trim();
+    err.detail = String(payload?.error_detail || payload?.details || "").trim();
     return err;
   }
 
@@ -43,7 +64,8 @@
       catch (_) { throw makeError("RESPUESTA_API_INVALIDA", response.status, { raw:text.slice(0,500) }); }
 
       if (!response.ok || payload?.ok === false) {
-        throw makeError(payload?.error || `HTTP_${response.status}`, response.status, payload);
+        const primary = errorText(payload?.error) || errorText(payload?.message) || `HTTP_${response.status}`;
+        throw makeError(primary, response.status, payload);
       }
       return payload;
     } catch (err) {
@@ -245,6 +267,7 @@
     verifyRecord,
     isAmbiguousTransportError,
     isUnsupportedActionError,
+    errorText,
 
     fileToDataUrl(file) {
       return new Promise((resolve,reject)=>{

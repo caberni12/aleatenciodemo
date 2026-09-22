@@ -1,13 +1,16 @@
 <!doctype html>
 <html lang="es">
 <head>
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
   <link rel="icon" type="image/png" href="favicon.png?v=20260922-r91868-mayorista-orders-main"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260922-r91868-mayorista-orders-main"><link rel="stylesheet" href="cpanel.css?v=20260922-r91868-mayorista-orders-main">
+  <link rel="stylesheet" href="styles.css?v=20260922-r91880-products-ui-stock-switch"><link rel="stylesheet" href="cpanel.css?v=20260922-r91880-products-ui-stock-switch">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -100,6 +103,7 @@
                 <div class="field-group span-2 product-size-editor"><div class="product-size-editor-head"><div><span>Tamaños y valores</span><small>Configura el precio y stock de cada tamaño. La tarjeta Web cambia el valor al seleccionar el tamaño.</small></div><button class="btn btn-light btn-compact" id="addProductSize" type="button">+ Otro tamaño</button></div><div id="productSizesEditor" class="product-size-rows"></div></div>
                 <div class="field-group span-2 product-ingredient-editor"><div class="product-size-editor-head"><div><span>Ingredientes y costo estimado</span><small>Define qué insumos utiliza este producto y la cantidad de cada uno. El costo se calcula con el costo promedio de mercadería.</small></div><button class="btn btn-light btn-compact" id="addProductIngredient" type="button">+ Ingrediente</button></div><div id="productIngredientsEditor" class="product-ingredient-rows"></div><div class="ingredient-cost-total">Costo estimado por producto: <strong id="productEstimatedCost">$0</strong></div></div>
                 <label class="field-group product-status-field"><span>Estado de venta</span><select id="pActive" aria-describedby="pActiveHint"><option value="SI">Activo</option><option value="NO">Inactivo</option></select><small class="field-hint" id="pActiveHint">Activo: el producto se muestra y puede comprarse en la Web.</small></label>
+                <label class="stock-policy-switch-card" for="pAllowNegativeStock"><span class="stock-policy-copy"><strong>Permitir venta sin stock</strong><small id="pAllowNegativeStockHint">Activado: la venta continúa aunque el stock llegue a 0 y puede quedar negativo.</small></span><span class="stock-policy-switch"><input id="pAllowNegativeStock" type="checkbox" checked aria-describedby="pAllowNegativeStockHint"><span class="stock-policy-slider" aria-hidden="true"></span></span></label>
                 <label class="field-group"><span>Ocasión</span><input id="pOccasion" placeholder="Celebraciones, regalos..."></label>
                 <div class="field-group file-field" data-file-picker="image"><span>Foto</span><input id="pImage" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="pImage"><i class="bi bi-camera"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small><small class="current-product-image" id="pCurrentImageName"></small></div>
                 <label class="field-group span-2"><span>Descripción</span><textarea id="pDescription" placeholder="Descripción del producto"></textarea></label>
@@ -110,6 +114,13 @@
           <div class="editor-actions"><button class="btn btn-primary" id="saveProduct">Guardar</button><button class="btn btn-light" data-cancel="productEditor">Cancelar</button></div>
         </div>
         <div class="admin-toolbar product-toolbar"><input id="productSearch" placeholder="Buscar producto..."><select id="productFilter"><option value="">Todas las categorías</option></select><select id="productStatusFilter"><option value="">Todos los estados</option><option value="SI">Activo</option><option value="NO">Inactivo</option></select><button class="btn btn-light" id="clearProductFilter" type="button">Ver todos</button></div>
+        <div class="product-stock-visibility-bar" id="productStockVisibilityBar">
+          <div class="product-stock-visibility-copy"><span class="eyebrow">Visibilidad en tienda</span><strong>Mostrar stock a clientes</strong><small id="productShowStockClientsHint">FALSE: el inventario sigue funcionando, pero el cliente solo ve producto, tamaño y precio.</small></div>
+          <label class="product-global-stock-switch" for="productShowStockClients">
+            <span class="stock-policy-switch stock-visibility-switch"><input id="productShowStockClients" type="checkbox" aria-describedby="productShowStockClientsHint"><span class="stock-policy-slider" aria-hidden="true"></span></span>
+            <span class="stock-visibility-value is-false" id="productShowStockClientsValue">FALSE</span>
+          </label>
+        </div>
         <div class="product-results-meta" id="productResultsMeta">Mostrando todos los productos</div>
         <div class="bulk-actions hidden" id="productsBulkBar">
           <div class="bulk-actions-info"><i class="bi bi-check2-square"></i><strong id="productsSelectedCount">0 seleccionados</strong><span>Puedes seleccionar varias filas y eliminarlas en una sola operación.</span></div>
@@ -595,6 +606,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <label class="field-group"><span>IVA cotizaciones (%)</span><input id="sIva" type="number" min="0" max="100" step="0.01" placeholder="19"></label>
           <label class="field-group"><span>Validez cotización (días)</span><input id="sQuoteValidity" type="number" min="1" max="365" placeholder="15"></label>
           <label class="field-group"><span>Formato de documentos</span><select id="sDocumentFormat"><option value="A4">A4</option><option value="TICKET_80">Ticket térmico · 80 mm de ancho</option><option value="TICKET_100">Ticket térmico · 100 mm de ancho</option></select><small>80/100 mm usan ancho fijo y largo automático según el contenido.</small></label>
+          <label class="stock-visibility-setting span-2" for="sShowStockClients"><span class="stock-visibility-copy"><strong>Mostrar stock a clientes</strong><small id="sShowStockClientsHint">FALSE: el stock queda oculto en la Web; el cliente ve producto, tamaño y precio.</small></span><span class="stock-policy-switch stock-visibility-switch"><input id="sShowStockClients" type="checkbox" aria-describedby="sShowStockClientsHint"><span class="stock-policy-slider" aria-hidden="true"></span></span><span class="stock-visibility-value is-false" id="sShowStockClientsValue">FALSE</span></label>
           <div class="span-2 form-help">Guarda aquí tus enlaces reales. La web mostrará únicamente WhatsApp y las redes sociales configuradas.</div>
           <div class="field-group file-field span-2" data-file-picker="image"><span>Logo del negocio</span><input id="sLogo" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="sLogo"><i class="bi bi-image"></i><span class="file-picker-text">Seleccionar logo</span></label><small class="file-name">Sin archivo seleccionado</small></div>
         </div>
@@ -606,5 +618,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260922-r91868-mayorista-orders-main"></script><script src="api.js?v=20260922-r91868-mayorista-orders-main"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91868-mayorista-orders-main"></script>
+<script src="config.js?v=20260922-r91880-products-ui-stock-switch"></script><script src="api.js?v=20260922-r91880-products-ui-stock-switch"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91880-products-ui-stock-switch"></script>
 </body></html>
