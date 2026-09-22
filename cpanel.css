@@ -2693,3 +2693,12 @@ body.client-editor-open{overflow:hidden}body.client-editor-open::before{content:
 #productsTable .admin-table th:last-child,#productsTable .admin-table td:last-child{min-width:220px}
 #productsTable .row-actions{flex-wrap:nowrap!important;gap:5px!important}
 #productsTable .row-actions button{padding:6px 8px!important;font-size:12px!important;white-space:nowrap}
+
+/* R9.18.81 · Modal Inventario de Productos operativo */
+body.product-stock-editor-open{overflow:hidden}
+body.product-stock-editor-open::before{content:"";position:fixed;inset:0;background:rgba(32,20,16,.48);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);z-index:1190}
+#productStockEditor:not(.hidden){position:fixed;z-index:1210;left:50%;top:50%;transform:translate(-50%,-50%);width:min(900px,calc(100vw - 28px));max-height:min(90vh,860px);overflow:auto;margin:0;padding:22px;background:#fffaf8;border:1px solid var(--line);border-radius:22px;box-shadow:0 28px 80px rgba(32,20,16,.28)}
+#productStockEditor .editor-modal-head{position:sticky;top:-22px;z-index:5;margin:-22px -22px 16px;padding:22px 22px 14px;background:rgba(255,250,248,.97);backdrop-filter:blur(10px);border-bottom:1px solid rgba(226,212,204,.8)}
+#productStockEditor .editor-actions{position:sticky;bottom:-22px;z-index:5;margin:18px -22px -22px;padding:14px 22px 22px;background:linear-gradient(180deg,rgba(255,250,248,.72),#fffaf8 32%);border-top:1px solid rgba(226,212,204,.72)}
+.stock-adjustment-grid{align-items:start}.stock-history-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:8px}.stock-history-head h4{margin:2px 0 0;font-size:1.05rem}.stock-history-table{max-height:280px;overflow:auto;border:1px solid #eaded8;border-radius:14px;background:#fff}.stock-adjustment-note i{margin-right:6px}
+@media(max-width:640px){#productStockEditor:not(.hidden){width:calc(100vw - 16px);max-height:94vh;padding:16px;border-radius:18px}#productStockEditor .editor-modal-head{top:-16px;margin:-16px -16px 14px;padding:16px 16px 12px}#productStockEditor .editor-actions{bottom:-16px;margin:16px -16px -16px;padding:14px 16px 16px}#productStockEditor .editor-actions .btn{width:100%;justify-content:center}}

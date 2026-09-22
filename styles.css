@@ -2960,3 +2960,86 @@ html{
 }
 
 body.product-modal-open{overflow:hidden!important}
+
+/* =========================================================
+   R9.18.83 · MODALES PUBLICOS SIEMPRE SOBRE EL HEADER
+   ---------------------------------------------------------
+   El header publico fue elevado a z-index:300 en R9.18.27,
+   pero los modales base permanecian en z-index:120.
+   Esto provocaba que el checkout / pago quedara visualmente
+   por detras del header, especialmente en movil.
+   ========================================================= */
+.modal{
+  z-index:2400 !important;
+}
+#checkoutModal{
+  z-index:2600 !important;
+  padding:
+    max(16px, env(safe-area-inset-top))
+    max(14px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom))
+    max(14px, env(safe-area-inset-left)) !important;
+  overflow:auto !important;
+  overscroll-behavior:contain;
+}
+#checkoutModal.show{
+  display:grid !important;
+  place-items:center !important;
+}
+#checkoutModal .checkout-card{
+  position:relative !important;
+  z-index:1 !important;
+  width:min(720px, calc(100vw - 28px)) !important;
+  max-height:calc(100dvh - 32px) !important;
+  overflow:auto !important;
+  margin:0 !important;
+}
+#checkoutModal .modal-close{
+  z-index:8 !important;
+}
+@media(max-width:620px){
+  #checkoutModal{
+    align-items:center !important;
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left)) !important;
+  }
+  #checkoutModal .checkout-card{
+    width:calc(100vw - 16px) !important;
+    max-height:calc(100dvh - 20px) !important;
+    border-radius:20px !important;
+  }
+}
+
+
+/* R9.18.84 · recuperación de cliente por RUT en checkout */
+.checkout-rut-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.checkout-rut-field>input{width:100%;box-sizing:border-box}
+.checkout-rut-lookup-state{display:block;padding:0 4px;color:#777;font-size:11.5px;line-height:1.3}
+.checkout-rut-lookup-state.is-loading{color:#8b6b36}
+.checkout-rut-lookup-state.is-found{color:#28734f}
+.checkout-rut-lookup-state.is-new{color:#7a5b2d}
+.checkout-rut-lookup-state.is-error{color:#a33b3b}
+
+
+/* =========================================================
+   R9.18.85 · CARRITO SOBRE HEADER + CAPA PUBLICA SEGURA
+   ---------------------------------------------------------
+   El header publico usa z-index:300 y el menu movil:360.
+   El carrito debe cubrir ambos, pero permanecer por debajo
+   de los modales de checkout (2400/2600).
+   ========================================================= */
+.cart-drawer{
+  z-index:2300 !important;
+  top:0 !important;
+  height:100dvh !important;
+  max-height:100dvh !important;
+}
+.screen-overlay{
+  z-index:2200 !important;
+}
+@supports not (height:100dvh){
+  .cart-drawer{height:100vh !important;max-height:100vh !important;}
+}
