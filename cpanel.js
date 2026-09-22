@@ -1340,7 +1340,7 @@ const integrationFields=[
 ];
 function renderIntegrations(){const c=data.config||{};for(const[,enabledId,urlId,enabledKey,urlKey]of integrationFields){const e=$("#"+enabledId),u=$("#"+urlId);if(e)e.checked=yesNo(c[enabledKey])==="SI";if(u)u.value=c[urlKey]||""}}
 $("#saveIntegrations")?.addEventListener("click",e=>busy(e.currentTarget,async()=>{try{const payload={};for(const[name,enabledId,urlId,enabledKey,urlKey]of integrationFields){const enabled=$("#"+enabledId)?.checked;const raw=$("#"+urlId)?.value.trim()||"";const url=raw?safeHttpsAdminUrl(raw):"";if(enabled&&!url){toast(`✕ ${name}: agrega una URL HTTPS antes de activar`);return}payload[enabledKey]=enabled?"SI":"NO";payload[urlKey]=url}await AleAPI.post("saveConfig",payload,token);toast("✓ Integraciones guardadas");await reload()}catch(err){console.warn(err);toast(String(err?.message||"").includes("URL_HTTPS")?"✕ Revisa las URL: deben comenzar con https://":"✕ No fue posible guardar las integraciones")}}));
-const TRANSBANK_DEFAULT_STOREFRONT_URL="https://caberni12.github.io/aleatenciodemo/";
+const TRANSBANK_DEFAULT_STOREFRONT_URL="https://aleatencioreposteria.cl/";
 async function refreshTransbankHealth(showToast=false){
   const status=$("#transbankStatus"),env=$("#transbankEnvironment"),creds=$("#transbankCredentials"),callback=$("#pTransbankCallbackUrl");
   try{
