@@ -36,7 +36,7 @@ $('#whLoginForm').onsubmit=async e=>{e.preventDefault();const btn=e.submitter||e
 
 async function bootstrap(){if(!token)return showAuth();try{const out=await AleAPI.post('mayoristabootstrap',{},token);state=out;showPortal();render()}catch(e){console.warn(e);const code=String(e?.message||'');if(/SESION_|PERFIL_MAYORISTA|MAYORISTA_NO_APROBADO|MAYORISTA_SIN_ASIGNACION|LISTA_PRECIO/.test(code)){localStorage.removeItem('aleMayoristaToken');showAuth('Tu acceso Mayorista no está habilitado o la sesión venció.')}else toast('No fue posible actualizar el portal')}}
 
-function render(){const c=state.client||{},l=state.priceList||{},k=state.kpis||{},u=state.user||{};$('#whWelcome').textContent=c.razon_social||c.nombre||'Mayorista';$('#whListBadge').textContent=l.nombre||'Lista autorizada';$('#kOrders').textContent=k.orders||0;$('#kTotal').textContent=money(k.total);$('#kPaid').textContent=k.paid||0;$('#kPending').textContent=k.pending||0;$('#whAddress').value=c.direccion||'';$('#whCommune').value=c.comuna||'';const avatar=u.profile_url||'favicon.png';$('#whHeaderAvatar').src=avatar;$('#whProfilePhoto').src=avatar;populateCatalogFilters();populateOrderFilters();renderProducts();renderOrders();renderDocuments();renderProfile();renderNotifications();renderCart()}
+function render(){const c=state.client||{},l=state.priceList||{},k=state.kpis||{},u=state.user||{};$('#whWelcome').textContent=c.razon_social||c.nombre||'Mayorista';$('#whListBadge').textContent=l.nombre||'Lista autorizada';$('#kOrders').textContent=k.orders||0;$('#kTotal').textContent=money(k.total);$('#kPaid').textContent=k.paid||0;$('#kPending').textContent=k.pending||0;$('#whAddress').value=c.direccion||'';$('#whCommune').value=c.comuna||'';const avatar=u.profile_url||'favicon.png';$('#whHeaderAvatar').src=avatar;$('#whProfilePhoto').src=avatar;populateCatalogFilters();populateOrderFilters();renderProducts();renderOrders();renderCredit();renderDocuments();renderProfile();renderNotifications();renderCart()}
 
 function populateCatalogFilters(){const sel=$('#whCategory'),cur=sel.value,cats=[...new Set((state.products||[]).map(p=>String(p.categoria_nombre||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));sel.innerHTML='<option value="">Todas</option>'+cats.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join('');if(cats.includes(cur))sel.value=cur}
 function populateOrderFilters(){for(const [id,key] of [['#whOrderStatus','estado'],['#whOrderPaymentStatus','estado_pago']]){const sel=$(id),cur=sel.value,vals=[...new Set((state.orders||[]).map(o=>String(o[key]||'').trim()).filter(Boolean))].sort();sel.innerHTML='<option value="">Todos</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');if(vals.includes(cur))sel.value=cur}}
@@ -89,10 +89,36 @@ window.openOrderTrace=async function(id,sourceBtn){
 function closeOrderModal(){$('#whOrderModal').classList.remove('open');$('#whOrderModal').setAttribute('aria-hidden','true')}
 $('#whOrderClose').onclick=closeOrderModal;$('#whOrderModal').onclick=e=>{if(e.target===$('#whOrderModal'))closeOrderModal()};$('#whOrders').onclick=async e=>{const v=e.target.closest('[data-order-view]'),pdf=e.target.closest('[data-order-pdf]'),tr=e.target.closest('[data-order-trace]');const btn=v||pdf||tr;if(!btn)return;setBusy(btn,true,'');try{const id=btn.dataset.orderView||btn.dataset.orderPdf||btn.dataset.orderTrace;if(v){await openOrderDetail(id,btn);return}if(tr){await openOrderTrace(id,btn);return}const out=await getOrderAccess(id),url=out.pdf_url;if(url)window.open(url,'_blank','noopener');else toast('PDF aún no disponible')}catch(err){console.warn(err);toast('No fue posible abrir el pedido')}finally{if(pdf)setBusy(btn,false)}};
 
+function whCredit(){return state.credit&&typeof state.credit==='object'?state.credit:null}
+function whCreditDueDate(c=whCredit()){return c?.fecha_vencimiento?String(c.fecha_vencimiento).slice(0,10):''}
+function whCreditOverdue(c=whCredit()){const due=whCreditDueDate(c);if(!due)return false;const d=new Date(`${due}T23:59:59`);return !Number.isNaN(d.getTime())&&d.getTime()<Date.now()}
+function whCreditActive(c=whCredit()){return !!c&&c.activo!==false&&!['NO','FALSE','0','INACTIVO'].includes(String(c.activo??'SI').toUpperCase())&&Number(c.limite_credito||0)>0}
+function whCreditCanUse(total=0){const c=whCredit();return whCreditActive(c)&&!whCreditOverdue(c)&&Number(c.saldo_disponible||0)>0&&Number(c.saldo_disponible||0)>=Number(total||0)}
+function openWhView(name){const btn=$(`.portal-nav button[data-view="${name}"]`);if(btn){$$('.portal-nav button').forEach(x=>x.classList.toggle('active',x===btn));$$('.portal-view').forEach(v=>v.classList.toggle('active',v.id===`wh-view-${name}`))}}
+function renderCredit(){
+  const c=whCredit(),available=Number(c?.saldo_disponible||0),used=Number(c?.saldo_utilizado||0),limit=Number(c?.limite_credito||0),due=whCreditDueDate(c);
+  $('#whCreditHeaderAmount').textContent=money(available);
+  $('#whCreditHeader').classList.toggle('credit-disabled',!whCreditActive(c));
+  $('#whCreditHeader').classList.toggle('credit-overdue',whCreditOverdue(c));
+  const assigned=c?.fecha_asignacion?String(c.fecha_asignacion).slice(0,10):'';$('#whCreditLimit').textContent=money(limit);$('#whCreditAvailable').textContent=money(available);$('#whCreditUsed').textContent=money(used);$('#whCreditAssigned').textContent=assigned?fmtDay(`${assigned}T12:00:00`):'—';$('#whCreditDue').textContent=due?fmtDay(`${due}T12:00:00`):'—';
+  const card=$('#whCreditStatusCard'),title=$('#whCreditStatusTitle'),text=$('#whCreditStatusText');card.classList.remove('ok','warning','danger');
+  if(!c){title.textContent='Sin línea de crédito asignada';text.textContent='Administración debe asignar una línea para habilitar compras a crédito.';card.classList.add('warning')}
+  else if(!whCreditActive(c)){title.textContent='Línea de crédito suspendida';text.textContent=`Límite registrado: ${money(limit)}. Contacta a administración para habilitarla.`;card.classList.add('warning')}
+  else if(whCreditOverdue(c)){title.textContent='Línea de crédito vencida';text.textContent=used>0?`Tienes ${money(used)} pendiente. La fecha tope fue ${fmtDay(`${due}T12:00:00`)}. No podrás hacer nuevas compras a crédito hasta regularizar y renovar la fecha.`:`La línea venció el ${fmtDay(`${due}T12:00:00`)}. Administración debe renovar la fecha tope antes de volver a usarla.`;card.classList.add('danger')}
+  else {title.textContent='Línea de crédito disponible';text.textContent=`Puedes utilizar hasta ${money(available)}. Crédito usado: ${money(used)}${due?` · Fecha tope de pago: ${fmtDay(`${due}T12:00:00`)}`:''}.`;card.classList.add('ok')}
+  const moves=state.creditMovements||[];
+  $('#whCreditMovements').innerHTML=`<table><thead><tr><th>Fecha</th><th>Movimiento</th><th>Monto</th><th>Disponible</th><th>Utilizado</th><th>Referencia</th></tr></thead><tbody>${moves.map(m=>`<tr><td>${esc(fmtDate(m.creado_en))}</td><td><span class="status-pill">${esc(m.tipo||'')}</span></td><td>${money(m.monto)}</td><td>${money(m.saldo_disponible_resultante)}</td><td>${money(m.saldo_utilizado_resultante)}</td><td>${esc(m.referencia||m.detalle||'—')}</td></tr>`).join('')}</tbody></table>`+(moves.length?'':'<div class="empty-state">Aún no hay movimientos de crédito.</div>');
+  renderCreditPaymentOption();
+}
+function renderCreditPaymentOption(){const opt=$('#whCreditPaymentOption'),note=$('#whCreditCheckoutNote'),txt=$('#whCreditCheckoutText');if(!opt||!note||!txt)return;const total=cart.reduce((a,x)=>a+Number(x.precio||0)*Number(x.cantidad||0),0),c=whCredit(),available=Number(c?.saldo_disponible||0),usable=whCreditCanUse(total);opt.hidden=!whCreditActive(c);opt.disabled=!usable;if(whCreditActive(c))opt.textContent=usable?`Crédito disponible · ${money(available)}`:`Crédito · saldo ${money(available)}`;if($('#whPayment').value==='CREDITO'&&!usable)$('#whPayment').value='TRANSFERENCIA';const selected=$('#whPayment').value==='CREDITO';note.classList.toggle('hidden',!selected);if(selected)txt.textContent=`Se descontarán ${money(total)} de tu saldo disponible. Quedarán ${money(Math.max(0,available-total))}. Fecha tope de pago: ${whCreditDueDate(c)?fmtDay(`${whCreditDueDate(c)}T12:00:00`):'por definir'}.`}
+$('#whCreditHeader').onclick=()=>openWhView('credit');
+$('#whPayment').addEventListener('change',renderCreditPaymentOption);
+
 function renderDocuments(){$('#whDocuments').innerHTML=(state.documents||[]).map(d=>`<div class="doc-item"><div><small>${esc(d.tipo||'DOCUMENTO')}</small><strong>${esc(d.nombre||'Documento')}</strong><div>${esc(fmtDay(d.creado_en||Date.now()))}</div></div>${d.url?`<a href="${esc(d.url)}" target="_blank" rel="noopener"><i class="bi bi-download"></i> Abrir</a>`:'<span>Protegido</span>'}</div>`).join('')||'<p>Aún no hay documentos.</p>'}
-function renderProfile(){const c=state.client||{},l=state.priceList||{};$('#whProfile').innerHTML=`<div><span>Razón social</span><strong>${esc(c.razon_social||c.nombre||'')}</strong></div><div><span>RUT</span><strong>${esc(c.rut||'')}</strong></div><div><span>Giro</span><strong>${esc(c.giro||'-')}</strong></div><div><span>Lista</span><strong>${esc(l.nombre||'-')}</strong></div><div><span>Correo</span><strong>${esc(c.email||'-')}</strong></div><div><span>Teléfono</span><strong>${esc(c.telefono||'-')}</strong></div>`}
+function renderProfile(){const c=state.client||{},l=state.priceList||{},cr=whCredit();$('#whProfile').innerHTML=`<div><span>Razón social</span><strong>${esc(c.razon_social||c.nombre||'')}</strong></div><div><span>RUT</span><strong>${esc(c.rut||'')}</strong></div><div><span>Giro</span><strong>${esc(c.giro||'-')}</strong></div><div><span>Lista</span><strong>${esc(l.nombre||'-')}</strong></div><div><span>Correo</span><strong>${esc(c.email||'-')}</strong></div><div><span>Teléfono</span><strong>${esc(c.telefono||'-')}</strong></div><div><span>Límite de crédito</span><strong>${cr?money(cr.limite_credito):'Sin asignar'}</strong></div><div><span>Saldo disponible</span><strong>${cr?money(cr.saldo_disponible):'—'}</strong></div>`}
 function notificationVisual(n){
   const text=`${n?.titulo||''} ${n?.mensaje||''}`.toLowerCase();
+  if(text.includes('crédito')||text.includes('credito'))return{icon:'bi-wallet2',cls:'payment'};
   if(text.includes('pago'))return{icon:'bi-credit-card-2-front',cls:'payment'};
   if(text.includes('pedido'))return{icon:'bi-bag-check',cls:'order'};
   if(text.includes('document')||text.includes('factura')||text.includes('pdf'))return{icon:'bi-file-earmark-text',cls:'document'};
@@ -122,7 +148,7 @@ function renderNotifications(){
   $('#whNotifications').innerHTML=html;
   $('#whBellList').innerHTML=html;
 }
-async function markNotification(id,entity=''){try{await AleAPI.post('mayoristanotificationread',{id},token);const n=(state.notifications||[]).find(x=>String(x.id)===String(id));if(n)n.leida=true;renderNotifications();if(entity)await openOrderDetail(entity)}catch(err){console.warn(err)}}
+async function markNotification(id,entity=''){try{await AleAPI.post('mayoristanotificationread',{id},token);const n=(state.notifications||[]).find(x=>String(x.id)===String(id));if(n)n.leida=true;renderNotifications();if(String(entity||'').startsWith('CREDITO'))openWhView('credit');else if(entity)await openOrderDetail(entity)}catch(err){console.warn(err)}}
 async function markAllNotifications(btn){await busy(btn,async()=>{try{await AleAPI.post('mayoristanotificationreadall',{},token);(state.notifications||[]).forEach(n=>n.leida=true);renderNotifications();toast('Notificaciones marcadas como leídas')}catch(err){console.warn(err);toast('No fue posible actualizar notificaciones')}},'')}
 $('#whBell').onclick=e=>{e.stopPropagation();$('#whBellPanel').classList.toggle('hidden')};
 $('#whCloseNotifications').onclick=e=>{e.stopPropagation();$('#whBellPanel').classList.add('hidden')};
@@ -131,13 +157,13 @@ for(const hostId of ['#whNotifications','#whBellList'])$(hostId).onclick=e=>{con
 $('#whMarkAll').onclick=e=>markAllNotifications(e.currentTarget);
 $('#whProfileMarkAll').onclick=e=>markAllNotifications(e.currentTarget);
 
-function renderCart(){const count=cart.reduce((a,x)=>a+x.cantidad,0),total=cart.reduce((a,x)=>a+x.precio*x.cantidad,0);$('#whCartCount').textContent=count;$('#whCartTotal').textContent=money(total);$('#whCartItems').innerHTML=cart.map(x=>`<div class="cart-line" data-key="${esc(x.key)}"><div><strong>${esc(x.nombre)}</strong><small>${esc(x.tamano_nombre)} · ${money(x.precio)}</small></div><div><input type="number" min="1" max="999" value="${x.cantidad}"><button data-remove><i class="bi bi-trash"></i></button></div></div>`).join('')||'<p>Tu carrito está vacío.</p>'}
+function renderCart(){const count=cart.reduce((a,x)=>a+x.cantidad,0),total=cart.reduce((a,x)=>a+x.precio*x.cantidad,0);$('#whCartCount').textContent=count;$('#whCartTotal').textContent=money(total);$('#whCartItems').innerHTML=cart.map(x=>`<div class="cart-line" data-key="${esc(x.key)}"><div><strong>${esc(x.nombre)}</strong><small>${esc(x.tamano_nombre)} · ${money(x.precio)}</small></div><div><input type="number" min="1" max="999" value="${x.cantidad}"><button data-remove><i class="bi bi-trash"></i></button></div></div>`).join('')||'<p>Tu carrito está vacío.</p>';renderCreditPaymentOption()}
 $('#whCartItems').onchange=e=>{const line=e.target.closest('.cart-line');if(!line||e.target.tagName!=='INPUT')return;const x=cart.find(v=>v.key===line.dataset.key);if(x)x.cantidad=Math.max(1,Number(e.target.value)||1);renderCart()};$('#whCartItems').onclick=e=>{const line=e.target.closest('.cart-line');if(line&&e.target.closest('[data-remove]')){cart=cart.filter(v=>v.key!==line.dataset.key);renderCart()}};function openCart(){$('#whCart').classList.add('open');$('#whOverlay').classList.add('open')}function closeCart(){$('#whCart').classList.remove('open');$('#whOverlay').classList.remove('open')}$('#whCartBtn').onclick=openCart;$('#whCartClose').onclick=closeCart;$('#whOverlay').onclick=closeCart;
 
 ['#whSearch','#whCategory','#whCatalogFrom','#whCatalogTo'].forEach(id=>$(id).addEventListener(id.includes('Search')?'input':'change',renderProducts));['#whOrderSearch','#whOrderStatus','#whOrderPaymentStatus','#whOrderFrom','#whOrderTo'].forEach(id=>$(id).addEventListener(id.includes('Search')?'input':'change',renderOrders));
 $('#whCatalogToday').onclick=()=>{const t=dateOnly(new Date());$('#whCatalogFrom').value=t;$('#whCatalogTo').value=t;renderProducts()};$('#whCatalogClear').onclick=()=>{$('#whSearch').value='';$('#whCategory').value='';$('#whCatalogFrom').value='';$('#whCatalogTo').value='';renderProducts()};$('#whOrdersToday').onclick=()=>{const t=dateOnly(new Date());$('#whOrderFrom').value=t;$('#whOrderTo').value=t;renderOrders()};$('#whOrdersClear').onclick=()=>{$('#whOrderSearch').value='';$('#whOrderStatus').value='';$('#whOrderPaymentStatus').value='';$('#whOrderFrom').value='';$('#whOrderTo').value='';renderOrders()};
 
-$$('.portal-nav button').forEach(b=>b.onclick=()=>{$$('.portal-nav button').forEach(x=>x.classList.toggle('active',x===b));$$('.portal-view').forEach(v=>v.classList.toggle('active',v.id===`wh-view-${b.dataset.view}`))});
+$$('.portal-nav button').forEach(b=>b.onclick=()=>openWhView(b.dataset.view));
 $('#whRefresh').onclick=e=>busy(e.currentTarget,bootstrap,'');
 let logoutInProgress=false;
 $('#whLogout').onclick=()=>{
@@ -167,13 +193,18 @@ $('#whLogout').onclick=()=>{
 
 $('#whSubmitOrder').onclick=e=>busy(e.currentTarget,async()=>{
   if(!cart.length){toast('Agrega productos al pedido');return}
+  const selectedPayment=$('#whPayment').value,total=cart.reduce((a,x)=>a+Number(x.precio||0)*Number(x.cantidad||0),0);
+  if(selectedPayment==='CREDITO'&&!whCreditCanUse(total)){const c=whCredit();if(whCreditOverdue(c))toast('Tu línea de crédito está vencida. Regulariza el pago antes de volver a usarla.');else toast(`Saldo de crédito insuficiente. Disponible: ${money(c?.saldo_disponible||0)}`);return}
   let out=null;
   try{
     out=await AleAPI.post('mayoristacreateorder',{detalle:cart,medio_pago:$('#whPayment').value,metodo_entrega:$('#whDelivery').value,direccion:$('#whAddress').value,comuna:$('#whCommune').value,observaciones:$('#whNotes').value,despacho:0},token);
   }catch(err){
     console.warn('MAYORISTA_CREATE_ORDER',err,err?.payload||'');
     const code=String(err?.message||err||'').toUpperCase();
-    if(code.includes('STOCK_INSUFICIENTE'))toast('Stock insuficiente para uno de los productos o tamaños.');
+    if(code.includes('CREDITO_SALDO_INSUFICIENTE'))toast(`Saldo de crédito insuficiente. Disponible: ${money(whCredit()?.saldo_disponible||0)}`);
+    else if(code.includes('CREDITO_VENCIDO'))toast('Tu línea de crédito está vencida. Regulariza el pago con administración.');
+    else if(code.includes('CREDITO_NO_ASIGNADO')||code.includes('CREDITO_NO_DISPONIBLE'))toast('La línea de crédito no está disponible para esta cuenta.');
+    else if(code.includes('STOCK_INSUFICIENTE'))toast('Stock insuficiente para uno de los productos o tamaños.');
     else if(code.includes('PRECIO_MAYORISTA_NO_AUTORIZADO')||code.includes('LISTA_PRECIO_NO_DISPONIBLE'))toast('La lista de precios mayorista cambió. Actualiza el portal e intenta nuevamente.');
     else if(code.includes('PRODUCTO_TAMANO_REQUERIDO'))toast('Uno de los tamaños ya no está disponible. Actualiza el pedido.');
     else {
@@ -189,7 +220,7 @@ $('#whSubmitOrder').onclick=e=>busy(e.currentTarget,async()=>{
   $('#whLastOrder').classList.remove('hidden');
   $('#whLastOrderNumber').textContent=`Pedido ${out.numero_pedido} creado · ${money(out.total)}`;
   $('#whTransferUpload').classList.toggle('hidden',out.medio_pago!=='TRANSFERENCIA');
-  cart=[];renderCart();toast('✓ Pedido Mayorista creado');
+  cart=[];renderCart();toast(out.medio_pago==='CREDITO'?'✓ Compra cargada a tu línea de crédito':'✓ Pedido Mayorista creado');
 
   if(out.medio_pago==='TRANSBANK'){
     try{

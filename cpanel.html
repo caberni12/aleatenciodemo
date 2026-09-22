@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260922-r91881-inventory-modal-fix"><link rel="stylesheet" href="cpanel.css?v=20260922-r91881-inventory-modal-fix">
+  <link rel="stylesheet" href="styles.css?v=20260922-r91886-wholesale-credit"><link rel="stylesheet" href="cpanel.css?v=20260922-r91886-wholesale-credit">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -41,6 +41,7 @@
       <button data-view="quotes"><i class="bi bi-receipt-cutoff"></i> Cotizaciones</button>
       <button data-view="clients"><i class="bi bi-person-vcard"></i> Clientes</button>
       <button data-view="wholesale"><i class="bi bi-shop-window"></i> Mayoristas / Precios</button>
+      <button data-view="wholesale-credits"><i class="bi bi-wallet2"></i> Créditos Mayoristas</button>
       <button data-view="suppliers"><i class="bi bi-truck"></i> Proveedores</button>
       <button data-view="inventory"><i class="bi bi-boxes"></i> Mercadería / Costos</button>
       <button data-view="gallery"><i class="bi bi-images"></i> Galería</button>
@@ -439,6 +440,41 @@ Torta chocolate | 1 | 25000"></textarea></label>
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Documentación privada</span><h3>Facturas y documentos</h3></div></div><div class="form-grid wholesale-document-form"><label>Mayorista<select id="whDocClient"><option value="">Seleccionar</option></select></label><label>Tipo<select id="whDocType"><option value="FACTURA">Factura</option><option value="CONTRATO">Contrato</option><option value="FICHA">Ficha</option><option value="OTRO">Otro</option></select></label><label>Nombre<input id="whDocName" placeholder="Factura N.º 123"></label><label class="field-group file-field" data-file-picker="document"><span>Archivo privado</span><input id="whDocFile" class="file-input" type="file" accept=".pdf,image/*"><label class="file-picker-btn" for="whDocFile"><i class="bi bi-paperclip"></i><span class="file-picker-text">Seleccionar archivo</span></label><small class="file-name">Sin archivo seleccionado</small></label></div><button class="btn btn-primary" id="uploadWhDocument" type="button"><i class="bi bi-cloud-arrow-up"></i> Subir y notificar</button><div class="table-wrap" id="wholesaleDocumentsTable"></div></div>
     </section>
 
+
+    <section class="admin-view" id="view-wholesale-credits">
+      <div class="admin-card">
+        <div class="card-head"><div><span class="eyebrow">Línea de crédito B2B</span><h2>Créditos Mayoristas</h2><p class="module-help">Asigna y administra una línea de crédito por empresa Mayorista. El saldo disponible disminuye con cada compra a crédito y vuelve a liberarse cuando registras un abono. Si vence la fecha tope, el portal bloquea nuevas compras a crédito hasta regularizar.</p></div><div class="card-head-actions"><button class="btn btn-light" id="refreshWholesaleCredits" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
+        <div class="kpi-grid wholesale-credit-kpis"><div class="kpi-card"><span>Límite asignado</span><strong id="whCreditKpiLimit">$0</strong></div><div class="kpi-card"><span>Saldo disponible</span><strong id="whCreditKpiAvailable">$0</strong></div><div class="kpi-card"><span>Crédito utilizado</span><strong id="whCreditKpiUsed">$0</strong></div><div class="kpi-card"><span>Vencidos</span><strong id="whCreditKpiOverdue">0</strong></div></div>
+      </div>
+      <div class="credit-admin-grid">
+        <div class="admin-card">
+          <div class="card-head"><div><span class="eyebrow">Asignación</span><h3>Configurar línea de crédito</h3><p class="module-help">Selecciona un Mayorista, define el límite y su fecha tope de pago. El saldo disponible se calcula automáticamente considerando la deuda ya utilizada.</p></div></div>
+          <div class="form-grid">
+            <label class="span-2">Mayorista<select id="whCreditClient"><option value="">Seleccionar Mayorista</option></select></label>
+            <label>Límite de crédito<input id="whCreditLimit" inputmode="numeric" placeholder="$0"></label>
+            <label>Estado<select id="whCreditActive"><option value="SI">Activo</option><option value="NO">Suspendido</option></select></label>
+            <label>Fecha de asignación<input id="whCreditAssigned" type="date"></label>
+            <label>Fecha tope de pago<input id="whCreditDue" type="date" required></label>
+            <label class="span-2">Observaciones<textarea id="whCreditNotes" rows="3" placeholder="Condiciones internas de la línea de crédito"></textarea></label>
+          </div>
+          <div class="credit-live-summary" id="whCreditLiveSummary">Selecciona un Mayorista para ver su situación actual.</div>
+          <div class="editor-actions"><button class="btn btn-primary" id="saveWholesaleCredit" type="button"><i class="bi bi-floppy"></i> Guardar línea</button><button class="btn btn-light" id="clearWholesaleCredit" type="button">Limpiar</button></div>
+        </div>
+        <div class="admin-card">
+          <div class="card-head"><div><span class="eyebrow">Cobranza</span><h3>Registrar abono</h3><p class="module-help">Registra pagos recibidos para disminuir la deuda y liberar nuevamente saldo de la línea.</p></div></div>
+          <div class="form-grid">
+            <label class="span-2">Mayorista<select id="whCreditPaymentClient"><option value="">Seleccionar Mayorista</option></select></label>
+            <label>Monto abonado<input id="whCreditPaymentAmount" inputmode="numeric" placeholder="$0"></label>
+            <label>Referencia<input id="whCreditPaymentRef" placeholder="Transferencia, recibo, comprobante..."></label>
+          </div>
+          <div class="credit-live-summary" id="whCreditPaymentSummary">Selecciona un Mayorista con deuda pendiente.</div>
+          <div class="editor-actions"><button class="btn btn-primary" id="registerWholesaleCreditPayment" type="button"><i class="bi bi-cash-coin"></i> Registrar abono</button></div>
+        </div>
+      </div>
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Cuentas</span><h3>Estado de líneas de crédito</h3></div></div><div class="table-wrap" id="wholesaleCreditsTable"></div></div>
+      <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Trazabilidad</span><h3>Movimientos de crédito</h3></div></div><div class="table-wrap" id="wholesaleCreditMovementsTable"></div></div>
+    </section>
+
     <section class="admin-view" id="view-suppliers">
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Abastecimiento</span><h2>Proveedores</h2><p class="module-help">Mantén los datos de quienes abastecen materias primas, envases y otros insumos.</p></div><div class="card-head-actions"><button class="btn btn-primary" id="newSupplier" type="button"><i class="bi bi-plus-lg"></i> Nuevo proveedor</button></div></div>
         <div class="table-wrap" id="suppliersTable"></div>
@@ -636,5 +672,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260922-r91885-cart-events-config"></script><script src="api.js?v=20260922-r91885-cart-events-config"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91885-cart-events-config"></script>
+<script src="config.js?v=20260922-r91886-wholesale-credit"></script><script src="api.js?v=20260922-r91886-wholesale-credit"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="cpanel.js?v=20260922-r91886-wholesale-credit"></script>
 </body></html>

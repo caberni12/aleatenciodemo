@@ -2702,3 +2702,16 @@ body.product-stock-editor-open::before{content:"";position:fixed;inset:0;backgro
 #productStockEditor .editor-actions{position:sticky;bottom:-22px;z-index:5;margin:18px -22px -22px;padding:14px 22px 22px;background:linear-gradient(180deg,rgba(255,250,248,.72),#fffaf8 32%);border-top:1px solid rgba(226,212,204,.72)}
 .stock-adjustment-grid{align-items:start}.stock-history-head{display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:8px}.stock-history-head h4{margin:2px 0 0;font-size:1.05rem}.stock-history-table{max-height:280px;overflow:auto;border:1px solid #eaded8;border-radius:14px;background:#fff}.stock-adjustment-note i{margin-right:6px}
 @media(max-width:640px){#productStockEditor:not(.hidden){width:calc(100vw - 16px);max-height:94vh;padding:16px;border-radius:18px}#productStockEditor .editor-modal-head{top:-16px;margin:-16px -16px 14px;padding:16px 16px 12px}#productStockEditor .editor-actions{bottom:-16px;margin:16px -16px -16px;padding:14px 16px 16px}#productStockEditor .editor-actions .btn{width:100%;justify-content:center}}
+
+
+/* R9.18.86 · Créditos Mayoristas */
+.credit-admin-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
+.wholesale-credit-kpis{grid-template-columns:repeat(4,minmax(150px,1fr))}
+.credit-live-summary{display:flex;flex-direction:column;gap:5px;margin-top:14px;padding:13px 14px;border:1px solid #eaded8;border-radius:14px;background:#fffaf7;color:#735f56;font-size:12px;line-height:1.45}
+.credit-live-summary strong{font-size:14px;color:#49372f}.credit-live-summary span{display:block}
+#view-wholesale-credits .admin-card{overflow:visible}
+#view-wholesale-credits .admin-table td{vertical-align:middle}
+#view-wholesale-credits .role-badge{white-space:nowrap}
+#whCreditLimit,#whCreditPaymentAmount{font-variant-numeric:tabular-nums}
+@media(max-width:980px){.credit-admin-grid{grid-template-columns:1fr}.wholesale-credit-kpis{grid-template-columns:repeat(2,minmax(140px,1fr))}}
+@media(max-width:560px){.wholesale-credit-kpis{grid-template-columns:1fr 1fr}.credit-admin-grid{gap:12px}}

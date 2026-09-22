@@ -486,3 +486,14 @@ body.wh-modal-open{overflow:hidden}
   .notification-item{grid-template-columns:38px minmax(0,1fr) 8px!important;padding:10px!important}
   .notification-icon{width:36px;height:36px;border-radius:11px;font-size:16px}
 }
+
+
+/* R9.18.86 · Línea de crédito Mayorista */
+.credit-head-badge{display:flex;align-items:center;gap:8px;border:1px solid #eaded8;background:#fffaf7;color:#60483f;border-radius:14px;padding:7px 10px;cursor:pointer;min-height:42px;box-shadow:0 5px 16px rgba(63,43,36,.035)}
+.credit-head-badge>i{font-size:18px;color:#8d5060}.credit-head-badge>span{display:flex;flex-direction:column;align-items:flex-start;line-height:1.05}.credit-head-badge small{font-size:9px;text-transform:uppercase;letter-spacing:.11em;color:#9b8177}.credit-head-badge strong{font-size:13px;color:#4c3830;white-space:nowrap}.credit-head-badge.credit-overdue{border-color:#efc2bd;background:#fff4f2}.credit-head-badge.credit-overdue i,.credit-head-badge.credit-overdue strong{color:#a53b31}.credit-head-badge.credit-disabled{opacity:.7}
+.credit-overview{display:grid;grid-template-columns:repeat(5,minmax(135px,1fr));gap:12px;margin:14px 0 18px}.credit-overview article{padding:16px;border:1px solid #eaded8;border-radius:16px;background:#fff;box-shadow:0 6px 18px rgba(63,43,36,.035)}.credit-overview span{display:block;font-size:11px;color:#8b756c;margin-bottom:5px}.credit-overview strong{font-size:20px;color:#4b352d}
+.credit-status-card{display:flex;gap:12px;align-items:flex-start;padding:15px 16px;border:1px solid #eaded8;border-radius:16px;background:#fffaf7;margin-bottom:22px}.credit-status-card>i{font-size:21px;margin-top:1px}.credit-status-card strong{display:block;margin-bottom:4px;color:#4d382f}.credit-status-card p{margin:0;color:#79655d;line-height:1.5}.credit-status-card.ok{border-color:#cce8d2;background:#f4fbf5}.credit-status-card.ok>i{color:#2f8a48}.credit-status-card.warning{border-color:#edd9aa;background:#fffaf0}.credit-status-card.warning>i{color:#a96f13}.credit-status-card.danger{border-color:#efc2bd;background:#fff5f3}.credit-status-card.danger>i{color:#b54336}
+.credit-checkout-note{display:flex;align-items:flex-start;gap:9px;padding:11px 12px;border:1px solid #dbcdf0;border-radius:13px;background:#faf7ff;color:#5d3d87;font-size:12px;line-height:1.45}.credit-checkout-note i{font-size:17px;margin-top:1px}.credit-checkout-note.hidden{display:none}
+#whCreditMovements table{min-width:760px}
+@media(max-width:900px){.credit-overview{grid-template-columns:repeat(2,minmax(140px,1fr))}.credit-head-badge{padding:7px 8px}.credit-head-badge small{display:none}}
+@media(max-width:560px){.credit-overview{grid-template-columns:1fr 1fr}.credit-overview article{padding:13px}.credit-overview strong{font-size:16px}.credit-head-badge{min-width:42px;justify-content:center}.credit-head-badge>span{display:none}}
