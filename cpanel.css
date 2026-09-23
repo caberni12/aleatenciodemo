@@ -3378,3 +3378,180 @@ body.credit-modal-open::before{content:"";position:fixed;inset:0;background:rgba
 /* R9.18.97 · Editor de cliente global desde cualquier módulo */
 body > #clientEditor:not(.hidden){display:block!important;z-index:1700!important}
 body.client-editor-open::before{z-index:1690!important}
+
+/* R9.18.98 · Facturación electrónica SII aislada */
+.sii-shell,.sii-config-card,.sii-certificate-card,.sii-caf-card,.sii-emit-card,.sii-documents-card{overflow:hidden}
+.sii-env-badge{display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 12px;border:1px solid rgba(158,126,80,.25);border-radius:999px;background:#fff8ef;color:#8a6a3c;font:700 11px/1 Manrope,sans-serif;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
+.sii-env-badge.production{background:#edf8f1;color:#177a43;border-color:#bce2ca}.sii-env-badge.certification{background:#fff7e8;color:#9a6514;border-color:#efd39c}
+.sii-runtime-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.sii-runtime-grid>div{min-width:0;padding:16px 17px;border:1px solid #eaded6;border-radius:16px;background:#fffdfb}.sii-runtime-grid span,.sii-runtime-grid small{display:block;color:#8a7c76}.sii-runtime-grid span{font-size:11px;text-transform:uppercase;letter-spacing:.07em}.sii-runtime-grid strong{display:block;margin:5px 0 3px;font-size:16px;color:#4c403b;overflow-wrap:anywhere}
+.sii-two-column{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}.sii-list{display:grid;gap:8px;margin-top:16px}.sii-list-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid #eaded6;border-radius:13px;background:#fffdfb}.sii-list-item>div{min-width:0}.sii-list-item strong,.sii-list-item small{display:block}.sii-list-item small{margin-top:3px;color:#8a7c76;overflow-wrap:anywhere}.sii-list-item.is-active{border-color:#c9dccc;background:#f7fcf8}.sii-list-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.sii-table-wrap{width:100%;max-width:100%;overflow-x:auto;overflow-y:hidden}.sii-table{width:100%;min-width:720px;border-collapse:collapse;table-layout:auto}.sii-table th,.sii-table td{padding:13px 12px;border-bottom:1px solid #eee1d9;vertical-align:top;text-align:left;line-height:1.4;white-space:normal;overflow-wrap:break-word}.sii-table th{font:700 10px/1.2 Manrope,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#8f7b72}.sii-table td{font-size:13px;color:#4c403b}.sii-table .money-cell,.sii-table .folio-cell{white-space:nowrap}.sii-doc-table{min-width:1120px}.sii-status-pill{display:inline-flex;align-items:center;min-height:26px;padding:5px 9px;border-radius:999px;background:#f6eaf0;color:#9f5269;font:700 10px/1 Manrope,sans-serif;white-space:nowrap}.sii-status-pill.ok{background:#e9f8ef;color:#1b7a45}.sii-status-pill.warn{background:#fff5df;color:#9a6514}.sii-status-pill.error{background:#fdecec;color:#a33d3d}
+.sii-emit-grid{align-items:end}.sii-cert-warning{margin:14px 0}.sii-caf-card .file-field,.sii-certificate-card .file-field{margin-bottom:12px}.sii-enable-line select{font-weight:700}.sii-action-row{display:flex;gap:7px;flex-wrap:wrap}.sii-track{max-width:170px;word-break:break-all;color:#6f625d}.sii-doc-name{min-width:180px}.sii-document-empty{padding:24px;text-align:center;color:#8a7c76}
+@media(max-width:1100px){.sii-runtime-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.sii-two-column{grid-template-columns:1fr}}
+@media(max-width:680px){.sii-runtime-grid{grid-template-columns:1fr}.sii-table{min-width:760px}.sii-doc-table{min-width:1100px}.sii-list-item{align-items:flex-start;flex-direction:column}.sii-list-actions{justify-content:flex-start}}
+
+/* =========================================================
+   R9.18.99 · FACTURACION SII EN MODALES + EMISION DESDE PEDIDOS
+   ========================================================= */
+.sii-action-launcher{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+.sii-launch-btn{appearance:none;border:1px solid #e6d8d0;background:#fffdfb;border-radius:18px;padding:16px;display:grid;grid-template-columns:46px minmax(0,1fr) 18px;align-items:center;gap:12px;text-align:left;color:#5b473e;cursor:pointer;box-shadow:0 6px 18px rgba(75,52,43,.05);transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+.sii-launch-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(75,52,43,.10);border-color:#d3bdb1}
+.sii-launch-btn>span:nth-child(2){display:grid;gap:3px;min-width:0}.sii-launch-btn strong{font-size:14px;color:#4d3931}.sii-launch-btn small{font-size:11px;line-height:1.35;color:#8a7c76}.sii-launch-btn>.bi-chevron-right{color:#aa9488}
+.sii-launch-icon{width:46px;height:46px;border-radius:15px;background:#f5ece7;display:grid;place-items:center;font-size:20px;color:#7f5260}
+.sii-launch-primary{background:linear-gradient(145deg,#5e3c49,#7f5260);border-color:#6e4654;color:#fff}.sii-launch-primary strong,.sii-launch-primary small,.sii-launch-primary>.bi-chevron-right{color:#fff}.sii-launch-primary small{opacity:.82}.sii-launch-primary .sii-launch-icon{background:rgba(255,255,255,.15);color:#fff}
+body.sii-modal-open{overflow:hidden}
+body.sii-modal-open::before{content:"";position:fixed;inset:0;background:rgba(44,31,26,.52);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);z-index:15980}
+.sii-modal:not(.hidden){position:fixed!important;z-index:16000!important;left:50%!important;top:50%!important;transform:translate(-50%,-50%)!important;width:min(920px,calc(100vw - 28px))!important;max-height:min(92dvh,900px)!important;overflow:auto!important;margin:0!important;padding:22px!important;background:#fffaf8!important;border:1px solid #eadbd3!important;border-radius:24px!important;box-shadow:0 36px 110px rgba(32,20,16,.42)!important}
+#siiCertificateModal:not(.hidden){width:min(780px,calc(100vw - 28px))!important}
+#siiCafModal:not(.hidden){width:min(960px,calc(100vw - 28px))!important}
+#siiEmitModal:not(.hidden){width:min(1020px,calc(100vw - 28px))!important}
+.sii-modal .editor-modal-head{position:sticky;top:-22px;z-index:5;margin:-22px -22px 18px;padding:22px 22px 15px;background:rgba(255,250,248,.97);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid rgba(226,212,204,.84)}
+.sii-modal .editor-modal-head small{display:block;margin-top:5px;color:#826d64}.sii-modal .editor-actions{position:sticky;bottom:-22px;z-index:5;margin:20px -22px -22px;padding:14px 22px 22px;background:linear-gradient(180deg,rgba(255,250,248,.72),#fffaf8 30%);border-top:1px solid rgba(226,212,204,.72)}
+.sii-modal .sii-list{margin-top:18px}.sii-modal .sii-table-wrap{margin-top:18px;max-height:360px;overflow:auto}.sii-emit-modal .sii-cert-warning{margin:16px 0 0}
+.order-row-actions{min-width:300px}.order-tax-btn{display:inline-flex!important;align-items:center!important;gap:6px!important}.order-tax-boleta{background:#fffaf5!important;border-color:#d9c7b8!important;color:#765b4f!important}.order-tax-factura{background:#f5edf0!important;border-color:#d7c0c8!important;color:#744657!important;font-weight:800!important}
+.sii-order-doc-btn{white-space:nowrap}
+@media(max-width:1180px){.sii-action-launcher{grid-template-columns:repeat(2,minmax(0,1fr))}.order-row-actions{min-width:250px}}
+@media(max-width:680px){.sii-action-launcher{grid-template-columns:1fr}.sii-launch-btn{padding:14px}.sii-modal:not(.hidden),#siiCertificateModal:not(.hidden),#siiCafModal:not(.hidden),#siiEmitModal:not(.hidden){width:calc(100vw - 14px)!important;max-height:95dvh!important;padding:16px!important;border-radius:20px!important}.sii-modal .editor-modal-head{top:-16px;margin:-16px -16px 14px;padding:16px 16px 12px}.sii-modal .editor-actions{bottom:-16px;margin:18px -16px -16px;padding:14px 16px 16px}.sii-modal .editor-actions .btn{flex:1 1 100%;justify-content:center}.order-row-actions{min-width:220px}}
+
+
+/* =========================================================
+   R9.18.100 · PEDIDOS CON ACCIONES HORIZONTALES BAJO N.º PEDIDO
+   ========================================================= */
+#ordersTable .admin-table{min-width:1400px!important}
+#ordersTable .admin-table th:nth-child(1),#ordersTable .admin-table td:nth-child(1){width:18%!important}
+#ordersTable .admin-table th:nth-child(2),#ordersTable .admin-table td:nth-child(2){width:8%!important}
+#ordersTable .admin-table th:nth-child(3),#ordersTable .admin-table td:nth-child(3){width:10%!important}
+#ordersTable .admin-table th:nth-child(4),#ordersTable .admin-table td:nth-child(4){width:11%!important}
+#ordersTable .admin-table th:nth-child(5),#ordersTable .admin-table td:nth-child(5){width:11%!important}
+#ordersTable .admin-table th:nth-child(6),#ordersTable .admin-table td:nth-child(6){width:10%!important}
+#ordersTable .admin-table th:nth-child(7),#ordersTable .admin-table td:nth-child(7){width:8%!important}
+#ordersTable .admin-table th:nth-child(8),#ordersTable .admin-table td:nth-child(8){width:10%!important}
+#ordersTable .admin-table th:nth-child(9),#ordersTable .admin-table td:nth-child(9){width:7%!important}
+#ordersTable .admin-table th:nth-child(10),#ordersTable .admin-table td:nth-child(10){width:7%!important}
+#ordersTable .order-number-cell{vertical-align:top!important}
+#ordersTable .order-number-cell strong{display:block;margin-bottom:9px!important}
+#ordersTable .order-inline-actions{display:flex!important;flex-wrap:wrap!important;gap:8px!important;align-items:center!important;min-width:0!important}
+#ordersTable .order-inline-actions button,
+#ordersTable .order-inline-actions .order-final-chip{width:auto!important;min-width:0!important;flex:0 0 auto!important;padding:7px 10px!important;min-height:34px!important;border-radius:10px!important;justify-content:center!important;white-space:nowrap!important}
+#ordersTable .order-inline-actions .order-final-chip{display:inline-flex!important;align-items:center!important;gap:6px!important;font-size:10px!important}
+#ordersTable .order-inline-actions button:first-child{background:#4f3932!important;border-color:#4f3932!important;color:#fff!important}
+#ordersTable .order-inline-actions .cancel-order-row{background:#fff7f7!important;color:#963b3b!important;border-color:#e7c8c8!important}
+#ordersTable .order-row-actions{min-width:0!important}
+@media(max-width:1180px){
+  #ordersTable .admin-table{min-width:1320px!important}
+}
+@media(max-width:760px){
+  #ordersTable .order-inline-actions{gap:6px!important}
+  #ordersTable .order-inline-actions button,
+  #ordersTable .order-inline-actions .order-final-chip{padding:7px 8px!important;font-size:11px!important}
+}
+
+/* R9.18.102 · CAF oficial + rangos de PRUEBA LOCAL */
+.sii-local-note{margin:0 0 16px;background:#fff8e8!important;border-color:#ead8ab!important;color:#725321!important}.sii-local-note strong{color:#5c421b}.sii-status-pill.local{background:#fff1cc!important;color:#875d09!important;border:1px solid #e8cf8a}.sii-local-row{background:#fffdf7}.sii-local-label{display:inline-flex!important;width:max-content;margin-top:5px!important;padding:3px 6px;border-radius:999px;background:#fff0c7;color:#8b650f;font-size:8.5px!important;font-weight:800;letter-spacing:.04em}.sii-local-expiry{display:block!important;margin-top:4px!important;color:#9a7440!important;font-size:9.5px!important}
+
+
+/* =========================================================
+   R9.18.103 · PREVISUALIZACION / CARGA DE PEDIDO PARA SII
+   ========================================================= */
+.sii-order-preview{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid #d9e9dc;background:#f4fbf6;border-radius:14px;color:#46624f}
+.sii-order-preview.hidden{display:none!important}.sii-order-preview>div{display:grid;gap:3px}.sii-order-preview strong{display:flex;align-items:center;gap:7px;color:#315d3f;font-size:13px}.sii-order-preview span{font-size:12px;color:#6c7d70}.sii-order-preview small{font-size:11px;font-weight:700}.sii-order-preview small.ok{color:#2f7d4d}.sii-order-preview small.warn{color:#986019}
+@media(max-width:680px){.sii-order-preview{align-items:flex-start;flex-direction:column}}
+
+/* =========================================================
+   R9.18.104 · PRUEBA LOCAL + PDF representación SII
+   ========================================================= */
+#adminToast{z-index:22050!important}
+body.sii-modal-open #adminToast{top:18px!important;bottom:auto!important;max-width:min(720px,calc(100vw - 28px));text-align:center;box-shadow:0 16px 48px rgba(20,12,10,.28)}
+.sii-issue-mode-note{margin:2px 0 4px!important;border-color:#e5d4cb!important;background:#fffaf7!important}
+.sii-issue-mode-note.is-local{border-color:#e7c985!important;background:#fff8e8!important;color:#79551b!important}
+.sii-issue-mode-note strong{font-weight:850}
+#siiIssueMode{font-weight:750}
+.sii-status-pill.local{background:#fff3d8!important;color:#8a6019!important;border:1px solid #e8cc8c!important}
+
+
+/* R9.18.105 · Control de emisión única + PDF SII más abierto / cedible */
+#siiOrderPreview .warn{display:block;margin-top:7px;color:#9a6514;font-weight:700;line-height:1.4}
+#siiIssueModeNotice .bi-shield-lock{color:#8d5a35}
+
+
+/* =========================================================
+   R9.18.106 · PEDIDOS / CLIENTES TERRITORIO / FACTURACION SII
+   ========================================================= */
+/* Pedidos: scroll realmente utilizable dentro del viewport */
+#ordersTable{
+  position:relative!important;
+  width:100%!important;
+  max-width:100%!important;
+  max-height:min(68vh,760px)!important;
+  overflow:auto!important;
+  overscroll-behavior:contain!important;
+  scrollbar-gutter:stable both-edges!important;
+  border:1px solid #eaded6!important;
+  border-radius:14px!important;
+  background:#fff!important;
+}
+#ordersTable .admin-table{min-width:1780px!important;width:max-content!important;table-layout:auto!important}
+#ordersTable .admin-table thead th{position:sticky!important;top:0!important;z-index:7!important;background:#fffaf7!important}
+#ordersTable .admin-table th:nth-child(1),#ordersTable .admin-table td:nth-child(1){width:390px!important;min-width:390px!important;max-width:390px!important}
+#ordersTable .order-number-cell strong{margin-bottom:10px!important}
+#ordersTable .order-inline-actions{
+  display:flex!important;
+  flex-flow:row nowrap!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  width:max-content!important;
+  min-width:max-content!important;
+}
+#ordersTable .order-inline-actions button,#ordersTable .order-inline-actions .order-final-chip{
+  flex:0 0 auto!important;width:auto!important;min-width:auto!important;white-space:nowrap!important;margin:0!important;
+}
+#ordersTable .order-inline-actions button{padding:7px 9px!important;font-size:11px!important;min-height:33px!important}
+#ordersTable .order-inline-actions .order-final-chip{padding:7px 9px!important;min-height:33px!important}
+
+/* Cliente: inputs de territorio con busqueda nativa */
+.client-form-grid #clientCity,.client-form-grid #clientCommune{background:#fff!important}
+.geo-field-help{display:block;margin-top:5px;color:#8a7c76;font-size:10.5px;line-height:1.35;font-weight:500}
+.client-address small{display:inline-block;margin-top:4px;color:#85746c;line-height:1.35}
+
+/* Facturacion SII: tabla amplia y scroll visible */
+.sii-documents-card .sii-table-wrap,
+#view-sii .sii-table-wrap{
+  width:100%!important;max-width:100%!important;overflow:auto!important;scrollbar-gutter:stable both-edges!important;
+}
+.sii-documents-card .sii-table-wrap{max-height:min(62vh,650px)!important;border:1px solid #eaded6;border-radius:14px;background:#fff}
+.sii-doc-table{min-width:1510px!important;width:max-content!important;table-layout:auto!important}
+.sii-doc-table thead th{position:sticky!important;top:0!important;z-index:4!important;background:#fffaf7!important}
+.sii-doc-table th,.sii-doc-table td{padding:14px 16px!important;white-space:normal!important}
+.sii-doc-table th:nth-child(1),.sii-doc-table td:nth-child(1){min-width:125px!important}
+.sii-doc-table th:nth-child(2),.sii-doc-table td:nth-child(2){min-width:165px!important}
+.sii-doc-table th:nth-child(3),.sii-doc-table td:nth-child(3){min-width:90px!important;text-align:center}
+.sii-doc-table th:nth-child(4),.sii-doc-table td:nth-child(4){min-width:150px!important}
+.sii-doc-table th:nth-child(5),.sii-doc-table td:nth-child(5){min-width:240px!important}
+.sii-doc-table th:nth-child(6),.sii-doc-table td:nth-child(6){min-width:125px!important;text-align:right}
+.sii-doc-table th:nth-child(7),.sii-doc-table td:nth-child(7){min-width:210px!important}
+.sii-doc-table th:nth-child(8),.sii-doc-table td:nth-child(8){min-width:170px!important}
+.sii-doc-table th:nth-child(9),.sii-doc-table td:nth-child(9){min-width:245px!important}
+.sii-doc-table .sii-action-row{display:flex!important;flex-flow:row nowrap!important;gap:7px!important;min-width:max-content!important}
+.sii-doc-table .sii-action-row .btn{white-space:nowrap!important;flex:0 0 auto!important}
+.sii-order-number strong{white-space:nowrap!important;color:#513a32}
+@media(max-width:760px){
+  #ordersTable{max-height:70vh!important}
+  #ordersTable .admin-table{min-width:1700px!important}
+  .sii-doc-table{min-width:1460px!important}
+}
+
+
+/* R9.18.107 · Folios de prueba automáticos dentro de Facturación SII */
+.sii-folio-generator{margin:14px 0 16px;padding:16px;border:1px solid #eadbd2;border-radius:16px;background:#fffaf7}
+.sii-folio-generator-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.sii-folio-generator-head>div{display:grid;gap:3px}.sii-folio-generator-head strong{font:700 14px/1.25 Manrope,sans-serif;color:#4f3d35}.sii-folio-generator-head small{color:#8c776e}
+.sii-folio-generator-grid{display:grid;grid-template-columns:minmax(220px,1.4fr) repeat(3,minmax(120px,.7fr));gap:12px;align-items:end}
+.sii-folio-actions{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px}.sii-caf-import{margin:12px 0;border:1px solid #eadbd2;border-radius:14px;padding:0 14px;background:#fff}.sii-caf-import summary{cursor:pointer;padding:13px 0;font:700 12px/1.3 Manrope,sans-serif;color:#70534a}.sii-caf-import[open] summary{border-bottom:1px solid #f0e4dd;margin-bottom:12px}
+.sii-table td>small{display:block;margin-top:3px;color:#9a857b}.sii-folio-low{color:#a76712!important;font-weight:800!important}.sii-low-row{background:#fffaf0}.sii-local-row.sii-low-row{background:#fff8eb}
+@media(max-width:900px){.sii-folio-generator-grid{grid-template-columns:1fr 1fr}}@media(max-width:620px){.sii-folio-generator-grid{grid-template-columns:1fr}.sii-folio-generator-head{align-items:flex-start;flex-direction:column}}
+
+/* R9.18.108 · Pedidos: Boleta/Factura solo dentro del modal de detalle */
+#ordersTable .order-tax-btn{display:none!important}
+#ordersTable .order-inline-actions{flex-wrap:nowrap!important;min-width:max-content!important}
+#ordersTable .order-number-cell{min-width:210px!important}
