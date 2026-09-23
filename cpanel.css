@@ -3373,3 +3373,8 @@ body.credit-modal-open::before{content:"";position:fixed;inset:0;background:rgba
 .credit-increase-eval-limits .recommended strong{color:#237347}
 .credit-increase-evaluation>p{margin:0;padding:10px 12px;border-left:3px solid #d7b59d;border-radius:0 10px 10px 0;background:#fff;color:#6d5b53;font-size:11px;line-height:1.5;overflow-wrap:anywhere}
 @media(max-width:720px){.credit-increase-evaluate-strip{align-items:stretch;flex-direction:column}.credit-evaluate-btn{width:100%;justify-content:center}.credit-increase-eval-metrics{grid-template-columns:1fr 1fr}.credit-increase-eval-limits{grid-template-columns:1fr}.credit-increase-eval-head{align-items:flex-start}.credit-increase-eval-limits strong{white-space:normal}}
+
+
+/* R9.18.97 · Editor de cliente global desde cualquier módulo */
+body > #clientEditor:not(.hidden){display:block!important;z-index:1700!important}
+body.client-editor-open::before{z-index:1690!important}
