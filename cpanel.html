@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260923-r918110-logo-qr-dte"><link rel="stylesheet" href="cpanel.css?v=20260923-r918110-logo-qr-dte">
+  <link rel="stylesheet" href="styles.css?v=20260923-r918112-boleta-rest-ticket"><link rel="stylesheet" href="cpanel.css?v=20260923-r918112-boleta-rest-ticket">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -716,9 +716,12 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <label class="field-group"><span>Email emisor</span><input id="siiEmail" type="email" placeholder="facturacion@empresa.cl"></label>
         <label class="field-group"><span>N° resolución SII</span><input id="siiResolucionNumero" type="number" min="0" placeholder="0 en certificación"></label>
         <label class="field-group"><span>Fecha resolución</span><input id="siiResolucionFecha" type="date"></label>
+        <label class="field-group"><span>API Boleta 39/41</span><select id="siiBoletaApiEnabled"><option value="NO">Mantener solo PRUEBA LOCAL</option><option value="SI">Habilitar CERTIFICACIÓN / PRODUCCIÓN real</option></select><small>La API REST de Boleta queda instalada, pero por seguridad parte deshabilitada.</small></label>
+        <label class="field-group"><span>Modelo de emisión Boleta declarado en SII</span><select id="siiBoletaEmissionModel"><option value="POR_DEFINIR">Por definir (bloquea emisión real)</option><option value="SIEMPRE_BOLETA">Siempre emito Boleta, incluso con pago electrónico</option><option value="VOUCHER_ES_BOLETA">Voucher/comprobante electrónico reemplaza Boleta en pago electrónico</option></select><small>Debe coincidir con el modelo que declares en el SII. PRUEBA LOCAL no depende de esta selección.</small></label>
+        <label class="field-group"><span>Formato predeterminado Boleta</span><select id="siiBoletaFormat"><option value="TICKET_57">Ticket 57 mm (mínimo SII)</option><option value="TICKET_58">Ticket 58 mm (térmica estándar)</option><option value="TICKET_80" selected>Ticket 80 mm (recomendado)</option><option value="A4">Hoja A4</option></select><small>El SII admite representación impresa desde 5,7 cm de ancho.</small></label>
       </div>
-      <div class="integration-note"><i class="bi bi-shield-check"></i><span>Certificación usa <b>maullin.sii.cl</b> y producción <b>palena.sii.cl</b>. La función tributaria permanece separada de <code>dynamic-processor</code>.</span></div>
-      <div class="editor-actions"><button class="btn btn-primary" id="siiSaveConfig" type="button"><i class="bi bi-floppy"></i> Guardar configuración</button><button class="btn btn-light" id="siiTestAuth" type="button"><i class="bi bi-shield-check"></i> Probar autenticación SII</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
+      <div class="integration-note"><i class="bi bi-shield-check"></i><span>Factura/Guía/Notas usan Maullín/Palena. Boletas 39/41 usan la <b>API REST específica del SII</b>: autenticación separada y envío Pangal (certificación) / Rahue (producción). PRUEBA LOCAL permanece independiente y es la opción automática mientras esté disponible.</span></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="siiSaveConfig" type="button"><i class="bi bi-floppy"></i> Guardar configuración</button><button class="btn btn-light" id="siiTestAuth" type="button"><i class="bi bi-shield-check"></i> Probar DTE clásico</button><button class="btn btn-light" id="siiTestBoletaAuth" type="button"><i class="bi bi-receipt-cutoff"></i> Probar API Boleta</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
     </div>
 
     <div class="editor hidden sii-modal" id="siiCertificateModal" role="dialog" aria-modal="true" aria-labelledby="siiCertificateModalTitle">
@@ -739,7 +742,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
       <section class="sii-folio-generator">
         <div class="sii-folio-generator-head"><div><strong>Generar folios de PRUEBA LOCAL</strong><small>Sin BAT ni XML. El sistema crea el siguiente rango disponible automáticamente.</small></div><span class="sii-status-pill local">NO AUTORIZADO SII</span></div>
         <div class="sii-folio-generator-grid">
-          <label class="field-group"><span>Tipo DTE</span><select id="siiLocalFolioDte"><option value="33">33 · Factura Electrónica</option><option value="34">34 · Factura Exenta</option><option value="39">39 · Boleta Electrónica</option><option value="41">41 · Boleta Exenta</option><option value="52">52 · Guía de Despacho</option><option value="56">56 · Nota de Débito</option><option value="61">61 · Nota de Crédito</option></select></label>
+          <label class="field-group"><span>Tipo DTE</span><select id="siiLocalFolioDte"><option value="33">33 · Factura Electrónica</option><option value="34">34 · Factura No Afecta o Exenta</option><option value="39">39 · Boleta Electrónica</option><option value="41">41 · Boleta No Afecta o Exenta</option><option value="52">52 · Guía de Despacho</option><option value="56">56 · Nota de Débito</option><option value="61">61 · Nota de Crédito</option></select></label>
           <label class="field-group"><span>Cantidad</span><input id="siiLocalFolioQty" type="number" min="1" max="10000" step="1" value="100"></label>
           <label class="field-group"><span>Vigencia</span><input id="siiLocalFolioValidity" type="number" min="1" max="120" step="1" value="3"></label>
           <label class="field-group"><span>Unidad</span><select id="siiLocalFolioValidityUnit"><option value="DIAS">Días</option><option value="MESES" selected>Meses</option><option value="ANOS">Años</option></select></label>
@@ -753,13 +756,14 @@ Torta chocolate | 1 | 25000"></textarea></label>
     </div>
 
     <div class="editor hidden sii-modal sii-emit-modal" id="siiEmitModal" role="dialog" aria-modal="true" aria-labelledby="siiEmitModalTitle">
-      <div class="editor-modal-head"><div><span class="eyebrow">Emisión SII</span><h3 id="siiEmitModalTitle">Emitir documento tributario</h3><small id="siiEmitContext">Selecciona el documento y pedido.</small></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
+      <div class="editor-modal-head"><div><span class="eyebrow">Emisión SII</span><h3 id="siiEmitModalTitle">Emitir documento tributario</h3></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
       <div class="form-grid sii-emit-grid">
-        <label class="field-group"><span>Tipo de documento</span><select id="siiTipoDte"><option value="33">33 · Factura Electrónica</option><option value="34">34 · Factura Exenta Electrónica</option><option value="39">39 · Boleta Electrónica</option><option value="41">41 · Boleta Exenta Electrónica</option><option value="52">52 · Guía de Despacho Electrónica</option><option value="56">56 · Nota de Débito Electrónica</option><option value="61">61 · Nota de Crédito Electrónica</option></select></label>
+        <label class="field-group"><span>Tipo de documento</span><select id="siiTipoDte"><option value="33">33 · Factura Electrónica</option><option value="34">34 · Factura No Afecta o Exenta Electrónica</option><option value="39">39 · Boleta Electrónica</option><option value="41">41 · Boleta No Afecta o Exenta Electrónica</option><option value="52">52 · Guía de Despacho Electrónica</option><option value="56">56 · Nota de Débito Electrónica</option><option value="61">61 · Nota de Crédito Electrónica</option></select></label>
         <label class="field-group"><span>Modo de emisión</span><select id="siiIssueMode"><option value="AUTO">Automático</option><option value="PRUEBA_LOCAL">PRUEBA LOCAL</option><option value="SII">CAF oficial / SII</option></select></label>
-        <label class="field-group"><span>ID / N° pedido</span><input id="siiPedidoId" placeholder="PED-000055"></label>
-        <div class="field-group"><span>Datos del pedido</span><button class="btn btn-light" id="siiLoadOrder" type="button"><i class="bi bi-search"></i> Cargar pedido</button></div><div class="sii-order-preview hidden span-2" id="siiOrderPreview" aria-live="polite"></div>
-        <div class="integration-note sii-issue-mode-note span-2" id="siiIssueModeNotice" aria-live="polite"><i class="bi bi-info-circle"></i><span>El sistema seleccionará CAF oficial o PRUEBA LOCAL según disponibilidad.</span></div>
+        <label class="field-group sii-boleta-format-field hidden"><span>Tamaño de Boleta</span><select id="siiBoletaPrintFormat"><option value="TICKET_57">Ticket 57 mm</option><option value="TICKET_58">Ticket 58 mm</option><option value="TICKET_80">Ticket 80 mm</option><option value="A4">A4</option></select></label>
+        <label class="field-group"><span>ID / N° pedido</span><input id="siiPedidoId" placeholder="PED-000055" autocomplete="off"></label>
+        <div class="field-group"><span>Datos del pedido</span><button class="btn btn-light" id="siiLoadOrder" type="button"><i class="bi bi-search"></i> Buscar / cargar pedido</button></div><div class="sii-order-preview hidden span-2" id="siiOrderPreview" aria-live="polite"></div>
+        <div class="sii-issue-status hidden span-2" id="siiIssueModeNotice" aria-live="polite"></div>
         <label class="field-group"><span>RUT receptor</span><input id="siiRutReceptor" placeholder="76.123.456-7"></label>
         <label class="field-group"><span>Razón social receptor</span><input id="siiRazonReceptor" placeholder="Razón social / nombre"></label>
         <label class="field-group"><span>Giro receptor</span><input id="siiGiroReceptor" placeholder="Obligatorio para factura"></label>
@@ -772,8 +776,8 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <label class="field-group sii-reference-field hidden"><span>Código referencia</span><select id="siiRefCodigo"><option value="1">1 · Anula documento</option><option value="2">2 · Corrige texto</option><option value="3">3 · Corrige montos</option></select></label>
         <label class="field-group span-2 sii-reference-field hidden"><span>Razón referencia</span><input id="siiRefRazon" placeholder="Motivo de la nota"></label>
       </div>
-      <div class="integration-note sii-cert-warning"><i class="bi bi-info-circle"></i><span>Factura/Guía/Notas usan el motor DTE certificado. Boleta 39/41 queda visible desde Pedidos, pero su envío real se habilita al completar la certificación específica de Boleta Electrónica.</span></div>
-      <div class="editor-actions"><button class="btn btn-primary" id="siiEmitDte" type="button"><i class="bi bi-receipt"></i> Firmar y enviar al SII</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
+      
+      <div class="editor-actions"><button class="btn btn-primary" id="siiEmitDte" type="button"><i class="bi bi-receipt"></i> Generar documento</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
     </div>
 
     <section class="admin-view" id="view-settings">
@@ -806,5 +810,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260923-r918110-logo-qr-dte"></script><script src="api.js?v=20260923-r918110-logo-qr-dte"></script><script src="sii-api.js?v=20260923-r918110-logo-qr-dte"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918110-logo-qr-dte"></script>
+<script src="config.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="api.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="sii-api.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918112-boleta-rest-ticket"></script>
 </body></html>

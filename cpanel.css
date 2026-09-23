@@ -3453,9 +3453,13 @@ body.sii-modal-open::before{content:"";position:fixed;inset:0;background:rgba(44
 /* =========================================================
    R9.18.103 · PREVISUALIZACION / CARGA DE PEDIDO PARA SII
    ========================================================= */
-.sii-order-preview{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 14px;border:1px solid #d9e9dc;background:#f4fbf6;border-radius:14px;color:#46624f}
-.sii-order-preview.hidden{display:none!important}.sii-order-preview>div{display:grid;gap:3px}.sii-order-preview strong{display:flex;align-items:center;gap:7px;color:#315d3f;font-size:13px}.sii-order-preview span{font-size:12px;color:#6c7d70}.sii-order-preview small{font-size:11px;font-weight:700}.sii-order-preview small.ok{color:#2f7d4d}.sii-order-preview small.warn{color:#986019}
-@media(max-width:680px){.sii-order-preview{align-items:flex-start;flex-direction:column}}
+.sii-order-preview{grid-column:1/-1;display:block;padding:14px;border:1px solid #d9e9dc;background:#f4fbf6;border-radius:14px;color:#46624f}
+.sii-order-preview.hidden{display:none!important}.sii-order-preview strong{display:flex;align-items:center;gap:7px;color:#315d3f;font-size:13px}.sii-order-preview span{font-size:12px;color:#6c7d70}.sii-order-preview small{font-size:11px;font-weight:700}.sii-order-preview small.ok{color:#2f7d4d}.sii-order-preview small.warn{color:#986019}
+.sii-order-preview-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}.sii-order-preview-head>div{display:grid;gap:3px}.sii-order-review-badge{display:inline-flex!important;align-items:center;gap:5px;padding:5px 8px;border:1px solid #bcdcc4;border-radius:999px;background:#fff;color:#2f7d4d!important;white-space:nowrap}
+.sii-order-detail-box{margin-top:11px;border:1px solid #dfe9e2;background:#fff;border-radius:12px;overflow:hidden}.sii-order-detail-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 11px;background:#f8fbf9;border-bottom:1px solid #e8efea}.sii-order-detail-title strong{font-size:12px}.sii-order-detail-title small{font-weight:600;color:#7b8980}
+.sii-order-detail-scroll{overflow:auto;max-height:260px}.sii-order-detail-table{width:100%;border-collapse:collapse;min-width:590px;font-size:11px}.sii-order-detail-table th{position:sticky;top:0;z-index:1;background:#f6f8f7;text-align:left;padding:8px 9px;border-bottom:1px solid #e6ebe7;color:#5d6b62;font-size:10px;text-transform:uppercase;letter-spacing:.03em}.sii-order-detail-table td{padding:8px 9px;border-bottom:1px solid #eef2ef;vertical-align:top;color:#443e3a}.sii-order-detail-table tbody tr:last-child td{border-bottom:0}.sii-order-detail-table .num{text-align:right;white-space:nowrap}.sii-order-item-name{font-weight:700;color:#3e493f}.sii-order-item-desc{display:block;margin-top:2px;font-size:10px!important;color:#7e8580!important;font-weight:500!important}
+.sii-order-preview-footer{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:end;padding-top:10px}.sii-order-preview-status{display:flex;flex-wrap:wrap;gap:5px 10px}.sii-order-preview-total{text-align:right}.sii-order-preview-total small{display:block;color:#6f7b73}.sii-order-preview-total strong{display:block!important;font-size:18px!important;justify-content:flex-end;color:#315d3f}.sii-order-review-note{margin-top:8px;padding-top:8px;border-top:1px dashed #d7e4da;display:grid;gap:4px}
+@media(max-width:680px){.sii-order-preview-head{flex-direction:column}.sii-order-preview-footer{grid-template-columns:1fr}.sii-order-preview-total{text-align:left}.sii-order-preview-total strong{justify-content:flex-start}}
 
 /* =========================================================
    R9.18.104 · PRUEBA LOCAL + PDF representación SII
@@ -3555,3 +3559,27 @@ body.sii-modal-open #adminToast{top:18px!important;bottom:auto!important;max-wid
 #ordersTable .order-tax-btn{display:none!important}
 #ordersTable .order-inline-actions{flex-wrap:nowrap!important;min-width:max-content!important}
 #ordersTable .order-number-cell{min-width:210px!important}
+
+
+/* R9.18.117 · DTE visibles en Pedidos + trazabilidad */
+.order-dte-cell{min-width:190px;max-width:300px}
+.order-dte-list{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.order-dte-chip{display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;border:1px solid #d8d8d8;background:#fff;font-size:10px;font-weight:700;line-height:1.1;white-space:nowrap;color:#4d4a46}
+.order-dte-chip b{font-size:9px;color:#706963}.order-dte-chip em{font-size:8px;font-style:normal;padding:2px 4px;border-radius:999px;background:#f1eee9}
+.order-dte-chip.local{border-color:#e6c6a8;background:#fff8f0;color:#96552b}.order-dte-chip.local em{background:#f8e1ce;color:#8c4b23}
+.order-dte-chip.accepted{border-color:#b9dbc4;background:#f2fbf5;color:#2f7447}.order-dte-chip.accepted em{background:#dff2e5;color:#2f7447}
+.order-dte-chip.sent{border-color:#c7d7eb;background:#f4f8fd;color:#466b97}.order-dte-chip.error{border-color:#e6bcbc;background:#fff3f3;color:#9a4040}.order-dte-chip.error em{background:#f7dcdc;color:#913b3b}
+.order-dte-chip.issued{border-color:#d9d2c8;background:#fbfaf8;color:#665f57}.order-dte-more{font-size:10px;font-weight:800;color:#7b736a}
+.order-dte-none{white-space:nowrap;font-size:11px}
+.order-detail-dte-card{grid-column:1/-1!important;align-items:flex-start!important}.order-detail-dte-card .order-dte-list{margin-top:5px}
+.order-history-row.is-dte .order-history-dot{background:#b68b50;box-shadow:0 0 0 4px rgba(182,139,80,.14)}
+.order-history-row.is-dte strong{color:#6d5432}.order-history-row.is-dte strong i{margin-right:4px}
+
+
+/* R9.18.118 · Emisión SII limpia, estilo producción */
+.sii-issue-status{display:flex;align-items:center;gap:7px;min-height:34px;padding:7px 10px;border-radius:10px;font-size:11px;font-weight:700}
+.sii-issue-status.hidden{display:none!important}
+.sii-issue-status.ok{background:#f3faf5;border:1px solid #cce4d3;color:#39704a}
+.sii-issue-status.warn{background:#fff9ef;border:1px solid #eed7aa;color:#8a6426}
+.sii-issue-status.error{background:#fff4f4;border:1px solid #e8c5c5;color:#963f3f}
+.sii-issue-status span{line-height:1.25}
