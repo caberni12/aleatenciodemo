@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260923-r918112-boleta-rest-ticket"><link rel="stylesheet" href="cpanel.css?v=20260923-r918112-boleta-rest-ticket">
+  <link rel="stylesheet" href="styles.css?v=20260923-r918119-warehouse-inventory-ledger"><link rel="stylesheet" href="cpanel.css?v=20260923-r918119-warehouse-inventory-ledger">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -43,7 +43,10 @@
       <button data-view="wholesale"><i class="bi bi-shop-window"></i> Mayoristas / Precios</button>
       <button data-view="wholesale-credits"><i class="bi bi-wallet2"></i> Créditos Mayoristas</button>
       <button data-view="suppliers"><i class="bi bi-truck"></i> Proveedores</button>
-      <button data-view="inventory"><i class="bi bi-boxes"></i> Mercadería / Costos</button>
+      <button data-view="warehouses"><i class="bi bi-building"></i> Bodegas</button>
+      <button data-view="stock"><i class="bi bi-box-seam"></i> Inventario</button>
+      <button data-view="ledger"><i class="bi bi-journal-text"></i> Libro Mayor Auxiliar</button>
+      <button data-view="inventory"><i class="bi bi-boxes"></i> Insumos / Costos</button>
       <button data-view="gallery"><i class="bi bi-images"></i> Galería</button>
       <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
       <button data-view="integrations"><i class="bi bi-diagram-3"></i> Integraciones</button>
@@ -205,7 +208,7 @@
           <label class="field-group"><span>WhatsApp</span><input id="ocPhone"></label><label class="field-group"><span>Correo</span><input id="ocEmail" type="email"></label>
           <label class="field-group"><span>Entrega</span><select id="ocDelivery"><option>Retiro</option><option>Despacho</option><option>Coordinar</option></select></label><label class="field-group"><span>Dirección</span><input id="ocAddress"></label>
           <label class="field-group"><span>Comuna</span><input id="ocCommune" placeholder="Ej: Independencia"></label>
-          <label class="field-group"><span>Medio de pago</span><select id="ocPayment"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label><label class="field-group"><span>Despacho · CLP</span><input id="ocDispatch" type="text" inputmode="numeric" autocomplete="off" value="0" placeholder="Ej: 5.000"></label>
+          <label class="field-group"><span>Medio de pago</span><select id="ocPayment"><option value="EFECTIVO">Efectivo</option><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label><label class="field-group"><span>Bodega de salida</span><select id="ocWarehouse"></select></label><label class="field-group"><span>Despacho · CLP</span><input id="ocDispatch" type="text" inputmode="numeric" autocomplete="off" value="0" placeholder="Ej: 5.000"></label>
           <label class="field-group span-2"><span>Productos / líneas</span><textarea id="ocItems" rows="7" placeholder="Formato: Producto | cantidad | precio
 Torta chocolate | 1 | 25000"></textarea></label>
           <label class="field-group span-2"><span>Observaciones</span><textarea id="ocNotes"></textarea></label>
@@ -516,6 +519,104 @@ Torta chocolate | 1 | 25000"></textarea></label>
       </div>
     </section>
 
+
+    <section class="admin-view" id="view-warehouses">
+      <div class="admin-card warehouse-main-card">
+        <div class="card-head"><div><span class="eyebrow">Operación</span><h2>Bodegas</h2></div><div class="card-head-actions"><button class="btn btn-primary" id="newWarehouse" type="button"><i class="bi bi-plus-lg"></i> Nueva bodega</button></div></div>
+        <div class="kpi-grid warehouse-kpis"><div class="kpi-card"><span>Bodegas</span><strong id="warehouseKpiTotal">0</strong></div><div class="kpi-card"><span>Activas</span><strong id="warehouseKpiActive">0</strong></div><div class="kpi-card"><span>Inactivas</span><strong id="warehouseKpiInactive">0</strong></div></div>
+        <div class="table-wrap" id="warehousesTable"></div>
+      </div>
+      <div class="admin-card">
+        <div class="card-head"><div><span class="eyebrow">Canales</span><h3>Bodega de venta</h3></div><button class="btn btn-primary btn-compact" id="saveWarehouseChannels" type="button">Guardar</button></div>
+        <div class="warehouse-channel-grid">
+          <label><span>Web / eCommerce</span><select id="warehouseChannelWeb"></select></label>
+          <label><span>Venta presencial</span><select id="warehouseChannelPresencial"></select></label>
+          <label><span>Mayorista</span><select id="warehouseChannelMayorista"></select></label>
+          <label><span>Pedido cPanel</span><select id="warehouseChannelCpanel"></select></label>
+        </div>
+      </div>
+      <div class="editor hidden" id="warehouseEditor" role="dialog" aria-modal="true">
+        <div class="editor-modal-head"><div><span class="eyebrow">Bodega</span><h3 id="warehouseEditorTitle">Nueva bodega</h3></div><button type="button" class="editor-close-x" id="closeWarehouseEditor">×</button></div>
+        <input type="hidden" id="warehouseId">
+        <div class="form-grid">
+          <label class="field-group"><span>Código</span><input id="warehouseCode" value="Automático" disabled></label>
+          <label class="field-group"><span>Estado</span><select id="warehouseActive"><option value="SI">Activa</option><option value="NO">Inactiva</option></select></label>
+          <label class="field-group span-2"><span>Nombre</span><input id="warehouseName" placeholder="Bodega"></label>
+          <label class="field-group span-2"><span>Dirección / ubicación</span><input id="warehouseAddress"></label>
+          <label class="field-group"><span>Responsable</span><input id="warehouseManager"></label>
+          <label class="field-group span-2"><span>Observaciones</span><textarea id="warehouseNotes"></textarea></label>
+        </div>
+        <div class="editor-actions"><button class="btn btn-primary" id="saveWarehouse" type="button">Guardar bodega</button><button class="btn btn-light" id="cancelWarehouse" type="button">Cancelar</button></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-stock">
+      <div class="admin-card stock-control-card">
+        <div class="card-head"><div><span class="eyebrow">Existencias</span><h2>Inventario</h2></div><div class="card-head-actions">
+          <a class="btn btn-light" href="PLANTILLA_CARGA_INVENTARIO_ALE_ATENCIO.xlsx" download><i class="bi bi-file-earmark-excel"></i> Plantilla XLSX</a>
+          <button class="btn btn-light" id="openInventoryImport" type="button"><i class="bi bi-upload"></i> Importar XLSX</button>
+          <button class="btn btn-primary" id="openInventoryPart" type="button"><i class="bi bi-arrow-left-right"></i> Nuevo movimiento</button>
+        </div></div>
+        <div class="kpi-grid"><div class="kpi-card"><span>Stock físico</span><strong id="stockKpiPhysical">0</strong></div><div class="kpi-card"><span>Reservado</span><strong id="stockKpiReserved">0</strong></div><div class="kpi-card"><span>Disponible</span><strong id="stockKpiAvailable">0</strong></div><div class="kpi-card"><span>Movimientos</span><strong id="stockKpiMovements">0</strong></div></div>
+        <div class="admin-toolbar inventory-toolbar">
+          <select id="stockWarehouseFilter"></select>
+          <input id="stockSearch" type="search" placeholder="Buscar producto...">
+          <button class="btn btn-light" id="refreshStock" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button>
+        </div>
+        <div class="table-wrap inventory-stock-table" id="warehouseStockTable"></div>
+      </div>
+      <div class="admin-card">
+        <div class="card-head"><div><span class="eyebrow">Kardex</span><h3>Movimientos de inventario</h3></div><button class="btn btn-light btn-compact" id="exportInventoryMoves" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button></div>
+        <div class="table-wrap" id="warehouseMovementsTable"></div>
+      </div>
+
+      <div class="editor hidden inventory-import-editor" id="inventoryImportEditor" role="dialog" aria-modal="true">
+        <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Cargar XLSX</h3></div><button type="button" class="editor-close-x" id="closeInventoryImport">×</button></div>
+        <div class="form-grid">
+          <label class="field-group"><span>Operación</span><select id="inventoryImportType"><option value="">Seleccionar</option><option value="CARGA_INICIAL">Carga inicial</option><option value="AJUSTE">Ajuste de inventario</option></select></label>
+          <label class="field-group"><span>Bodega</span><select id="inventoryImportWarehouse"></select></label>
+          <label class="field-group span-2"><span>Motivo / referencia</span><input id="inventoryImportReason" placeholder="Inventario físico, apertura..."></label>
+          <div class="field-group file-field span-2" data-file-picker="xlsx"><span>Archivo XLSX</span><input id="inventoryImportFile" class="file-input" type="file" accept=".xlsx,.xls"><label class="file-picker-btn" for="inventoryImportFile"><i class="bi bi-file-earmark-excel"></i><span class="file-picker-text">Seleccionar XLSX</span></label><small class="file-name">Sin archivo seleccionado</small></div>
+          <label class="inventory-force-row hidden span-2" id="inventoryImportForceRow"><input id="inventoryImportForce" type="checkbox"> Reaplicar carga inicial sobre registros ya inicializados</label>
+        </div>
+        <div class="inventory-import-summary" id="inventoryImportSummary"></div>
+        <div class="table-wrap inventory-import-preview" id="inventoryImportPreview"></div>
+        <div class="editor-actions"><button class="btn btn-primary" id="applyInventoryImport" type="button" disabled>Aplicar inventario</button><button class="btn btn-light" id="cancelInventoryImport" type="button">Cancelar</button></div>
+      </div>
+
+      <div class="editor hidden inventory-part-editor" id="inventoryPartEditor" role="dialog" aria-modal="true">
+        <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Movimiento de inventario</h3></div><button type="button" class="editor-close-x" id="closeInventoryPart">×</button></div>
+        <div class="form-grid">
+          <label class="field-group"><span>Tipo</span><select id="inventoryPartType"><option value="ENTRADA">Parte de entrada</option><option value="SALIDA">Parte de salida</option><option value="AJUSTE">Ajuste de inventario</option><option value="TRANSFERENCIA">Transferencia entre bodegas</option><option value="RECEPCION_IMPORTACION">Recepción de importación</option><option value="RECEPCION_EXPORTACION">Recepción de exportación</option></select></label>
+          <label class="field-group"><span>Bodega</span><select id="inventoryPartWarehouse"></select></label>
+          <label class="field-group inventory-destination-field hidden"><span>Bodega destino</span><select id="inventoryPartDestination"></select></label>
+          <label class="field-group"><span>Documento</span><input id="inventoryPartDocument" placeholder="N.º / referencia"></label>
+          <label class="field-group span-2"><span>Motivo</span><input id="inventoryPartReason"></label>
+        </div>
+        <div class="receipt-items-head"><strong>Detalle</strong><button class="btn btn-light btn-compact" id="addInventoryPartItem" type="button">+ Línea</button></div>
+        <div id="inventoryPartItems" class="inventory-part-rows"></div>
+        <div class="editor-actions"><button class="btn btn-primary" id="saveInventoryPart" type="button">Aplicar movimiento</button><button class="btn btn-light" id="cancelInventoryPart" type="button">Cancelar</button></div>
+      </div>
+    </section>
+
+    <section class="admin-view" id="view-ledger">
+      <div class="admin-card auxiliary-ledger-card">
+        <div class="card-head"><div><span class="eyebrow">Trazabilidad</span><h2>Libro Mayor Auxiliar</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportLedgerXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button></div></div>
+        <div class="admin-toolbar ledger-toolbar">
+          <input id="ledgerSearch" type="search" placeholder="Pedido, folio, documento, RUT...">
+          <select id="ledgerTypeFilter"><option value="">Todos los movimientos</option><option value="VENTA">Ventas</option><option value="FACTURA">Facturas</option><option value="BOLETA">Boletas</option><option value="GUÍA">Guías</option><option value="NOTA">Notas de crédito/débito</option><option value="INVENTARIO">Inventario</option></select>
+          <button class="btn btn-primary" id="ledgerConsult" type="button"><i class="bi bi-search"></i> Consultar documento</button>
+        </div>
+        <div class="table-wrap" id="ledgerTable"></div>
+      </div>
+      <div class="editor hidden ledger-history-editor" id="ledgerHistoryEditor" role="dialog" aria-modal="true">
+        <div class="editor-modal-head"><div><span class="eyebrow">Documento</span><h3 id="ledgerHistoryTitle">Historial</h3></div><button type="button" class="editor-close-x" id="closeLedgerHistory">×</button></div>
+        <div class="ledger-document-summary" id="ledgerDocumentSummary"></div>
+        <div class="ledger-timeline" id="ledgerTimeline"></div>
+        <div class="editor-actions"><button class="btn btn-light" id="closeLedgerHistoryBottom" type="button">Cerrar</button></div>
+      </div>
+    </section>
+
     <section class="admin-view" id="view-inventory">
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Control de costos</span><h2>Mercadería e insumos</h2><p class="module-help">Registra compras, actualiza existencias y costo promedio, y calcula el costo de elaboración según los ingredientes configurados en Productos.</p></div><div class="card-head-actions"><button class="btn btn-light" id="newSupply" type="button"><i class="bi bi-plus-lg"></i> Nuevo insumo</button><button class="btn btn-primary" id="newInventoryReceipt" type="button"><i class="bi bi-box-arrow-in-down"></i> Ingreso de mercadería</button></div></div>
         <div class="kpi-grid"><div class="kpi-card"><span>Valor inventario</span><strong id="inventoryKpiValue">$0</strong></div><div class="kpi-card"><span>Insumos bajo mínimo</span><strong id="inventoryKpiLow">0</strong></div><div class="kpi-card"><span>Compras del mes</span><strong id="inventoryKpiMonth">$0</strong></div></div>
@@ -810,5 +911,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="api.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="sii-api.js?v=20260923-r918112-boleta-rest-ticket"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918112-boleta-rest-ticket"></script>
+<script src="config.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="api.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="sii-api.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918119-warehouse-inventory-ledger"></script>
 </body></html>
