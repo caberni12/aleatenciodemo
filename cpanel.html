@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260923-r918119-warehouse-inventory-ledger"><link rel="stylesheet" href="cpanel.css?v=20260923-r918119-warehouse-inventory-ledger">
+  <link rel="stylesheet" href="styles.css?v=20260923-r918120-polished-operational-ui"><link rel="stylesheet" href="cpanel.css?v=20260923-r918120-polished-operational-ui">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -522,37 +522,44 @@ Torta chocolate | 1 | 25000"></textarea></label>
 
     <section class="admin-view" id="view-warehouses">
       <div class="admin-card warehouse-main-card">
-        <div class="card-head"><div><span class="eyebrow">Operación</span><h2>Bodegas</h2></div><div class="card-head-actions"><button class="btn btn-primary" id="newWarehouse" type="button"><i class="bi bi-plus-lg"></i> Nueva bodega</button></div></div>
+        <div class="card-head warehouse-head"><div><span class="eyebrow">Operación</span><h2>Bodegas</h2></div><div class="card-head-actions">
+          <button class="btn btn-light" id="openWarehouseChannels" type="button"><i class="bi bi-sliders"></i> Configurar canales</button>
+          <button class="btn btn-primary" id="newWarehouse" type="button"><i class="bi bi-plus-lg"></i> Nueva bodega</button>
+        </div></div>
         <div class="kpi-grid warehouse-kpis"><div class="kpi-card"><span>Bodegas</span><strong id="warehouseKpiTotal">0</strong></div><div class="kpi-card"><span>Activas</span><strong id="warehouseKpiActive">0</strong></div><div class="kpi-card"><span>Inactivas</span><strong id="warehouseKpiInactive">0</strong></div></div>
-        <div class="table-wrap" id="warehousesTable"></div>
+        <div class="warehouse-channel-summary" id="warehouseChannelSummary"></div>
+        <div class="table-wrap warehouse-table-wrap" id="warehousesTable"></div>
       </div>
-      <div class="admin-card">
-        <div class="card-head"><div><span class="eyebrow">Canales</span><h3>Bodega de venta</h3></div><button class="btn btn-primary btn-compact" id="saveWarehouseChannels" type="button">Guardar</button></div>
-        <div class="warehouse-channel-grid">
-          <label><span>Web / eCommerce</span><select id="warehouseChannelWeb"></select></label>
-          <label><span>Venta presencial</span><select id="warehouseChannelPresencial"></select></label>
-          <label><span>Mayorista</span><select id="warehouseChannelMayorista"></select></label>
-          <label><span>Pedido cPanel</span><select id="warehouseChannelCpanel"></select></label>
-        </div>
-      </div>
-      <div class="editor hidden" id="warehouseEditor" role="dialog" aria-modal="true">
+
+      <div class="editor hidden operational-modal warehouse-editor-modal" id="warehouseEditor" role="dialog" aria-modal="true">
         <div class="editor-modal-head"><div><span class="eyebrow">Bodega</span><h3 id="warehouseEditorTitle">Nueva bodega</h3></div><button type="button" class="editor-close-x" id="closeWarehouseEditor">×</button></div>
         <input type="hidden" id="warehouseId">
-        <div class="form-grid">
+        <div class="form-grid compact-form-grid">
           <label class="field-group"><span>Código</span><input id="warehouseCode" value="Automático" disabled></label>
           <label class="field-group"><span>Estado</span><select id="warehouseActive"><option value="SI">Activa</option><option value="NO">Inactiva</option></select></label>
-          <label class="field-group span-2"><span>Nombre</span><input id="warehouseName" placeholder="Bodega"></label>
-          <label class="field-group span-2"><span>Dirección / ubicación</span><input id="warehouseAddress"></label>
-          <label class="field-group"><span>Responsable</span><input id="warehouseManager"></label>
-          <label class="field-group span-2"><span>Observaciones</span><textarea id="warehouseNotes"></textarea></label>
+          <label class="field-group span-2"><span>Nombre</span><input id="warehouseName" placeholder="Nombre de la bodega"></label>
+          <label class="field-group span-2"><span>Dirección / ubicación</span><input id="warehouseAddress" placeholder="Dirección o ubicación interna"></label>
+          <label class="field-group"><span>Responsable</span><input id="warehouseManager" placeholder="Responsable"></label>
+          <label class="field-group span-2"><span>Observaciones</span><textarea id="warehouseNotes" placeholder="Observaciones opcionales"></textarea></label>
         </div>
-        <div class="editor-actions"><button class="btn btn-primary" id="saveWarehouse" type="button">Guardar bodega</button><button class="btn btn-light" id="cancelWarehouse" type="button">Cancelar</button></div>
+        <div class="editor-actions"><button class="btn btn-primary" id="saveWarehouse" type="button"><i class="bi bi-check2"></i> Guardar bodega</button><button class="btn btn-light" id="cancelWarehouse" type="button">Cancelar</button></div>
+      </div>
+
+      <div class="editor hidden operational-modal warehouse-channel-modal" id="warehouseChannelEditor" role="dialog" aria-modal="true">
+        <div class="editor-modal-head"><div><span class="eyebrow">Bodegas</span><h3>Canales de venta</h3></div><button type="button" class="editor-close-x" id="closeWarehouseChannels">×</button></div>
+        <div class="warehouse-channel-grid modal-channel-grid">
+          <label class="channel-config-card"><span class="channel-icon"><i class="bi bi-globe2"></i></span><span class="channel-label">Web / eCommerce</span><select id="warehouseChannelWeb"></select></label>
+          <label class="channel-config-card"><span class="channel-icon"><i class="bi bi-shop"></i></span><span class="channel-label">Venta presencial</span><select id="warehouseChannelPresencial"></select></label>
+          <label class="channel-config-card"><span class="channel-icon"><i class="bi bi-people"></i></span><span class="channel-label">Mayorista</span><select id="warehouseChannelMayorista"></select></label>
+          <label class="channel-config-card"><span class="channel-icon"><i class="bi bi-window"></i></span><span class="channel-label">Pedido cPanel</span><select id="warehouseChannelCpanel"></select></label>
+        </div>
+        <div class="editor-actions"><button class="btn btn-primary" id="saveWarehouseChannels" type="button"><i class="bi bi-check2"></i> Guardar configuración</button><button class="btn btn-light" id="cancelWarehouseChannels" type="button">Cancelar</button></div>
       </div>
     </section>
 
     <section class="admin-view" id="view-stock">
       <div class="admin-card stock-control-card">
-        <div class="card-head"><div><span class="eyebrow">Existencias</span><h2>Inventario</h2></div><div class="card-head-actions">
+        <div class="card-head module-premium-head"><div><span class="eyebrow">Existencias</span><h2>Inventario</h2></div><div class="card-head-actions">
           <a class="btn btn-light" href="PLANTILLA_CARGA_INVENTARIO_ALE_ATENCIO.xlsx" download><i class="bi bi-file-earmark-excel"></i> Plantilla XLSX</a>
           <button class="btn btn-light" id="openInventoryImport" type="button"><i class="bi bi-upload"></i> Importar XLSX</button>
           <button class="btn btn-primary" id="openInventoryPart" type="button"><i class="bi bi-arrow-left-right"></i> Nuevo movimiento</button>
@@ -570,7 +577,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <div class="table-wrap" id="warehouseMovementsTable"></div>
       </div>
 
-      <div class="editor hidden inventory-import-editor" id="inventoryImportEditor" role="dialog" aria-modal="true">
+      <div class="editor hidden operational-modal inventory-import-editor" id="inventoryImportEditor" role="dialog" aria-modal="true">
         <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Cargar XLSX</h3></div><button type="button" class="editor-close-x" id="closeInventoryImport">×</button></div>
         <div class="form-grid">
           <label class="field-group"><span>Operación</span><select id="inventoryImportType"><option value="">Seleccionar</option><option value="CARGA_INICIAL">Carga inicial</option><option value="AJUSTE">Ajuste de inventario</option></select></label>
@@ -584,7 +591,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <div class="editor-actions"><button class="btn btn-primary" id="applyInventoryImport" type="button" disabled>Aplicar inventario</button><button class="btn btn-light" id="cancelInventoryImport" type="button">Cancelar</button></div>
       </div>
 
-      <div class="editor hidden inventory-part-editor" id="inventoryPartEditor" role="dialog" aria-modal="true">
+      <div class="editor hidden operational-modal inventory-part-editor" id="inventoryPartEditor" role="dialog" aria-modal="true">
         <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Movimiento de inventario</h3></div><button type="button" class="editor-close-x" id="closeInventoryPart">×</button></div>
         <div class="form-grid">
           <label class="field-group"><span>Tipo</span><select id="inventoryPartType"><option value="ENTRADA">Parte de entrada</option><option value="SALIDA">Parte de salida</option><option value="AJUSTE">Ajuste de inventario</option><option value="TRANSFERENCIA">Transferencia entre bodegas</option><option value="RECEPCION_IMPORTACION">Recepción de importación</option><option value="RECEPCION_EXPORTACION">Recepción de exportación</option></select></label>
@@ -601,7 +608,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
 
     <section class="admin-view" id="view-ledger">
       <div class="admin-card auxiliary-ledger-card">
-        <div class="card-head"><div><span class="eyebrow">Trazabilidad</span><h2>Libro Mayor Auxiliar</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportLedgerXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button></div></div>
+        <div class="card-head module-premium-head"><div><span class="eyebrow">Trazabilidad</span><h2>Libro Mayor Auxiliar</h2></div><div class="card-head-actions"><button class="btn btn-light" id="exportLedgerXlsx" type="button"><i class="bi bi-file-earmark-excel"></i> XLSX</button></div></div>
         <div class="admin-toolbar ledger-toolbar">
           <input id="ledgerSearch" type="search" placeholder="Pedido, folio, documento, RUT...">
           <select id="ledgerTypeFilter"><option value="">Todos los movimientos</option><option value="VENTA">Ventas</option><option value="FACTURA">Facturas</option><option value="BOLETA">Boletas</option><option value="GUÍA">Guías</option><option value="NOTA">Notas de crédito/débito</option><option value="INVENTARIO">Inventario</option></select>
@@ -609,7 +616,7 @@ Torta chocolate | 1 | 25000"></textarea></label>
         </div>
         <div class="table-wrap" id="ledgerTable"></div>
       </div>
-      <div class="editor hidden ledger-history-editor" id="ledgerHistoryEditor" role="dialog" aria-modal="true">
+      <div class="editor hidden operational-modal ledger-history-editor" id="ledgerHistoryEditor" role="dialog" aria-modal="true">
         <div class="editor-modal-head"><div><span class="eyebrow">Documento</span><h3 id="ledgerHistoryTitle">Historial</h3></div><button type="button" class="editor-close-x" id="closeLedgerHistory">×</button></div>
         <div class="ledger-document-summary" id="ledgerDocumentSummary"></div>
         <div class="ledger-timeline" id="ledgerTimeline"></div>
@@ -911,5 +918,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="api.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="sii-api.js?v=20260923-r918119-warehouse-inventory-ledger"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918119-warehouse-inventory-ledger"></script>
+<script src="config.js?v=20260923-r918120-polished-operational-ui"></script><script src="api.js?v=20260923-r918120-polished-operational-ui"></script><script src="sii-api.js?v=20260923-r918120-polished-operational-ui"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918120-polished-operational-ui"></script>
 </body></html>

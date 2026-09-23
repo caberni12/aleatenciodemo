@@ -3595,3 +3595,196 @@ body.sii-modal-open #adminToast{top:18px!important;bottom:auto!important;max-wid
 .ledger-timeline{display:grid;gap:0;max-height:480px;overflow:auto}.ledger-timeline-row{display:grid;grid-template-columns:18px 1fr;gap:9px;position:relative;padding:8px 0}.ledger-timeline-row:before{content:"";position:absolute;left:7px;top:0;bottom:0;width:1px;background:#e1d8ce}.ledger-dot{width:9px;height:9px;border-radius:50%;background:#b68b50;margin-top:4px;z-index:1}.ledger-timeline-row div{display:grid;gap:3px}.ledger-timeline-row strong{font-size:12px}.ledger-timeline-row small{font-size:10.5px;color:#776f68}
 @media(max-width:900px){.warehouse-channel-grid{grid-template-columns:1fr 1fr}.inventory-part-row{grid-template-columns:1fr 1fr}.inventory-part-row .product-size-remove{grid-column:2}.ledger-document-summary{grid-template-columns:1fr 1fr}}
 @media(max-width:580px){.warehouse-channel-grid{grid-template-columns:1fr}.ledger-document-summary{grid-template-columns:1fr}.ledger-document-summary .span-2{grid-column:auto}.inventory-part-row{grid-template-columns:1fr}}
+
+
+/* =========================================================
+   R9.18.120 · UI PRODUCCIÓN · BODEGAS / INVENTARIO / LIBRO
+   ========================================================= */
+
+/* Overlay/modal real para los módulos nuevos */
+body.operational-modal-open{overflow:hidden}
+body.operational-modal-open::before{
+  content:"";position:fixed;inset:0;z-index:1340;
+  background:rgba(42,31,27,.48);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)
+}
+.operational-modal:not(.hidden){
+  position:fixed!important;z-index:1350!important;left:50%!important;top:50%!important;
+  transform:translate(-50%,-50%)!important;margin:0!important;
+  width:min(820px,calc(100vw - 28px))!important;
+  max-height:min(88dvh,820px)!important;overflow:auto!important;
+  padding:22px!important;border:1px solid rgba(218,199,190,.92)!important;
+  border-radius:24px!important;background:#fffaf8!important;
+  box-shadow:0 30px 90px rgba(46,31,25,.30)!important
+}
+.operational-modal .editor-modal-head{
+  position:sticky;top:-22px;z-index:7;margin:-22px -22px 18px!important;
+  padding:20px 22px 14px!important;background:rgba(255,250,248,.97)!important;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(226,212,204,.78)
+}
+.operational-modal .editor-modal-head .eyebrow{
+  color:#b28a49!important;font-size:10px!important;letter-spacing:.18em!important
+}
+.operational-modal .editor-modal-head h3{
+  margin:3px 0 0!important;color:#47362f!important;font-size:22px!important;font-weight:750!important
+}
+.operational-modal .editor-close-x{
+  width:38px!important;height:38px!important;font-size:24px!important;
+  background:#fff!important;border:1px solid #eee2dc!important;
+  box-shadow:0 5px 18px rgba(61,43,36,.08)!important
+}
+.operational-modal .editor-actions{
+  position:sticky;bottom:-22px;z-index:7;margin:20px -22px -22px!important;
+  padding:14px 22px 20px!important;background:linear-gradient(180deg,rgba(255,250,248,.76),#fffaf8 28%)!important;
+  border-top:1px solid rgba(226,212,204,.74)!important
+}
+.operational-modal .editor-actions .btn{min-height:42px!important;padding:9px 15px!important}
+.operational-modal .compact-form-grid{gap:13px!important}
+.operational-modal .form-grid input,
+.operational-modal .form-grid select,
+.operational-modal .form-grid textarea{
+  min-height:44px!important;padding:10px 13px!important;border-radius:12px!important;
+  background:#fff!important;border-color:#e5d7d0!important;font-size:13px!important
+}
+.operational-modal .form-grid textarea{min-height:82px!important;max-height:140px!important}
+.operational-modal .field-group>span{font-size:11px!important}
+
+/* Bodegas */
+.warehouse-main-card{border-radius:20px!important}
+.warehouse-head{margin-bottom:14px!important}
+.warehouse-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:10px!important;margin:0 0 12px!important}
+.warehouse-kpis .kpi-card{
+  min-height:82px!important;padding:13px 15px!important;border-radius:16px!important;
+  background:linear-gradient(145deg,#fff,#fbf6f3)!important;border:1px solid #eadfd9!important
+}
+.warehouse-kpis .kpi-card span{font-size:10px!important;text-transform:uppercase;letter-spacing:.08em!important}
+.warehouse-kpis .kpi-card strong{font-size:22px!important}
+.warehouse-channel-summary{
+  display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:0 0 12px;padding:0
+}
+.warehouse-channel-chip{
+  display:inline-flex;align-items:center;gap:7px;padding:6px 9px;
+  border:1px solid #e6ddd8;border-radius:999px;background:#fff;font-size:10px;color:#786a62
+}
+.warehouse-channel-chip small{font-size:9px;text-transform:uppercase;letter-spacing:.05em;color:#9a8b82}
+.warehouse-channel-chip strong{color:#58453d;font-size:10px}
+.warehouse-table-wrap{border-radius:14px!important;overflow:auto!important}
+#warehousesTable table th{background:#f8f3f0!important}
+#warehousesTable table td,#warehousesTable table th{padding-top:10px!important;padding-bottom:10px!important}
+#warehousesTable .row-actions button{
+  min-height:30px;padding:5px 10px;border:1px solid #dfd3cd;border-radius:9px;background:#fff;
+  color:#654f47;font-size:10px;font-weight:800;cursor:pointer
+}
+#warehousesTable .row-actions button:hover{background:#f8efeb;border-color:#d1bbb2}
+.warehouse-editor-modal{width:min(720px,calc(100vw - 28px))!important}
+.warehouse-editor-modal #warehouseCode{background:#f7f3f1!important;color:#8c817b!important}
+
+/* Configuración de canales */
+.warehouse-channel-modal{width:min(760px,calc(100vw - 28px))!important}
+.modal-channel-grid{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:12px!important
+}
+.channel-config-card{
+  display:grid!important;grid-template-columns:36px 1fr;gap:4px 10px;align-items:center;
+  padding:13px!important;border:1px solid #eadfd9;border-radius:16px;background:#fff!important
+}
+.channel-config-card .channel-icon{
+  grid-row:1/3;width:36px;height:36px;border-radius:11px;display:grid;place-items:center;
+  background:#f7eee9;color:#8b6658;font-size:16px
+}
+.channel-config-card .channel-label{
+  font-size:11px!important;font-weight:850!important;color:#5f4d45!important
+}
+.channel-config-card select{
+  grid-column:2;min-height:40px!important;border:1px solid #e0d2cb!important;
+  border-radius:11px!important;padding:8px 11px!important;background:#fff!important;
+  color:#43352f!important;font-size:12px!important
+}
+
+/* Inventario */
+#view-stock .stock-control-card,#view-stock>.admin-card{
+  border-radius:20px!important
+}
+.module-premium-head{margin-bottom:14px!important}
+#view-stock .kpi-grid{gap:10px!important}
+#view-stock .kpi-card{
+  min-height:86px!important;border-radius:16px!important;padding:13px 15px!important;
+  border:1px solid #e8ddd7!important;background:linear-gradient(145deg,#fff,#fcf7f4)!important
+}
+.inventory-toolbar{
+  padding:9px!important;background:#faf6f3;border:1px solid #ece2dd;border-radius:14px!important;
+  margin:12px 0!important
+}
+.inventory-toolbar select,.inventory-toolbar input{
+  min-height:40px!important;border-radius:10px!important;background:#fff!important
+}
+.inventory-stock-table,#warehouseMovementsTable{
+  border:1px solid #eee4df;border-radius:14px!important;overflow:auto!important
+}
+#warehouseStockTable table th,#warehouseMovementsTable table th{background:#f8f4f1!important}
+#warehouseStockTable table td,#warehouseMovementsTable table td{padding-top:9px!important;padding-bottom:9px!important}
+.inventory-import-editor{width:min(980px,calc(100vw - 28px))!important}
+.inventory-part-editor{width:min(920px,calc(100vw - 28px))!important}
+.inventory-import-summary{
+  border-radius:12px!important;background:#f9f5f2!important;border-color:#eaded8!important;
+  padding:9px 11px!important;margin:10px 0!important
+}
+.inventory-import-preview{border:1px solid #eee3dd!important;border-radius:12px!important;overflow:auto!important}
+.receipt-items-head{
+  padding:10px 0!important;margin-top:8px!important;border-bottom:1px solid #eee4df!important
+}
+.inventory-part-row{
+  padding:9px;border:1px solid #eee2dc;border-radius:13px;background:#fff!important
+}
+.inventory-part-row select,.inventory-part-row input{
+  min-height:40px!important;border:1px solid #e4d7d0!important;border-radius:10px!important;
+  padding:8px 10px!important;background:#fff!important
+}
+
+/* Libro Mayor */
+.auxiliary-ledger-card{border-radius:20px!important}
+.ledger-toolbar{
+  padding:9px!important;margin:10px 0 12px!important;border:1px solid #ece1dc;
+  border-radius:14px!important;background:#faf6f3!important
+}
+.ledger-toolbar input,.ledger-toolbar select{min-height:40px!important;border-radius:10px!important;background:#fff!important}
+#ledgerTable{border:1px solid #eee4df;border-radius:14px!important;overflow:auto!important}
+#ledgerTable table th{background:#f8f4f1!important}
+#ledgerTable table td{padding-top:9px!important;padding-bottom:9px!important}
+.ledger-history-editor{width:min(860px,calc(100vw - 28px))!important}
+.ledger-document-summary{gap:8px!important;margin-bottom:12px!important}
+.ledger-document-summary>div{
+  padding:9px 10px!important;border-radius:12px!important;background:#fff!important;
+  border-color:#ebe0da!important
+}
+.ledger-timeline{
+  padding:5px 10px 5px 4px;border:1px solid #eee3dd;border-radius:14px;background:#fff
+}
+.ledger-timeline-row{padding:9px 0!important}
+.ledger-timeline-row strong{font-size:11.5px!important}
+.ledger-timeline-row small{font-size:10px!important}
+
+/* Botones de cabecera nuevos: más compactos */
+#view-warehouses .card-head-actions .btn,
+#view-stock .card-head-actions .btn,
+#view-ledger .card-head-actions .btn{
+  min-height:38px!important;padding:8px 12px!important;border-radius:11px!important;font-size:11px!important
+}
+
+/* Responsive */
+@media(max-width:720px){
+  .operational-modal:not(.hidden){
+    width:calc(100vw - 14px)!important;max-height:94dvh!important;
+    padding:16px!important;border-radius:19px!important
+  }
+  .operational-modal .editor-modal-head{top:-16px;margin:-16px -16px 14px!important;padding:16px 16px 12px!important}
+  .operational-modal .editor-actions{bottom:-16px;margin:16px -16px -16px!important;padding:12px 16px 16px!important}
+  .modal-channel-grid{grid-template-columns:1fr!important}
+  .warehouse-kpis{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+  .warehouse-channel-summary{gap:5px}
+}
+@media(max-width:480px){
+  .warehouse-kpis{grid-template-columns:1fr!important}
+  .warehouse-channel-chip{width:100%;justify-content:space-between}
+}
