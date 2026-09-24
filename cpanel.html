@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260923-r918120-polished-operational-ui"><link rel="stylesheet" href="cpanel.css?v=20260923-r918120-polished-operational-ui">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918126-sii-exchange-cert"><link rel="stylesheet" href="cpanel.css?v=20260924-r918126-sii-exchange-cert">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -51,6 +51,7 @@
       <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
       <button data-view="integrations"><i class="bi bi-diagram-3"></i> Integraciones</button>
       <button data-view="payments"><i class="bi bi-credit-card-2-front"></i> Pasarela de pago</button>
+      <button data-view="folio-manager"><i class="bi bi-123"></i> Mantenedor de Folios</button>
       <button data-view="billing-sii"><i class="bi bi-receipt"></i> Facturación SII</button>
       <button data-view="users" id="usersNavBtn"><i class="bi bi-people"></i> Usuarios</button>
       <button data-view="settings"><i class="bi bi-gear"></i> Configuración</button>
@@ -103,12 +104,16 @@
               <div class="form-grid">
                 <label class="field-group"><span>Nombre del producto</span><input id="pName" placeholder="Ej. Torta Chocolate"></label>
                 <input id="pPrice" type="hidden" value="0">
-                <input id="pStock" type="hidden" value="0">
+                
                 <label class="field-group"><span>Categoría</span><select id="pCategory"></select></label>
-                <div class="field-group span-2 product-size-editor"><div class="product-size-editor-head"><div><span>Tamaños y valores</span><small>Configura el precio y stock de cada tamaño. La tarjeta Web cambia el valor al seleccionar el tamaño.</small></div><button class="btn btn-light btn-compact" id="addProductSize" type="button">+ Otro tamaño</button></div><div id="productSizesEditor" class="product-size-rows"></div></div>
+                <div class="field-group span-2 product-size-editor"><div class="product-size-editor-head"><div><span>Tamaños y valores</span><small>Configura variantes y precios. El stock se administra desde Inventario por Bodega.</small></div><button class="btn btn-light btn-compact" id="addProductSize" type="button">+ Otro tamaño</button></div><div id="productSizesEditor" class="product-size-rows"></div></div>
+                <div class="field-group span-2 product-inventory-card">
+                  <div class="product-inventory-card-head"><div><span>Inventario por bodega</span><small>Stock físico, reservado y disponible del producto.</small></div><button class="btn btn-light btn-compact" id="manageProductInventory" type="button"><i class="bi bi-box-seam"></i> Gestionar inventario</button></div>
+                  <div id="productWarehouseInventoryPreview" class="product-warehouse-inventory-preview"></div>
+                </div>
                 <div class="field-group span-2 product-ingredient-editor"><div class="product-size-editor-head"><div><span>Ingredientes y costo estimado</span><small>Define qué insumos utiliza este producto y la cantidad de cada uno. El costo se calcula con el costo promedio de mercadería.</small></div><button class="btn btn-light btn-compact" id="addProductIngredient" type="button">+ Ingrediente</button></div><div id="productIngredientsEditor" class="product-ingredient-rows"></div><div class="ingredient-cost-total">Costo estimado por producto: <strong id="productEstimatedCost">$0</strong></div></div>
                 <label class="field-group product-status-field"><span>Estado de venta</span><select id="pActive" aria-describedby="pActiveHint"><option value="SI">Activo</option><option value="NO">Inactivo</option></select><small class="field-hint" id="pActiveHint">Activo: el producto se muestra y puede comprarse en la Web.</small></label>
-                <label class="stock-policy-switch-card" for="pAllowNegativeStock"><span class="stock-policy-copy"><strong>Permitir venta sin stock</strong><small id="pAllowNegativeStockHint">Activado: la venta continúa aunque el stock llegue a 0 y puede quedar negativo.</small></span><span class="stock-policy-switch"><input id="pAllowNegativeStock" type="checkbox" checked aria-describedby="pAllowNegativeStockHint"><span class="stock-policy-slider" aria-hidden="true"></span></span></label>
+                <input id="pAllowNegativeStock" type="hidden" value="NO">
                 <label class="field-group"><span>Ocasión</span><input id="pOccasion" placeholder="Celebraciones, regalos..."></label>
                 <div class="field-group file-field" data-file-picker="image"><span>Foto</span><input id="pImage" class="file-input" type="file" accept="image/*"><label class="file-picker-btn" for="pImage"><i class="bi bi-camera"></i><span class="file-picker-text">Seleccionar imagen</span></label><small class="file-name">Sin archivo seleccionado</small><small class="current-product-image" id="pCurrentImageName"></small></div>
                 <label class="field-group span-2"><span>Descripción</span><textarea id="pDescription" placeholder="Descripción del producto"></textarea></label>
@@ -117,23 +122,6 @@
             </div>
           </div>
           <div class="editor-actions"><button class="btn btn-primary" id="saveProduct">Guardar</button><button class="btn btn-light" data-cancel="productEditor">Cancelar</button></div>
-        </div>
-        <div class="editor hidden stock-adjustment-editor" id="productStockEditor" role="dialog" aria-modal="true" aria-labelledby="productStockEditorTitle">
-          <div class="editor-modal-head">
-            <div><span class="eyebrow">Control de inventario</span><h3 id="productStockEditorTitle">Inventario</h3><small>Registra ingresos, salidas o ajustes sin modificar el producto.</small></div>
-            <button type="button" class="editor-close-x" id="closeProductStockEditor" aria-label="Cerrar">×</button>
-          </div>
-          <input type="hidden" id="stockProductId">
-          <div class="stock-policy-summary" id="stockPolicySummary"></div>
-          <div class="form-grid stock-adjustment-grid">
-            <label class="field-group"><span>Tamaño / unidad</span><select id="stockSizeId"></select><small class="field-hint" id="stockCurrentHint">Stock actual: 0</small></label>
-            <label class="field-group"><span>Movimiento</span><select id="stockMovementType"><option value="INGRESO">Ingreso</option><option value="SALIDA">Salida</option><option value="AJUSTE">Ajuste de inventario</option></select></label>
-            <label class="field-group"><span id="stockMovementValueLabel">Cantidad</span><input id="stockMovementValue" type="number" step="1" value="1"><small class="field-hint" id="stockMovementValueHint">Ingreso suma unidades al stock actual.</small></label>
-            <label class="field-group"><span>Referencia / motivo</span><input id="stockMovementReference" maxlength="180" placeholder="Ej. producción, merma, conteo físico..."></label>
-          </div>
-          <div class="stock-adjustment-note"><i class="bi bi-arrow-counterclockwise"></i> Las <strong>anulaciones de pedidos</strong> devuelven el stock automáticamente y quedan registradas como reversa; no se realizan manualmente desde este formulario.</div>
-          <div class="editor-actions"><button class="btn btn-primary" id="saveProductStockMovement" type="button"><i class="bi bi-check2-circle"></i> Aplicar movimiento</button><button class="btn btn-light" id="cancelProductStockEditor" type="button">Cerrar</button></div>
-          <div class="stock-history-block"><div class="stock-history-head"><div><span class="eyebrow">Trazabilidad</span><h4>Últimos movimientos</h4></div></div><div class="table-wrap stock-history-table" id="productStockHistory"><div class="muted">Selecciona un producto para consultar movimientos.</div></div></div>
         </div>
         <div class="admin-toolbar product-toolbar"><input id="productSearch" placeholder="Buscar producto..."><select id="productFilter"><option value="">Todas las categorías</option></select><select id="productStatusFilter"><option value="">Todos los estados</option><option value="SI">Activo</option><option value="NO">Inactivo</option></select><button class="btn btn-light" id="clearProductFilter" type="button">Ver todos</button></div>
         <div class="product-stock-visibility-bar" id="productStockVisibilityBar">
@@ -785,6 +773,66 @@ Torta chocolate | 1 | 25000"></textarea></label>
     </section>
 
 
+    <section class="admin-view" id="view-folio-manager">
+      <div class="admin-card folio-manager-shell">
+        <div class="card-head">
+          <div><span class="eyebrow">Correlativos y empresa</span><h2>Mantenedor de Folios</h2><p class="module-help">Administra desde un solo lugar los folios internos del sistema y visualiza los folios tributarios autorizados. Los DTE dependientes del SII se solicitan y cargan exclusivamente desde Facturación SII.</p></div>
+          <div class="card-head-actions"><button class="btn btn-light" id="folioRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div>
+        </div>
+        <div class="folio-summary-grid">
+          <div><span>Series internas</span><strong id="folioInternalCount">0</strong><small>Correlativos administrados</small></div>
+          <div><span>Folios internos disponibles</span><strong id="folioInternalAvailable">0</strong><small>Según rangos configurados</small></div>
+          <div><span>CAF SII activos</span><strong id="folioSiiCafCount">0</strong><small>Rangos oficiales vigentes</small></div>
+          <div><span>Alertas</span><strong id="folioAlertCount">0</strong><small>Rangos bajos o agotados</small></div>
+        </div>
+      </div>
+
+      <div class="admin-card folio-company-card">
+        <div class="card-head"><div><span class="eyebrow">Empresa</span><h2>Parametrización de empresa</h2><p class="module-help">Estos datos alimentan documentos internos y, cuando corresponde, la configuración tributaria del emisor SII.</p></div></div>
+        <div class="form-grid folio-company-grid">
+          <label class="field-group"><span>Nombre comercial</span><input id="fmEmpresa" placeholder="Ale Atencio"></label>
+          <label class="field-group"><span>Razón social legal</span><input id="fmRazonSocial" placeholder="Razón social registrada"></label>
+          <label class="field-group"><span>RUT empresa</span><input id="fmRut" placeholder="76.123.456-7"></label>
+          <label class="field-group"><span>Giro</span><input id="fmGiro" placeholder="Giro comercial / tributario"></label>
+          <label class="field-group"><span>Actividad económica SII</span><input id="fmActeco" maxlength="6" inputmode="numeric" placeholder="107100"></label>
+          <label class="field-group"><span>Correo empresa</span><input id="fmEmail" type="email" placeholder="contacto@empresa.cl"></label>
+          <label class="field-group span-2"><span>Dirección casa matriz</span><input id="fmDireccion" placeholder="Dirección"></label>
+          <label class="field-group"><span>Comuna</span><input id="fmComuna" placeholder="Comuna"></label>
+          <label class="field-group"><span>Ciudad</span><input id="fmCiudad" placeholder="Ciudad"></label>
+        </div>
+        <div class="folio-company-sync" id="folioCompanySync"><i class="bi bi-link-45deg"></i><span>La información tributaria se sincroniza con Facturación SII cuando esa Edge Function está configurada.</span></div>
+        <div class="editor-actions folio-company-actions"><button class="btn btn-primary" id="folioSaveCompany" type="button"><i class="bi bi-floppy"></i> Guardar parametrización</button></div>
+      </div>
+
+      <div class="admin-card folio-series-card">
+        <div class="card-head"><div><span class="eyebrow">Control central</span><h2>Folios del sistema</h2><p class="module-help">Las series de origen SISTEMA se administran aquí. Las series SII se muestran para control, pero cualquier solicitud o CAF se gestiona desde el módulo SII.</p></div></div>
+        <div class="folio-legend"><span><i class="folio-dot local"></i> Sistema</span><span><i class="folio-dot sii"></i> SII / CAF</span><span><i class="bi bi-exclamation-triangle"></i> Alerta al 20% o menos</span></div>
+        <div class="table-wrap folio-table-wrap"><table class="folio-table"><thead><tr><th>Documento / serie</th><th>Origen</th><th>Prefijo</th><th>Rango</th><th>Próximo</th><th>Disponibles</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="folioSeriesTable"><tr><td colspan="8" class="empty-cell">Cargando folios…</td></tr></tbody></table></div>
+      </div>
+    </section>
+
+    <div class="editor hidden folio-modal" id="folioSeriesEditor" role="dialog" aria-modal="true" aria-labelledby="folioSeriesEditorTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Serie interna</span><h3 id="folioSeriesEditorTitle">Configurar folio</h3><small id="folioSeriesEditorSubtitle">—</small></div><button type="button" class="editor-close-x" data-folio-close>×</button></div>
+      <input type="hidden" id="folioSeriesKey">
+      <div class="form-grid">
+        <label class="field-group"><span>Prefijo</span><input id="folioSeriesPrefix" maxlength="24" placeholder="PED"></label>
+        <label class="field-group"><span>Dígitos</span><input id="folioSeriesDigits" type="number" min="2" max="12" value="6"></label>
+        <label class="field-group"><span>Próximo número</span><input id="folioSeriesNext" type="number" min="1" step="1"></label>
+        <label class="field-group"><span>Fin de rango</span><input id="folioSeriesEnd" type="number" min="1" step="1"></label>
+        <label class="field-group"><span>Estado</span><select id="folioSeriesActive"><option value="SI">Activo</option><option value="NO">Inactivo</option></select></label>
+      </div>
+      <div class="folio-warning-box"><i class="bi bi-shield-check"></i><span>El próximo número no puede retroceder por debajo de la numeración ya consumida. Esto evita reutilizar folios.</span></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="folioSeriesSave" type="button">Guardar serie</button><button class="btn btn-light" type="button" data-folio-close>Cancelar</button></div>
+    </div>
+
+    <div class="editor hidden folio-modal" id="folioExtendEditor" role="dialog" aria-modal="true" aria-labelledby="folioExtendTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Folios internos</span><h3 id="folioExtendTitle">Solicitar más folios</h3><small id="folioExtendSubtitle">—</small></div><button type="button" class="editor-close-x" data-folio-close>×</button></div>
+      <input type="hidden" id="folioExtendKey">
+      <div class="form-grid"><label class="field-group"><span>Cantidad adicional</span><input id="folioExtendQty" type="number" min="1" max="1000000" step="1" value="1000"></label></div>
+      <div class="folio-warning-box"><i class="bi bi-plus-circle"></i><span>Para series internas, “solicitar” amplía el rango disponible sin reutilizar números anteriores.</span></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="folioExtendSave" type="button">Agregar folios</button><button class="btn btn-light" type="button" data-folio-close>Cancelar</button></div>
+    </div>
+
     <section class="admin-view" id="view-billing-sii">
       <div class="admin-card sii-shell">
         <div class="card-head"><div><span class="eyebrow">Tributación electrónica</span><h2>Facturación SII</h2><p class="module-help">Gestión tributaria centralizada. Los formularios se abren solo cuando los necesitas para mantener el módulo limpio y profesional.</p></div><div class="card-head-actions"><span class="sii-env-badge" id="siiEnvironmentBadge">Sin configurar</span><button class="btn btn-light" id="siiRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
@@ -799,6 +847,8 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <button class="sii-launch-btn" type="button" data-sii-open="siiCertificateModal"><span class="sii-launch-icon"><i class="bi bi-patch-check"></i></span><span><strong>Certificado digital</strong><small>Cargar y seleccionar PFX / P12</small></span><i class="bi bi-chevron-right"></i></button>
           <button class="sii-launch-btn" type="button" data-sii-open="siiCafModal"><span class="sii-launch-icon"><i class="bi bi-file-earmark-lock2"></i></span><span><strong>CAF y folios</strong><small>Importar CAF y revisar disponibilidad</small></span><i class="bi bi-chevron-right"></i></button>
           <button class="sii-launch-btn sii-launch-primary" type="button" data-sii-open="siiEmitModal"><span class="sii-launch-icon"><i class="bi bi-receipt-cutoff"></i></span><span><strong>Emitir documento</strong><small>Factura, guía, nota o boleta habilitada</small></span><i class="bi bi-chevron-right"></i></button>
+          <button class="sii-launch-btn" type="button" data-sii-open="siiExchangeModal"><span class="sii-launch-icon"><i class="bi bi-arrow-left-right"></i></span><span><strong>Intercambio DTE</strong><small>Recibir XML, responder y emitir acuses</small></span><i class="bi bi-chevron-right"></i></button>
+          <button class="sii-launch-btn" type="button" data-sii-open="siiCertificationModal"><span class="sii-launch-icon"><i class="bi bi-list-check"></i></span><span><strong>Certificación SII</strong><small>Set, simulación, intercambio y cumplimiento</small></span><i class="bi bi-chevron-right"></i></button>
         </div>
       </div>
 
@@ -888,6 +938,23 @@ Torta chocolate | 1 | 25000"></textarea></label>
       <div class="editor-actions"><button class="btn btn-primary" id="siiEmitDte" type="button"><i class="bi bi-receipt"></i> Generar documento</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
     </div>
 
+
+    <div class="editor hidden sii-modal sii-exchange-modal" id="siiExchangeModal" role="dialog" aria-modal="true" aria-labelledby="siiExchangeModalTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Intercambio electrónico</span><h3 id="siiExchangeModalTitle">DTE recibidos de proveedores</h3><small>Importa EnvioDTE XML, registra la recepción y genera respuestas firmadas con el certificado activo.</small></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
+      <div class="integration-note"><i class="bi bi-shield-check"></i><span>El XML recibido se guarda cifrado en backend. Las respuestas se generan como XML firmado para el intercambio/certificación. La aprobación final depende de las validaciones del SII.</span></div>
+      <div class="sii-exchange-import"><div class="field-group file-field"><span>EnvioDTE XML recibido</span><input id="siiExchangeFile" class="file-input" type="file" accept=".xml,text/xml,application/xml"><label class="file-picker-btn" for="siiExchangeFile"><i class="bi bi-filetype-xml"></i><span class="file-picker-text">Seleccionar XML</span></label><small class="file-name">Sin archivo seleccionado</small></div><div class="editor-actions"><button class="btn btn-primary" id="siiExchangeImport" type="button"><i class="bi bi-cloud-arrow-up"></i> Importar DTE</button><button class="btn btn-light" id="siiExchangeRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
+      <div class="table-wrap sii-table-wrap"><table class="sii-table"><thead><tr><th>Fecha</th><th>Emisor</th><th>DTE / Folio</th><th>Total</th><th>Firma</th><th>Recepción</th><th>Comercial</th><th>Acciones</th></tr></thead><tbody id="siiExchangeTable"></tbody></table></div>
+      <div class="editor-actions"><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
+    </div>
+
+    <div class="editor hidden sii-modal sii-certification-modal" id="siiCertificationModal" role="dialog" aria-modal="true" aria-labelledby="siiCertificationModalTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Certificación sistema propio</span><h3 id="siiCertificationModalTitle">Control de certificación SII</h3><small>Registra el avance real informado por el portal del SII. El sistema no marca etapas como aprobadas automáticamente.</small></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
+      <div class="sii-cert-summary"><div><span>DTE recibidos</span><strong id="siiCertReceivedCount">0</strong></div><div><span>Respuestas firmadas</span><strong id="siiCertResponseCount">0</strong></div></div>
+      <div class="integration-note"><i class="bi bi-info-circle"></i><span>Set de pruebas, simulación, muestras, declaración y autorización se completan oficialmente en el portal del SII. Aquí se conserva la trazabilidad del avance.</span></div>
+      <div class="table-wrap sii-table-wrap"><table class="sii-table"><thead><tr><th>Etapa</th><th>Estado</th><th>Detalle / evidencia</th><th>Acción</th></tr></thead><tbody id="siiCertificationTable"></tbody></table></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="siiOpenCertificationPortal" type="button"><i class="bi bi-box-arrow-up-right"></i> Portal oficial SII</button><button class="btn btn-light" id="siiCertificationRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
+    </div>
+
     <section class="admin-view" id="view-settings">
       <div class="admin-card"><span class="eyebrow">Tienda</span><h2>Configuración</h2>
         <input type="hidden" id="sLogoId">
@@ -918,5 +985,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260923-r918120-polished-operational-ui"></script><script src="api.js?v=20260923-r918120-polished-operational-ui"></script><script src="sii-api.js?v=20260923-r918120-polished-operational-ui"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260923-r918120-polished-operational-ui"></script>
+<script src="config.js?v=20260924-r918126-sii-exchange-cert"></script><script src="api.js?v=20260924-r918126-sii-exchange-cert"></script><script src="sii-api.js?v=20260924-r918126-sii-exchange-cert"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260924-r918126-sii-exchange-cert"></script>
 </body></html>

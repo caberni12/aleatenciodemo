@@ -1,0 +1,45 @@
+ALE ATENCIÓN · R9.18.126 · ENTREGA COMPLETA LIVIANA
+
+Esta entrega NO incluye imágenes JPG/PNG para reducir el tamaño.
+Si actualizas una instalación existente, NO elimines las imágenes que ya tienes publicadas
+en tu hosting/GitHub Pages; el sistema seguirá referenciándolas.
+
+CONTENIDO
+- Web pública y cPanel.
+- Portal Mayorista.
+- Consulta DTE / PDF / trazabilidad.
+- Plantillas XLSX de productos e inventario.
+- SQL de actualización Supabase.
+- SQL de Facturación SII.
+- Edge Function dynamic-processor actual.
+- Edge Function facturacion-sii actual.
+- Intercambio DTE / recepción / aceptación / rechazo / acuse de R9.18.126.
+- Corrección requestedPublicId integrada.
+
+ACTUALIZACIÓN DESDE R9.18.125
+1. Ejecutar:
+   INSTALACION_SUPABASE/15_ALE_ATENCIO_SQL_R9_18_126_INTERCAMBIO_DTE_CERTIFICACION.sql
+2. Desplegar:
+   INSTALACION_SUPABASE_EDGE_FUNCTIONS/dynamic-processor/index.ts
+3. Desplegar:
+   INSTALACION_SUPABASE_EDGE_FUNCTIONS/facturacion-sii/index.ts
+4. Publicar los archivos Web/cPanel de la raíz.
+5. No borrar las imágenes existentes del hosting.
+
+SI VIENES DE UNA VERSIÓN ANTERIOR
+Ejecuta, en orden, los SQL que todavía no hayas aplicado dentro de
+INSTALACION_SUPABASE y, para Facturación SII, los que correspondan dentro de
+INSTALACION_SUPABASE_SII.
+
+IMPORTANTE
+- No ejecutar SQL ya aplicado si contiene migraciones que tu base ya tiene.
+- Mantener SII_MASTER_KEY y demás secretos solamente en Supabase/servidor.
+- La autorización/certificación final sigue dependiendo del proceso oficial del SII.
+
+
+ACTIVOS INCLUIDOS EN ESTA EDICIÓN
+- favicon.png
+- logo-ale-atencio.png
+- logo-ale-atencio-ticket.jpg
+
+Esta edición sigue sin incluir el catálogo completo de imágenes de productos.
