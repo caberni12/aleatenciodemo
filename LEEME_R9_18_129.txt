@@ -1,0 +1,22 @@
+ALE ATENCIO R9.18.129 - CORRECCION MENU CATEGORIZADO / CACHE
+
+CAUSA CORREGIDA
+El cpanel.html R9.18.128 incluia el nuevo menu categorizado, pero seguia solicitando
+cpanel.css y cpanel.js con la identificacion R9.18.127. Navegador o Cloudflare podian
+entregar recursos antiguos y mezclar HTML nuevo con CSS/JS anterior.
+
+CORRECCION
+- cpanel.html ahora usa cpanel-r918129.css y cpanel-r918129.js.
+- Se cambiaron las claves de cache de los recursos locales.
+- Se agrego una proteccion critica en cpanel.html para impedir textos desbordados en el rail compacto.
+- No cambia SQL, Supabase, Edge Functions, datos, pedidos ni facturacion.
+
+ACTUALIZACION RAPIDA
+Subir/reemplazar en la raiz del sitio:
+1. cpanel.html
+2. cpanel-r918129.css
+3. cpanel-r918129.js
+
+Los archivos antiguos cpanel.css y cpanel.js pueden permanecer; esta version ya no los carga.
+Despues de publicar, abrir cpanel.html de nuevo. No deberia ser necesario limpiar cache manualmente,
+porque los nombres fisicos de CSS y JS cambiaron.
