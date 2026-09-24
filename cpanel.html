@@ -31,31 +31,67 @@
     <button class="sidebar-close" id="sidebarClose" type="button" aria-label="Cerrar menú"><i class="bi bi-x-lg"></i></button>
     <div class="admin-brand admin-brand-single"><img id="adminLogo" src="logo-ale-atencio.png" alt="Ale Atencio Repostería"><span>CPANEL</span></div>
     <button class="sidebar-rail-toggle" id="sidebarRailToggle" type="button" aria-label="Expandir menú" aria-controls="adminSidebar" aria-expanded="false" title="Expandir menú"><i class="bi bi-list"></i></button>
-    <nav class="admin-nav">
-      <button class="active" data-view="dashboard"><i class="bi bi-grid"></i> Dashboard</button>
-      <button data-view="products"><i class="bi bi-cake2"></i> Productos</button>
-      <button data-view="categories"><i class="bi bi-tags"></i> Categorías</button>
-      <button data-view="banners"><i class="bi bi-images"></i> Carrusel</button>
-      <button data-view="orders"><i class="bi bi-bag-check"></i> Pedidos</button>
-      <button data-view="requests"><i class="bi bi-clipboard-heart"></i> Solicitudes</button>
-      <button data-view="quotes"><i class="bi bi-receipt-cutoff"></i> Cotizaciones</button>
-      <button data-view="clients"><i class="bi bi-person-vcard"></i> Clientes</button>
-      <button data-view="wholesale"><i class="bi bi-shop-window"></i> Mayoristas / Precios</button>
-      <button data-view="wholesale-credits"><i class="bi bi-wallet2"></i> Créditos Mayoristas</button>
-      <button data-view="suppliers"><i class="bi bi-truck"></i> Proveedores</button>
-      <button data-view="purchases"><i class="bi bi-cart-check"></i> Compras</button>
-      <button data-view="warehouses"><i class="bi bi-building"></i> Bodegas</button>
-      <button data-view="stock"><i class="bi bi-box-seam"></i> Inventario</button>
-      <button data-view="ledger"><i class="bi bi-journal-text"></i> Libro Mayor Auxiliar</button>
-      <button data-view="inventory"><i class="bi bi-boxes"></i> Insumos / Costos</button>
-      <button data-view="gallery"><i class="bi bi-images"></i> Galería</button>
-      <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
-      <button data-view="integrations"><i class="bi bi-diagram-3"></i> Integraciones</button>
-      <button data-view="payments"><i class="bi bi-credit-card-2-front"></i> Pasarela de pago</button>
-      <button data-view="folio-manager"><i class="bi bi-123"></i> Mantenedor de Folios</button>
-      <button data-view="billing-sii"><i class="bi bi-receipt"></i> Facturación SII</button>
-      <button data-view="users" id="usersNavBtn"><i class="bi bi-people"></i> Usuarios</button>
-      <button data-view="settings"><i class="bi bi-gear"></i> Configuración</button>
+    <nav class="admin-nav" aria-label="Módulos del sistema">
+      <button class="active nav-dashboard" data-view="dashboard"><i class="bi bi-grid"></i> Dashboard</button>
+
+      <details class="nav-group" data-nav-group="ventas">
+        <summary><span><i class="bi bi-bag-check"></i> Ventas y Clientes</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="orders"><i class="bi bi-bag-check"></i> Pedidos</button>
+          <button data-view="requests"><i class="bi bi-clipboard-heart"></i> Solicitudes</button>
+          <button data-view="quotes"><i class="bi bi-receipt-cutoff"></i> Cotizaciones</button>
+          <button data-view="clients"><i class="bi bi-person-vcard"></i> Clientes</button>
+        </div>
+      </details>
+
+      <details class="nav-group" data-nav-group="web">
+        <summary><span><i class="bi bi-window"></i> Web y Catálogo</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="products"><i class="bi bi-cake2"></i> Productos</button>
+          <button data-view="categories"><i class="bi bi-tags"></i> Categorías</button>
+          <button data-view="banners"><i class="bi bi-images"></i> Carrusel</button>
+          <button data-view="gallery"><i class="bi bi-camera"></i> Galería</button>
+        </div>
+      </details>
+
+      <details class="nav-group" data-nav-group="compras-stock">
+        <summary><span><i class="bi bi-box-seam"></i> Compras e Inventario</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="suppliers"><i class="bi bi-truck"></i> Proveedores</button>
+          <button data-view="purchases"><i class="bi bi-cart-check"></i> Compras / DTE recibidos</button>
+          <button data-view="warehouses"><i class="bi bi-building"></i> Bodegas</button>
+          <button data-view="stock"><i class="bi bi-box-seam"></i> Inventario</button>
+          <button data-view="inventory"><i class="bi bi-boxes"></i> Insumos / Costos</button>
+        </div>
+      </details>
+
+      <details class="nav-group" data-nav-group="mayoristas">
+        <summary><span><i class="bi bi-shop-window"></i> Mayoristas</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="wholesale"><i class="bi bi-shop-window"></i> Mayoristas / Precios</button>
+          <button data-view="wholesale-credits"><i class="bi bi-wallet2"></i> Créditos Mayoristas</button>
+        </div>
+      </details>
+
+      <details class="nav-group" data-nav-group="finanzas-sii">
+        <summary><span><i class="bi bi-receipt"></i> Finanzas / SII</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="payments"><i class="bi bi-credit-card-2-front"></i> Pasarela de pago</button>
+          <button data-view="billing-sii"><i class="bi bi-receipt"></i> Facturación SII</button>
+          <button data-view="folio-manager"><i class="bi bi-123"></i> Mantenedor de Folios</button>
+          <button data-view="ledger"><i class="bi bi-journal-text"></i> Libro Mayor Auxiliar</button>
+          <button data-view="reports"><i class="bi bi-graph-up-arrow"></i> Reportes</button>
+        </div>
+      </details>
+
+      <details class="nav-group" data-nav-group="sistema">
+        <summary><span><i class="bi bi-sliders"></i> Sistema / Configuración</span><i class="bi bi-chevron-down nav-group-chevron"></i></summary>
+        <div class="nav-group-items">
+          <button data-view="integrations"><i class="bi bi-diagram-3"></i> Integraciones</button>
+          <button data-view="users" id="usersNavBtn"><i class="bi bi-people"></i> Usuarios</button>
+          <button data-view="settings"><i class="bi bi-gear"></i> Configuración</button>
+        </div>
+      </details>
     </nav>
     <div class="sidebar-bottom"><a href="index.html" class="btn btn-light btn-block"><i class="bi bi-shop"></i> Ver tienda</a><button id="logoutBtn" class="btn btn-dark btn-block"><i class="bi bi-box-arrow-right"></i> Salir</button></div>
   </aside>

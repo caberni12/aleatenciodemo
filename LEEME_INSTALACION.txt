@@ -46,3 +46,8 @@ IMPORTANTE
 - Mantén SII_MASTER_KEY y los demás secretos únicamente en Supabase/servidor.
 - La postulación, Set de Pruebas, simulación, muestras, declaración de cumplimiento y autorización final
   continúan dependiendo del proceso oficial del SII; este ZIP no significa que el SII ya haya certificado el software.
+
+R9.18.128 · MENÚ CPANEL CATEGORIZADO
+- Sidebar reorganizado en Ventas y Clientes, Web y Catálogo, Compras e Inventario, Mayoristas, Finanzas / SII y Sistema / Configuración.
+- Grupos plegables tipo acordeón; sólo uno abierto a la vez.
+- No requiere SQL nuevo ni cambios de Edge Functions respecto de R9.18.127.
