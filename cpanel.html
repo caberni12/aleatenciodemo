@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260924-r918126-sii-exchange-cert"><link rel="stylesheet" href="cpanel.css?v=20260924-r918126-sii-exchange-cert">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918127-compras-dte-sii"><link rel="stylesheet" href="cpanel.css?v=20260924-r918127-compras-dte-sii">
 </head>
 <body class="admin-body auth-locked">
 <div class="login-screen" id="loginScreen">
@@ -43,6 +43,7 @@
       <button data-view="wholesale"><i class="bi bi-shop-window"></i> Mayoristas / Precios</button>
       <button data-view="wholesale-credits"><i class="bi bi-wallet2"></i> Créditos Mayoristas</button>
       <button data-view="suppliers"><i class="bi bi-truck"></i> Proveedores</button>
+      <button data-view="purchases"><i class="bi bi-cart-check"></i> Compras</button>
       <button data-view="warehouses"><i class="bi bi-building"></i> Bodegas</button>
       <button data-view="stock"><i class="bi bi-box-seam"></i> Inventario</button>
       <button data-view="ledger"><i class="bi bi-journal-text"></i> Libro Mayor Auxiliar</button>
@@ -500,6 +501,21 @@ Torta chocolate | 1 | 25000"></textarea></label>
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Trazabilidad</span><h3>Movimientos de crédito</h3></div></div><div class="table-wrap" id="wholesaleCreditMovementsTable"></div></div>
     </section>
 
+
+    <section class="admin-view" id="view-purchases">
+      <div class="admin-card sii-shell">
+        <div class="card-head"><div><span class="eyebrow">Compras y proveedores</span><h2>Compras / DTE recibidos</h2><p class="module-help">Recepción de facturas de proveedores, control del plazo SII, respuestas de intercambio y registro de la compra sin duplicaciones.</p></div><div class="card-head-actions"><button class="btn btn-primary" type="button" data-sii-open="siiExchangeModal"><i class="bi bi-file-earmark-arrow-up"></i> Recibir DTE</button><button class="btn btn-light" id="purchaseDteRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
+        <div class="sii-runtime-grid purchase-dte-kpis">
+          <div><span>DTE recibidos</span><strong id="purchaseDteCount">0</strong><small>Facturas y documentos recibidos</small></div>
+          <div><span>Pendientes SII</span><strong id="purchaseDtePending">0</strong><small>Sin evento legal registrado</small></div>
+          <div><span>Por registrar</span><strong id="purchaseDteUnregistered">0</strong><small>Facturas aún no llevadas a compras</small></div>
+          <div><span>Total recibido</span><strong id="purchaseDteTotal">$0</strong><small>Según XML importados</small></div>
+        </div>
+        <div class="integration-note"><i class="bi bi-info-circle"></i><span><strong>Importante:</strong> “Aceptar contenido” (ACD) y “Recibo de mercaderías/servicios” (ERM) son eventos diferentes. El estado legal se registra contra el WebService del SII y se mantiene separado de la respuesta XML de intercambio.</span></div>
+        <div class="table-wrap sii-table-wrap"><table class="sii-table purchase-dte-table"><thead><tr><th>Recepción</th><th>Proveedor</th><th>DTE / Folio</th><th>Neto / IVA / Total</th><th>Intercambio</th><th>Registro SII</th><th>Compra</th><th>Acciones</th></tr></thead><tbody id="purchaseDteTable"></tbody></table></div>
+      </div>
+    </section>
+
     <section class="admin-view" id="view-suppliers">
       <div class="admin-card"><div class="card-head"><div><span class="eyebrow">Abastecimiento</span><h2>Proveedores</h2><p class="module-help">Mantén los datos de quienes abastecen materias primas, envases y otros insumos.</p></div><div class="card-head-actions"><button class="btn btn-primary" id="newSupplier" type="button"><i class="bi bi-plus-lg"></i> Nuevo proveedor</button></div></div>
         <div class="table-wrap" id="suppliersTable"></div>
@@ -941,10 +957,18 @@ Torta chocolate | 1 | 25000"></textarea></label>
 
     <div class="editor hidden sii-modal sii-exchange-modal" id="siiExchangeModal" role="dialog" aria-modal="true" aria-labelledby="siiExchangeModalTitle">
       <div class="editor-modal-head"><div><span class="eyebrow">Intercambio electrónico</span><h3 id="siiExchangeModalTitle">DTE recibidos de proveedores</h3><small>Importa EnvioDTE XML, registra la recepción y genera respuestas firmadas con el certificado activo.</small></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
-      <div class="integration-note"><i class="bi bi-shield-check"></i><span>El XML recibido se guarda cifrado en backend. Las respuestas se generan como XML firmado para el intercambio/certificación. La aprobación final depende de las validaciones del SII.</span></div>
-      <div class="sii-exchange-import"><div class="field-group file-field"><span>EnvioDTE XML recibido</span><input id="siiExchangeFile" class="file-input" type="file" accept=".xml,text/xml,application/xml"><label class="file-picker-btn" for="siiExchangeFile"><i class="bi bi-filetype-xml"></i><span class="file-picker-text">Seleccionar XML</span></label><small class="file-name">Sin archivo seleccionado</small></div><div class="editor-actions"><button class="btn btn-primary" id="siiExchangeImport" type="button"><i class="bi bi-cloud-arrow-up"></i> Importar DTE</button><button class="btn btn-light" id="siiExchangeRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
+      <div class="integration-note"><i class="bi bi-shield-check"></i><span>El XML recibido se guarda cifrado en backend. Las respuestas se generan firmadas para intercambio/certificación. La recepción automática por correo queda habilitada al configurar el secreto servidor <strong>SII_DTE_INBOUND_SECRET</strong>.</span></div><div class="sii-issue-status span-2 warn" id="siiInboundStatus"><i class="bi bi-envelope-check"></i><span>Verificando recepción automática…</span></div>
+      <div class="sii-exchange-import"><div class="field-group file-field"><span>EnvioDTE XML o correo MIME/EML recibido</span><input id="siiExchangeFile" class="file-input" type="file" accept=".xml,.eml,.mime,text/xml,application/xml,message/rfc822"><label class="file-picker-btn" for="siiExchangeFile"><i class="bi bi-file-earmark-arrow-up"></i><span class="file-picker-text">Seleccionar archivo</span></label><small class="file-name">Sin archivo seleccionado</small></div><div class="editor-actions"><button class="btn btn-primary" id="siiExchangeImport" type="button"><i class="bi bi-cloud-arrow-up"></i> Importar DTE</button><button class="btn btn-light" id="siiExchangeRefresh" type="button"><i class="bi bi-arrow-clockwise"></i> Actualizar</button></div></div>
       <div class="table-wrap sii-table-wrap"><table class="sii-table"><thead><tr><th>Fecha</th><th>Emisor</th><th>DTE / Folio</th><th>Total</th><th>Firma</th><th>Recepción</th><th>Comercial</th><th>Acciones</th></tr></thead><tbody id="siiExchangeTable"></tbody></table></div>
       <div class="editor-actions"><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
+    </div>
+
+    <div class="editor hidden sii-modal" id="siiRegistryEventModal" role="dialog" aria-modal="true" aria-labelledby="siiRegistryEventTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Registro oficial SII</span><h3 id="siiRegistryEventTitle">Aceptación / reclamo de DTE</h3><small id="siiRegistryEventSubtitle">Selecciona la acción legal que corresponde al documento recibido.</small></div><button type="button" class="editor-close-x" data-sii-close aria-label="Cerrar">×</button></div>
+      <input type="hidden" id="siiRegistryDteId">
+      <div class="form-grid"><label class="field-group span-2"><span>Acción ante el SII</span><select id="siiRegistryAction"><option value="ACD">ACD · Aceptar contenido del documento</option><option value="ERM">ERM · Recibo de mercaderías o servicios</option><option value="RCD">RCD · Reclamo al contenido del documento</option><option value="RFP">RFP · Reclamo por falta parcial</option><option value="RFT">RFT · Reclamo por falta total</option></select></label></div>
+      <div class="integration-note"><i class="bi bi-exclamation-triangle"></i><span>Esta acción se registra en el WebService oficial del SII. Un reclamo impide posteriormente aceptar el DTE; ACD no reemplaza el recibo ERM para efectos de mercaderías/servicios.</span></div>
+      <div class="editor-actions"><button class="btn btn-primary" id="siiRegistryApply" type="button"><i class="bi bi-building-check"></i> Registrar en SII</button><button class="btn btn-light" type="button" data-sii-close>Cancelar</button></div>
     </div>
 
     <div class="editor hidden sii-modal sii-certification-modal" id="siiCertificationModal" role="dialog" aria-modal="true" aria-labelledby="siiCertificationModalTitle">
@@ -985,5 +1009,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260924-r918126-sii-exchange-cert"></script><script src="api.js?v=20260924-r918126-sii-exchange-cert"></script><script src="sii-api.js?v=20260924-r918126-sii-exchange-cert"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260924-r918126-sii-exchange-cert"></script>
+<script src="config.js?v=20260924-r918127-compras-dte-sii"></script><script src="api.js?v=20260924-r918127-compras-dte-sii"></script><script src="sii-api.js?v=20260924-r918127-compras-dte-sii"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel.js?v=20260924-r918127-compras-dte-sii"></script>
 </body></html>
