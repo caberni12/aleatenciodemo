@@ -1,0 +1,18 @@
+ALE ATENCIO - R9.18.130
+MEJORA VISUAL SIDEBAR CPANEL
+
+Cambios:
+- Sidebar borgoña más luminoso con profundidad.
+- Acentos dorados en iconos, separadores y estados.
+- Hover más visible.
+- Módulo/grupo activo resaltado.
+- Mantiene contenido principal claro y todas las funciones de R9.18.129.
+- Nuevos nombres cpanel-r918130.css/js para evitar mezcla con caché anterior.
+
+INSTALACION DESDE R9.18.129:
+Subir a la raíz y reemplazar cpanel.html:
+1. cpanel.html
+2. cpanel-r918130.css
+3. cpanel-r918130.js
+
+No requiere SQL ni cambios en Supabase/Edge Functions.
