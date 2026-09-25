@@ -1,0 +1,23 @@
+ALE ATENCIO - R9.18.138 - CARTOLA MAYORISTA MODERNA
+
+CAMBIO
+- Moderniza el PDF mensual de Cartola Mayorista.
+- Encabezado corporativo con logo, periodo, razon social y RUT.
+- Resumen superior con totales del periodo.
+- Total documentos emitidos.
+- Total notas de credito.
+- Neto facturado.
+- Total abonos aplicados.
+- Total recargos Transbank por pago de linea de credito.
+- Total efectivamente cobrado.
+- Saldo/deuda inicial y final cuando existen movimientos de linea de credito.
+- Totales al cierre de Documentos Tributarios y Pagos/Abonos.
+- Tablas modernas, paginacion y pie de pagina.
+
+INSTALACION
+1. Supabase > Edge Functions > dynamic-processor.
+2. Reemplazar index.ts por el incluido en INSTALACION_SUPABASE_EDGE_FUNCTIONS/dynamic-processor/index.ts.
+3. Hacer Deploy.
+
+NO REQUIERE SQL NUEVO.
+NO REQUIERE CAMBIOS EN LA WEB O CPANEL.
