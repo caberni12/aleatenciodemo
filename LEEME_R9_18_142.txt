@@ -1,0 +1,22 @@
+ALE ATENCIO - R9.18.142
+PDF ESTRUCTURADO POR CORRELATIVO DE INVENTARIO
+
+1 correlativo = 1 PDF. Todas las líneas incluidas en PE-1, PS-1, AJ-1, TB-1, RI-1, RE-1, CI-1, etc. quedan reunidas en un solo documento.
+
+El PDF incluye:
+- Logo configurado en ALE ATENCIO (con logo de respaldo si el configurado no está disponible).
+- Razón social, RUT, giro, dirección, comuna/ciudad, email y WhatsApp de la empresa.
+- Folio grande, tipo de movimiento, fecha/hora y estado.
+- Bodega origen y destino cuando corresponda.
+- Documento/referencia, motivo y responsable.
+- Tabla completa de productos, tamaños, cantidades, stock anterior/nuevo, costo unitario y valorización.
+- Totales de líneas, unidades movilizadas y valorización.
+- Espacios de responsabilidad y conformidad.
+- Paginación y pie de documento.
+
+El PDF se genera automáticamente al aplicar el correlativo y se guarda en almacenamiento privado. Desde el Kardex o el detalle del movimiento se puede abrir/reimprimir. Si el PDF no existe o fue eliminado, el sistema lo regenera en el mismo correlativo.
+
+INSTALACIÓN
+- NO requiere SQL nuevo.
+- Subir cpanel.html, cpanel-r918142.css y cpanel-r918142.js.
+- Reemplazar INSTALACION_SUPABASE_EDGE_FUNCTIONS/dynamic-processor/index.ts en Supabase y hacer Deploy.
