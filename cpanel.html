@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918140.css?v=20260925-r918140-ledger-date-filters">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918141.css?v=20260925-r918141-inventory-folios-entry-flow">
 
   <style id="sidebar-critical-r918130">
   /* Fallback crítico: evita mezclar el HTML categorizado con CSS cacheado anterior. */
@@ -648,16 +648,23 @@ Torta chocolate | 1 | 25000"></textarea></label>
       </div>
 
       <div class="editor hidden operational-modal inventory-part-editor" id="inventoryPartEditor" role="dialog" aria-modal="true">
-        <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Movimiento de inventario</h3></div><button type="button" class="editor-close-x" id="closeInventoryPart">×</button></div>
-        <div class="form-grid">
-          <label class="field-group"><span>Tipo</span><select id="inventoryPartType"><option value="ENTRADA">Parte de entrada</option><option value="SALIDA">Parte de salida</option><option value="AJUSTE">Ajuste de inventario</option><option value="TRANSFERENCIA">Transferencia entre bodegas</option><option value="RECEPCION_IMPORTACION">Recepción de importación</option><option value="RECEPCION_EXPORTACION">Recepción de exportación</option></select></label>
-          <label class="field-group"><span>Bodega</span><select id="inventoryPartWarehouse"></select></label>
-          <label class="field-group inventory-destination-field hidden"><span>Bodega destino</span><select id="inventoryPartDestination"></select></label>
-          <label class="field-group"><span>Documento</span><input id="inventoryPartDocument" placeholder="N.º / referencia"></label>
-          <label class="field-group span-2"><span>Motivo</span><input id="inventoryPartReason"></label>
-        </div>
-        <div class="receipt-items-head"><strong>Detalle</strong><button class="btn btn-light btn-compact" id="addInventoryPartItem" type="button">+ Línea</button></div>
+        <div class="editor-modal-head"><div><span class="eyebrow">Inventario</span><h3>Movimiento de inventario</h3><small class="inventory-folio-preview">Folio automático: <strong id="inventoryPartFolio">PE-#</strong></small></div><button type="button" class="editor-close-x" id="closeInventoryPart">×</button></div>
+        <details class="inventory-part-meta" id="inventoryPartMeta" open>
+          <summary><span><i class="bi bi-sliders"></i> Datos del movimiento</span><strong id="inventoryPartMetaSummary">Parte de entrada</strong><i class="bi bi-chevron-down inventory-part-meta-chevron"></i></summary>
+          <div class="form-grid inventory-part-meta-grid">
+            <label class="field-group"><span>Tipo</span><select id="inventoryPartType"><option value="ENTRADA">Parte de entrada</option><option value="SALIDA">Parte de salida</option><option value="AJUSTE">Ajuste de inventario</option><option value="TRANSFERENCIA">Transferencia entre bodegas</option><option value="RECEPCION_IMPORTACION">Recepción de importación</option><option value="RECEPCION_EXPORTACION">Recepción de exportación</option></select></label>
+            <label class="field-group"><span>Bodega origen</span><select id="inventoryPartWarehouse"></select></label>
+            <label class="field-group inventory-destination-field hidden"><span>Bodega destino</span><select id="inventoryPartDestination"></select></label>
+            <label class="field-group"><span>Folio</span><input id="inventoryPartFolioField" value="PE-# · automático" readonly></label>
+            <label class="field-group"><span>Documento / referencia</span><input id="inventoryPartDocument" placeholder="Opcional"></label>
+            <label class="field-group"><span>Motivo</span><input id="inventoryPartReason" placeholder="Motivo del movimiento"></label>
+          </div>
+        </details>
+        <div class="receipt-items-head inventory-part-detail-head"><div><strong>Detalle</strong><small>Escribe o selecciona un producto. Usa Enter para avanzar por la línea.</small></div><button class="btn btn-light btn-compact" id="addInventoryPartItem" type="button">+ Línea</button></div>
+        <div class="inventory-part-columns" aria-hidden="true"><span>Producto</span><span>Tamaño</span><span id="inventoryPartQtyHeading">Cantidad</span><span>Costo unitario</span><span></span></div>
+        <datalist id="inventoryPartProductList"></datalist>
         <div id="inventoryPartItems" class="inventory-part-rows"></div>
+        <div class="inventory-keyboard-hint"><i class="bi bi-keyboard"></i><span>Enter: Producto → Tamaño → Cantidad → Costo → nueva línea.</span></div>
         <div class="editor-actions"><button class="btn btn-primary" id="saveInventoryPart" type="button">Aplicar movimiento</button><button class="btn btn-light" id="cancelInventoryPart" type="button">Cancelar</button></div>
       </div>
     </section>
@@ -1080,5 +1087,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918140.js?v=20260925-r918140-ledger-date-filters"></script>
+<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918141.js?v=20260925-r918141-inventory-folios-entry-flow"></script>
 </body></html>

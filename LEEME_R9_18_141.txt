@@ -1,0 +1,29 @@
+ALE ATENCIO · R9.18.141 · MOVIMIENTOS DE INVENTARIO
+
+1) Ejecutar en Supabase SQL Editor:
+   INSTALACION_SUPABASE/18_ALE_ATENCIO_SQL_R9_18_141_FOLIOS_INVENTARIO_POR_TIPO.sql
+
+2) Subir/reemplazar en la Web/cPanel:
+   - cpanel.html
+   - cpanel-r918141.css
+   - cpanel-r918141.js
+
+No requiere reemplazar Edge Functions.
+
+FOLIOS AUTOMÁTICOS POR TIPO
+- PE-n  Parte de entrada
+- PS-n  Parte de salida
+- AJ-n  Ajuste de inventario
+- TB-n  Transferencia entre bodegas
+- RI-n  Recepción de importación
+- RE-n  Recepción de exportación
+- CI-n  Carga inicial XLSX
+- SV-n  Salida automática por venta
+- RV-n  Reversa automática de venta
+
+CAPTURA RÁPIDA
+- Producto permite escribir y seleccionar con sugerencias.
+- Enter avanza Producto > Tamaño > Cantidad/Stock objetivo > Costo unitario.
+- Enter en Costo unitario crea una nueva línea y vuelve a enfocar Producto.
+- Datos del movimiento pueden plegarse para ganar espacio.
+- Modal ampliado y adaptable al ancho de pantalla.
