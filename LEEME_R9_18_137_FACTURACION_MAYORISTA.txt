@@ -1,0 +1,34 @@
+ALE ATENCIO · R9.18.137 · FACTURACION MAYORISTA
+
+NOVEDADES
+- Nuevo módulo Facturación en Portal Mayorista.
+- Solo muestra DTE asociados al cliente Mayorista autenticado.
+- Facturas 33/34, boletas 39/41, notas de débito 56 y notas de crédito 61.
+- Descarga de PDF DTE cuando la representación ya está almacenada.
+- Cartola mensual PDF con documentos, movimientos de crédito y pagos/abonos.
+- Pago de línea de crédito por transferencia con comprobante y aprobación administrativa.
+- Pago de línea de crédito por Transbank con recargo FIJO 3% solo para este caso.
+- El abono aplicado a la deuda es el monto base; el 3% queda separado como recargo Transbank.
+- Bandeja cPanel para aprobar/rechazar comprobantes de transferencia.
+- Los DTE se alimentan automáticamente desde sii_documentos cuando se emiten desde el cPanel.
+
+INSTALACION / ACTUALIZACION
+1) Ejecutar en Supabase SQL Editor:
+   INSTALACION_SUPABASE/17_ALE_ATENCIO_SQL_R9_18_137_FACTURACION_MAYORISTA_PAGOS.sql
+2) Reemplazar y desplegar:
+   INSTALACION_SUPABASE_EDGE_FUNCTIONS/dynamic-processor/index.ts
+3) Subir a la web/cPanel:
+   mayoristas.html
+   mayoristas-r918137.css
+   mayoristas-r918137.js
+   cpanel.html
+   cpanel-r918137.css
+   cpanel-r918137.js
+
+NO modificar facturacion-sii/index.ts para esta revisión.
+
+REGLA 3%
+- Compra normal por Transbank: SIN recargo R9.18.137.
+- Pago de línea de crédito por transferencia: SIN recargo.
+- Pago de línea de crédito por Transbank: +3% al cobro.
+Ejemplo: deuda abonada $100.000 + recargo $3.000 = cobro Webpay $103.000; la línea disminuye $100.000.

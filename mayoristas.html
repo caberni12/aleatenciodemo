@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="mayoristas-r918135.css?v=20260925-r918135-stock-detail">
+  <link rel="stylesheet" href="mayoristas-r918137.css?v=20260925-r918137-facturacion-mayorista">
 </head>
 <body>
 <div id="toast" class="toast"></div>
@@ -90,6 +90,7 @@
       <button class="active" data-view="catalog"><i class="bi bi-grid"></i>Catálogo</button>
       <button data-view="orders"><i class="bi bi-receipt"></i>Mis pedidos</button>
       <button data-view="credit" class="hidden" id="whCreditNav"><i class="bi bi-wallet2"></i>Créditos</button>
+      <button data-view="billing"><i class="bi bi-receipt-cutoff"></i>Facturación</button>
       <button data-view="documents"><i class="bi bi-file-earmark-text"></i>Documentos</button>
       <button data-view="profile"><i class="bi bi-person-circle"></i>Mi cuenta</button>
     </aside>
@@ -137,6 +138,36 @@
         <div class="credit-rating-portal" id="whCreditRatingCard"><div><span>Historial crediticio</span><strong id="whCreditRatingStars">☆☆☆☆☆</strong></div><div><span>Evaluación</span><strong id="whCreditRatingLevel">Sin historial</strong></div><div><span>Puntualidad</span><strong id="whCreditRatingPunctuality">—</strong></div><div><span>Límite recomendado</span><strong id="whCreditRatingRecommended">—</strong></div><p id="whCreditRatingNote">El historial se construye con tus pagos de crédito.</p></div>
         <div class="section-head"><div><span>Trazabilidad</span><h3>Movimientos de crédito</h3></div></div>
         <div class="table-wrap" id="whCreditMovements"></div>
+      </section>
+
+      <section class="portal-view" id="wh-view-billing">
+        <div class="section-head billing-head"><div><span>Tributario y cobranza</span><h2>Facturación</h2><p>Consulta tus documentos tributarios, descarga tu cartola mensual y paga tu línea de crédito.</p></div></div>
+        <div class="billing-toolbar">
+          <label><span>Mes</span><input id="whBillingMonth" type="month"></label>
+          <label><span>Tipo de documento</span><select id="whBillingType"><option value="">Todos</option><option value="33">Factura electrónica</option><option value="34">Factura exenta</option><option value="39">Boleta electrónica</option><option value="41">Boleta exenta</option><option value="56">Nota de débito</option><option value="61">Nota de crédito</option></select></label>
+          <button class="billing-statement-btn async-btn" id="whBillingStatement" type="button"><i class="bi bi-file-earmark-pdf"></i><span>Descargar cartola del mes</span></button>
+        </div>
+
+        <div class="billing-credit-pay hidden" id="whBillingCreditPay">
+          <div class="billing-credit-title"><div><span>Línea de crédito</span><h3>Pagar deuda</h3><p>Elige transferencia o Transbank. El recargo del 3% se aplica únicamente al pago de la línea mediante Transbank.</p></div><div class="billing-debt"><small>Deuda actual</small><strong id="whBillingCreditDebt">$0</strong></div></div>
+          <div class="billing-credit-form">
+            <label>Monto a abonar<input id="whCreditPayAmount" type="number" inputmode="numeric" min="1" step="1" placeholder="0"></label>
+            <label>Medio de pago<select id="whCreditPayMethod"><option value="TRANSFERENCIA">Transferencia</option><option value="TRANSBANK">Transbank</option></select></label>
+            <label class="span-2">Referencia / observación<input id="whCreditPayRef" maxlength="500" placeholder="Ej: pago factura, abono línea de crédito..."></label>
+            <label class="span-2 billing-proof-field" id="whCreditPayProofWrap">Comprobante de transferencia<input id="whCreditPayProof" type="file" accept="application/pdf,image/jpeg,image/png,image/webp"><small>PDF, JPG, PNG o WEBP. Quedará pendiente de aprobación administrativa.</small></label>
+          </div>
+          <div class="billing-payment-summary" id="whCreditPaySummary"></div>
+          <button class="billing-pay-btn async-btn" id="whCreditPaySubmit" type="button"><i class="bi bi-send-check"></i><span>Enviar comprobante</span></button>
+        </div>
+
+        <div class="billing-card">
+          <div class="billing-card-head"><div><span>Documentos tributarios</span><h3>Mis facturas, boletas y notas</h3><p>Solo se muestran documentos asociados a tu empresa/RUT.</p></div></div>
+          <div class="table-wrap billing-table" id="whBillingDocuments"></div>
+        </div>
+        <div class="billing-card">
+          <div class="billing-card-head"><div><span>Cobranza</span><h3>Pagos de línea de crédito</h3><p>Transferencias enviadas a aprobación y pagos confirmados por Transbank.</p></div></div>
+          <div class="table-wrap billing-table" id="whCreditPayments"></div>
+        </div>
       </section>
 
       <section class="portal-view" id="wh-view-documents">
@@ -223,6 +254,6 @@
 
 <script src="config.js?v=20260922-r91896-credit-increase-evaluation"></script>
 <script src="api.js?v=20260922-r91896-credit-increase-evaluation"></script>
-<script src="mayoristas-r918135.js?v=20260925-r918135-stock-detail"></script>
+<script src="mayoristas-r918137.js?v=20260925-r918137-facturacion-mayorista"></script>
 </body>
 </html>
