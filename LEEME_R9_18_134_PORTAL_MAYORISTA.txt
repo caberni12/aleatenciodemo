@@ -1,0 +1,15 @@
+ALE ATENCIO R9.18.134 - PORTAL MAYORISTA
+
+CAMBIOS
+- Carrito: Opciones del pedido arriba, inmediatamente bajo Carrito.
+- Mantiene Medio de pago, Entrega, Direccion, Comuna, Observaciones y agrega Ciudad.
+- Un solo scroll vertical para todo el carrito.
+- Mis pedidos, Documentos y las demas vistas del portal disponen de scroll interno.
+- Mi cuenta: el Mayorista puede editar razon social, contacto, giro, telefono, correo, direccion, comuna y ciudad.
+- RUT, lista de precios, categoria, estado y credito siguen bajo control administrativo.
+
+INSTALACION
+1. Subir/reemplazar mayoristas.html.
+2. Subir mayoristas-r918134.css y mayoristas-r918134.js.
+3. En Supabase Edge Functions > dynamic-processor, reemplazar index.ts y hacer Deploy.
+4. No requiere SQL nuevo.

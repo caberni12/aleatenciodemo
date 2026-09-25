@@ -1,0 +1,12 @@
+ALE ATENCIÓN R9.18.135 - STOCK INSUFICIENTE DETALLADO
+
+CAMBIOS
+- Portal Mayorista: cuando un pedido no puede procesarse por stock insuficiente, informa producto, tamaño, stock disponible y cantidad solicitada.
+- Todas las líneas con problema de stock quedan destacadas en rojo dentro del carrito.
+- Si existen varios productos con stock insuficiente, todos quedan marcados en una sola validación.
+- Web pública: el mensaje de stock insuficiente también informa el producto/tamaño afectado.
+
+INSTALACION
+1. Web: subir/reemplazar mayoristas.html, mayoristas-r918135.css, mayoristas-r918135.js, index.html y app-r918135.js.
+2. Supabase Edge Functions: reemplazar dynamic-processor/index.ts y hacer Deploy.
+3. No requiere SQL nuevo.

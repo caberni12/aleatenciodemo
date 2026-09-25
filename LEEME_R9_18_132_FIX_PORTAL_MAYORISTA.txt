@@ -1,0 +1,32 @@
+ALE ATENCIO - R9.18.132
+FIX PORTAL MAYORISTA NUEVO SIN LINEA DE CREDITO
+
+PROBLEMA CORREGIDO
+Un usuario Mayorista nuevo, correctamente aprobado y con lista de precios asignada,
+podia autenticar pero el portal mostraba:
+  "No fue posible actualizar el portal"
+
+CAUSA
+mayoristaBootstrap ejecutaba siempre ale_mayorista_credito_evaluar().
+La funcion SQL devuelve CREDITO_NO_ASIGNADO cuando el cliente aun no tiene una
+linea de credito. El credito es opcional y no debe bloquear el acceso al portal.
+
+CORRECCION R9.18.132
+- Solo se intenta recalcular evaluacion crediticia cuando el beneficio de credito
+  esta habilitado para el cliente.
+- Si el beneficio esta habilitado pero aun no existe una linea, CREDITO_NO_ASIGNADO
+  no bloquea catalogo, pedidos, documentos, notificaciones ni perfil.
+- Se mantiene intacta la validacion de usuario MAYORISTA, estado APROBADO y lista
+  de precios activa.
+- No se habilita credito automaticamente.
+
+INSTALACION
+1. Supabase > Edge Functions > dynamic-processor.
+2. Reemplazar index.ts por el incluido en este paquete.
+3. Deploy / redeploy de dynamic-processor.
+4. No ejecutar SQL.
+5. No es necesario volver a crear ni aprobar al usuario.
+6. Probar nuevamente el mismo usuario Mayorista.
+
+VERSION EDGE ESPERADA
+ALE-SUPABASE-R9.18.132-MAYORISTA-SIN-CREDITO-FIX

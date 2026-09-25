@@ -1,0 +1,20 @@
+ALE ATENCIÓN - R9.18.131
+FIX REGISTRO MAYORISTA
+
+Problema corregido:
+- Al enviar una solicitud Mayorista el backend podía registrar correctamente la solicitud, pero la interfaz mostraba: CANNOT READ PROPERTIES OF NULL (READING RESET).
+- Causa: Event.currentTarget se consultaba después de un await y podía ser null.
+
+Corrección:
+- Se conserva la referencia del formulario antes del await y se ejecuta form.reset() sobre esa referencia estable.
+- mayoristas.html carga un archivo JS físico nuevo: mayoristas-r918131.js para evitar caché del navegador/Cloudflare.
+
+ACTUALIZACIÓN RÁPIDA:
+Subir/reemplazar:
+1. mayoristas.html
+2. mayoristas-r918131.js
+
+No requiere SQL ni cambios en Supabase/Edge Functions.
+
+IMPORTANTE:
+Si una prueba anterior mostró el error RESET, la solicitud pudo haber quedado creada como PENDIENTE porque el error ocurría después de la respuesta exitosa del backend. Revise Solicitudes/Mayoristas antes de repetir el mismo RUT/correo/usuario.
