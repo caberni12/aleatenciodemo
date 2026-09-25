@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918139.css?v=20260925-r918139-inventory-ledger-ui">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918140.css?v=20260925-r918140-ledger-date-filters">
 
   <style id="sidebar-critical-r918130">
   /* Fallback crítico: evita mezclar el HTML categorizado con CSS cacheado anterior. */
@@ -670,6 +670,19 @@ Torta chocolate | 1 | 25000"></textarea></label>
           <select id="ledgerTypeFilter"><option value="">Todos los movimientos</option><option value="VENTA">Ventas</option><option value="FACTURA">Facturas</option><option value="BOLETA">Boletas</option><option value="GUÍA">Guías</option><option value="NOTA">Notas de crédito/débito</option><option value="INVENTARIO">Inventario</option></select>
           <button class="btn btn-primary" id="ledgerConsult" type="button"><i class="bi bi-search"></i> Consultar documento</button>
         </div>
+        <div class="ledger-date-panel">
+          <div class="ledger-date-fields">
+            <label>Desde<input id="ledgerDateFrom" type="date"></label>
+            <label>Hasta<input id="ledgerDateTo" type="date"></label>
+          </div>
+          <div class="ledger-date-shortcuts" role="group" aria-label="Filtros rápidos de fecha">
+            <button class="btn btn-light ledger-date-chip" id="ledgerDateToday" type="button"><i class="bi bi-calendar-day"></i> Hoy</button>
+            <button class="btn btn-light ledger-date-chip" id="ledgerDateMonth" type="button"><i class="bi bi-calendar3"></i> Este mes</button>
+            <button class="btn btn-light ledger-date-chip" id="ledgerDatePrevMonth" type="button"><i class="bi bi-calendar2-minus"></i> Mes anterior</button>
+            <button class="btn btn-light ledger-date-chip" id="ledgerDateClear" type="button"><i class="bi bi-x-circle"></i> Limpiar</button>
+          </div>
+        </div>
+        <div class="ledger-filter-summary" id="ledgerFilterSummary">Todos los movimientos</div>
         <div class="table-wrap" id="ledgerTable"></div>
       </div>
       <div class="editor hidden operational-modal ledger-history-editor" id="ledgerHistoryEditor" role="dialog" aria-modal="true">
@@ -1067,5 +1080,5 @@ Torta chocolate | 1 | 25000"></textarea></label>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918139.js?v=20260925-r918139-inventory-ledger-ui"></script>
+<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918140.js?v=20260925-r918140-ledger-date-filters"></script>
 </body></html>

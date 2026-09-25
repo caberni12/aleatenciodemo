@@ -1,0 +1,11 @@
+ALE ATENCIO · R9.18.140 · FILTROS DE FECHA LIBRO MAYOR AUXILIAR
+
+Cambios:
+- Filtros Desde y Hasta en Libro Mayor Auxiliar.
+- Accesos rápidos Hoy, Este mes y Mes anterior.
+- Botón Limpiar.
+- Contador/resumen del rango visible.
+- Exportación XLSX respeta buscador, tipo de movimiento y fechas activas.
+- Sin cambios SQL ni Edge Functions.
+
+Instalación: subir/reemplazar cpanel.html y agregar cpanel-r918140.css + cpanel-r918140.js.
