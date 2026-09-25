@@ -1,0 +1,6 @@
+ALE ATENCIO R9.18.139
+- Inventario/Kardex: Movimiento abre detalle completo.
+- Bodega en una sola linea y tablas con scroll horizontal.
+- Libro Mayor Auxiliar: misma mejora visual y detalle por Movimiento.
+- CAF/Folios: modal reorganizado y estilizado.
+No requiere SQL ni cambios en Edge Functions.

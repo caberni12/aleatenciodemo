@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918137.css?v=20260925-r918137-billing-credit-payments">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918139.css?v=20260925-r918139-inventory-ledger-ui">
 
   <style id="sidebar-critical-r918130">
   /* Fallback crítico: evita mezclar el HTML categorizado con CSS cacheado anterior. */
@@ -977,8 +977,8 @@ Torta chocolate | 1 | 25000"></textarea></label>
       </section>
       <details class="sii-caf-import"><summary>Importar CAF oficial o archivo XML existente</summary><div class="field-group file-field"><span>Archivo XML</span><input id="siiCafFile" class="file-input" type="file" accept=".xml,text/xml,application/xml"><label class="file-picker-btn" for="siiCafFile"><i class="bi bi-filetype-xml"></i><span class="file-picker-text">Seleccionar XML</span></label><small class="file-name">Sin archivo seleccionado</small></div><div class="editor-actions"><button class="btn btn-primary" id="siiUploadCaf" type="button"><i class="bi bi-cloud-arrow-up"></i> Importar archivo</button></div></details>
       <div id="siiFolioAlert" class="integration-note hidden" aria-live="polite"></div>
-      <div class="editor-actions"><button class="btn btn-light" type="button" data-sii-close>Cerrar</button></div>
-      <div class="table-wrap sii-table-wrap"><table class="sii-table"><thead><tr><th>DTE</th><th>Rango</th><th>Próximo</th><th>Disponibles</th><th>Estado</th></tr></thead><tbody id="siiCafTable"></tbody></table></div>
+      <div class="table-wrap sii-table-wrap sii-caf-table-wrap"><table class="sii-table"><thead><tr><th>DTE</th><th>Rango</th><th>Próximo</th><th>Disponibles</th><th>Estado</th></tr></thead><tbody id="siiCafTable"></tbody></table></div>
+      <div class="editor-actions sii-caf-footer-actions"><button class="btn btn-light" type="button" data-sii-close><i class="bi bi-x-lg"></i> Cerrar</button></div>
     </div>
 
     <div class="editor hidden sii-modal sii-emit-modal" id="siiEmitModal" role="dialog" aria-modal="true" aria-labelledby="siiEmitModalTitle">
@@ -1056,10 +1056,16 @@ Torta chocolate | 1 | 25000"></textarea></label>
         <button class="btn btn-primary" id="saveSettings">Guardar configuración</button>
       </div>
     </section>
+    <div class="editor hidden operational-modal movement-detail-editor" id="movementDetailEditor" role="dialog" aria-modal="true" aria-labelledby="movementDetailTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow" id="movementDetailEyebrow">Movimiento</span><h3 id="movementDetailTitle">Detalle del movimiento</h3><small id="movementDetailSubtitle">Información completa del registro seleccionado.</small></div><button type="button" class="editor-close-x" id="closeMovementDetail" aria-label="Cerrar">×</button></div>
+      <div class="movement-detail-grid" id="movementDetailGrid"></div>
+      <div class="movement-detail-note hidden" id="movementDetailNote"></div>
+      <div class="editor-actions"><button class="btn btn-light" id="closeMovementDetailBottom" type="button">Cerrar</button></div>
+    </div>
     <footer class="admin-design-credit" aria-label="Créditos de desarrollo"><span>Design by</span> <a href="https://serviciosinformaticosas.cl/" target="_blank" rel="noopener noreferrer">SERVICIOS INFORMÁTICOS AS</a><span class="admin-credit-sep">·</span><span>Desarrollo Web, Sistemas y Android</span></footer>
   </main>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918137.js?v=20260925-r918137-billing-credit-payments"></script>
+<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918139.js?v=20260925-r918139-inventory-ledger-ui"></script>
 </body></html>
