@@ -1,0 +1,47 @@
+ALE ATENCIO · R9.18.143
+ANULACION AUDITABLE DE CORRELATIVOS DE INVENTARIO
+
+OBJETIVO
+- Ningún correlativo aplicado se elimina.
+- Los correlativos manuales de inventario pueden ANULARSE con motivo obligatorio.
+- La anulación genera movimientos de reversa de stock y deja auditoría permanente.
+- Los movimientos ligados a ventas se revierten únicamente anulando el Pedido.
+
+CORRELATIVOS ANULABLES
+- CARGA INICIAL (CI-*)
+- AJUSTE (AJ-*)
+- PARTE DE ENTRADA (PE-*)
+- PARTE DE SALIDA (PS-*)
+- TRANSFERENCIA ENTRE BODEGAS (TB-*)
+- RECEPCION DE IMPORTACION (RI-*)
+- RECEPCION DE EXPORTACION (RE-*)
+
+AJUSTES
+- Cada línea de AJUSTE se clasifica automáticamente:
+  AJUSTE_ENTRADA cuando aumenta stock.
+  AJUSTE_SALIDA cuando disminuye stock.
+  AJUSTE_SIN_CAMBIO si no existe diferencia.
+- Si un mismo AJ-* contiene entradas y salidas, el PDF lo identifica como AJUSTE MIXTO.
+
+AUDITORIA
+- El correlativo original permanece visible y cambia a estado ANULADA.
+- Se registra fecha, usuario, motivo, cantidad de líneas reversadas y snapshot de la operación.
+- El Kardex conserva las líneas originales y agrega las líneas de reversa ANULACION_*.
+- El PDF del mismo correlativo se regenera y muestra CORRELATIVO ANULADO, fecha y motivo.
+
+SEGURIDAD
+- Si la reversa necesita retirar stock que ya no está disponible, la anulación se bloquea para productos que no admiten stock negativo.
+- SALIDA_VENTA y REVERSA_VENTA no se anulan desde Inventario. Debe anularse el Pedido relacionado para conservar integridad Pedido <-> Stock.
+
+INSTALACION / ACTUALIZACION
+1. Ejecutar en Supabase SQL Editor:
+   INSTALACION_SUPABASE/19_ALE_ATENCIO_SQL_R9_18_143_ANULACION_INVENTARIO_AUDITORIA.sql
+2. Reemplazar y desplegar:
+   INSTALACION_SUPABASE_EDGE_FUNCTIONS/dynamic-processor/index.ts
+3. Subir a la Web/cPanel:
+   cpanel.html
+   cpanel-r918143.css
+   cpanel-r918143.js
+4. Limpiar cache solo si el navegador conserva recursos antiguos.
+
+No eliminar correlativos históricos.

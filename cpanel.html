@@ -6,12 +6,12 @@
   <meta http-equiv="Expires" content="0">
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>CPANEL | Ale Atencio</title>
-  <meta name="ale-atencio-release" content="R9.18.137">
+  <meta name="ale-atencio-release" content="R9.18.143">
   <link rel="icon" type="image/png" href="favicon.png?v=20260923-r918105-order-search-short"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css">
-  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918142.css?v=20260925-r918142-inventory-pdf-correlative">
+  <link rel="stylesheet" href="styles.css?v=20260924-r918130-sidebar-color"><link rel="stylesheet" href="cpanel-r918143.css?v=20260925-r918143-inventory-cancel-audit">
 
   <style id="sidebar-critical-r918130">
   /* Fallback crítico: evita mezclar el HTML categorizado con CSS cacheado anterior. */
@@ -1080,13 +1080,20 @@ Torta chocolate | 1 | 25000"></textarea></label>
       <div class="editor-modal-head"><div><span class="eyebrow" id="movementDetailEyebrow">Movimiento</span><h3 id="movementDetailTitle">Detalle del movimiento</h3><small id="movementDetailSubtitle">Información completa del registro seleccionado.</small></div><button type="button" class="editor-close-x" id="closeMovementDetail" aria-label="Cerrar">×</button></div>
       <div class="movement-detail-grid" id="movementDetailGrid"></div>
       <div class="movement-detail-note hidden" id="movementDetailNote"></div>
-      <div class="movement-detail-actions hidden" id="movementDetailActions"><button class="btn btn-primary" id="movementDetailPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Ver PDF del correlativo</button></div>
+      <div class="movement-detail-actions hidden" id="movementDetailActions"><button class="btn btn-primary" id="movementDetailPdf" type="button"><i class="bi bi-file-earmark-pdf"></i> Ver PDF del correlativo</button><button class="btn btn-danger hidden" id="movementDetailCancel" type="button"><i class="bi bi-x-octagon"></i> Anular correlativo</button></div>
       <div class="editor-actions"><button class="btn btn-light" id="closeMovementDetailBottom" type="button">Cerrar</button></div>
+    </div>
+    <div class="editor hidden operational-modal inventory-cancel-editor" id="inventoryCancelEditor" role="dialog" aria-modal="true" aria-labelledby="inventoryCancelTitle">
+      <div class="editor-modal-head"><div><span class="eyebrow">Auditoría de inventario</span><h3 id="inventoryCancelTitle">Anular correlativo</h3><small>La operación no se elimina. El sistema genera la reversa de stock y conserva toda la trazabilidad.</small></div><button type="button" class="editor-close-x" id="closeInventoryCancel" aria-label="Cerrar">×</button></div>
+      <div class="inventory-cancel-summary"><span>Correlativo</span><strong id="inventoryCancelFolio">—</strong><small id="inventoryCancelType">Movimiento de inventario</small></div>
+      <label class="field-group"><span>Motivo de anulación <b>*</b></span><textarea id="inventoryCancelReason" rows="5" maxlength="1000" placeholder="Ej: Se registró una cantidad incorrecta durante el conteo físico." required></textarea><small>Este motivo quedará registrado permanentemente en la auditoría.</small></label>
+      <div class="inventory-cancel-warning"><i class="bi bi-shield-exclamation"></i><div><strong>Esta acción genera una reversa.</strong><br>El correlativo original seguirá visible como ANULADO. Si la reversa requiere retirar stock que ya no está disponible, el sistema bloqueará la anulación.</div></div>
+      <div class="editor-actions"><button class="btn btn-danger" id="confirmInventoryCancel" type="button"><i class="bi bi-x-octagon"></i> Confirmar anulación</button><button class="btn btn-light" id="cancelInventoryCancel" type="button">Volver</button></div>
     </div>
     <footer class="admin-design-credit" aria-label="Créditos de desarrollo"><span>Design by</span> <a href="https://serviciosinformaticosas.cl/" target="_blank" rel="noopener noreferrer">SERVICIOS INFORMÁTICOS AS</a><span class="admin-credit-sep">·</span><span>Desarrollo Web, Sistemas y Android</span></footer>
   </main>
 </div>
 <div class="notification-toast-stack" id="notificationToastStack" aria-live="polite"></div>
 <div class="toast" id="adminToast"></div>
-<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918142.js?v=20260925-r918142-inventory-pdf-correlative"></script>
+<script src="config.js?v=20260924-r918130-sidebar-color"></script><script src="api.js?v=20260924-r918130-sidebar-color"></script><script src="sii-api.js?v=20260924-r918130-sidebar-color"></script><script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script><script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script><script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script><script src="https://cdn.jsdelivr.net/npm/bwip-js@4.11.4/dist/bwip-js-min.js"></script><script src="cpanel-r918143.js?v=20260925-r918143-inventory-cancel-audit"></script>
 </body></html>
