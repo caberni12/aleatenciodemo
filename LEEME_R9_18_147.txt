@@ -1,0 +1,23 @@
+ALE ATENCIO R9.18.147 - DOMINIO PUBLICO DE DOCUMENTOS
+
+OBJETIVO
+- Ningún enlace visible de PDF/documento debe mostrar Supabase Storage, buckets o Edge Functions.
+- Los documentos se abren bajo el dominio configurado del sitio mediante documentos.html.
+
+CONFIGURACION
+1. Subir documentos.html a la raíz pública junto a index.html/cpanel.html.
+2. En cPanel > Configuración establecer "URL pública de documentos".
+   Recomendado: https://aleatencioreposteria.cl/documentos.html
+3. Reemplazar dynamic-processor/index.ts y hacer Deploy.
+
+NO REQUIERE SQL.
+
+APLICA A
+- PDFs de Pedidos
+- PDFs de Cotizaciones
+- PDFs por correlativo de Inventario
+- Documentos privados Mayoristas
+- DTE visibles en Facturación Mayorista
+- Comprobantes de pago de línea de crédito
+
+Los archivos continúan almacenados en Supabase de forma interna; la URL firmada del Storage ya no se entrega como enlace visible al usuario.
