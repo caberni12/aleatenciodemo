@@ -1,0 +1,16 @@
+ALE ATENCIO · R9.18.144
+FIX PDF POR CORRELATIVO DE INVENTARIO
+
+Problema corregido:
+El PDF R9.18.142/143 utilizaba caracteres Unicode (flecha y raya larga) directamente con Helvetica StandardFonts de pdf-lib. Esa fuente WinAnsi no puede codificarlos y la generación podía fallar con AJ-1, PE-*, PS-*, etc.
+
+Corrección:
+- Se sustituyen esos símbolos por equivalentes compatibles (-> y -).
+- Se mantiene el diseño, logo, empresa, folio, tablas, totales y estado ANULADO.
+- Los correlativos existentes se regeneran al presionar PDF; no hay que recrear el movimiento.
+
+INSTALACIÓN:
+1. Supabase > Edge Functions > dynamic-processor.
+2. Reemplazar index.ts por el incluido.
+3. Deploy.
+4. No ejecutar SQL. No reemplazar archivos Web/cPanel.

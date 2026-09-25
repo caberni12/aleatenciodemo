@@ -1,0 +1,26 @@
+ALE ATENCIO - R9.18.145
+PDF DE INVENTARIO - FORMATO COMPACTO Y EQUILIBRADO
+
+Objetivo
+- Reducir el espacio ocupado por los datos de empresa.
+- Dar mayor protagonismo al correlativo, datos operativos y detalle de productos.
+- Mantener logo e informacion de empresa en un encabezado compacto.
+- Usar una composicion tipo documento administrativo/tributario, limpia y equilibrada.
+
+Cambios
+- Encabezado compacto con logo, razon social, RUT, giro, direccion y contacto.
+- Recuadro de folio destacado a la derecha.
+- Datos del movimiento en una sola fila de tarjetas compactas.
+- Motivo/observacion en franja horizontal.
+- Resumen reducido: lineas, unidades y valorizacion.
+- Tabla de detalle ocupa la mayor parte util del documento.
+- Totales y firmas/conformidad al cierre.
+- Paginacion y encabezado compacto en paginas de continuacion.
+- Mantiene anulaciones, transferencias, ajustes mixtos y PDF por correlativo.
+
+Instalacion
+1. Supabase > Edge Functions > dynamic-processor.
+2. Reemplazar index.ts por el incluido en este paquete.
+3. Hacer Deploy.
+4. No requiere SQL ni cambios en cPanel.
+5. Los PDF existentes pueden regenerarse desde su boton PDF.
